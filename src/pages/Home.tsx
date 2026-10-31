@@ -65,9 +65,9 @@ function Rating() {
 
 function Hero() {
   return (
-    <section className="mx-auto grid max-w-5xl gap-6 px-4 pb-12 pt-4 md:grid-cols-[1fr_auto] md:items-center md:gap-12 md:px-6 md:pb-20 md:pt-10">
+    <section className="mx-auto grid max-w-5xl gap-6 px-4 pb-12 pt-4 md:px-6 md:pt-8 lg:grid-cols-[1fr_auto] lg:items-center lg:gap-12 lg:pb-20 lg:pt-10">
       {/* Photo is 382×510: never rendered wider than that. */}
-      <div className="relative mx-auto w-full max-w-[382px] overflow-hidden rounded-xl md:order-2 md:w-[382px]">
+      <div className="relative mx-auto w-full max-w-[382px] overflow-hidden rounded-xl md:mx-0 lg:order-2 lg:w-[382px]">
         <img
           src={heroUrl}
           alt="Interior de Havana Barbería: sillones de barbero dorados bajo luces hexagonales"
@@ -75,7 +75,7 @@ function Hero() {
           height={510}
           {...{ fetchpriority: 'high' }}
           decoding="async"
-          className="aspect-[4/3] w-full object-cover md:aspect-[382/510]"
+          className="aspect-[4/3] w-full object-cover lg:aspect-[382/510]"
         />
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1 bg-gradient-to-r from-aqua-700 via-aqua-400 to-aqua-500" />
       </div>

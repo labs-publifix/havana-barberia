@@ -16,7 +16,7 @@ export function Logo({ tone = 'onLight', className }: { tone?: 'onLight' | 'onDa
       width={640}
       height={407}
       decoding="async"
-      className={cn('h-auto w-[132px] select-none', tone === 'onDark' && 'invert', className)}
+      className={cn('h-auto w-[132px] select-none', tone === 'onDark' && 'mix-blend-screen invert', className)}
     />
   )
 }
