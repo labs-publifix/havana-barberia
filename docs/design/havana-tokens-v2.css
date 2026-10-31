@@ -1,0 +1,170 @@
+/* HAVANA BARBERÍA – Design tokens v2 (31 oct 2026) */
+:root {
+  --color-ink-600: #3C3C44;
+  --color-ink-700: #2A2A30;
+  --color-ink-800: #1B1B1F;
+  --color-ink-900: #121214;
+  --color-ink-950: #0A0A0B;
+  --color-gray-50: #F8F8FA;
+  --color-gray-100: #F2F2F5;
+  --color-gray-200: #E4E4E9;
+  --color-gray-300: #C6C6CE;
+  --color-gray-400: #9A9AA5;
+  --color-gray-500: #6B6B76;
+  --color-aqua-100: #D8FBF2;
+  --color-aqua-300: #8DF2DB;
+  --color-aqua-400: #4BE8C8;
+  --color-aqua-500: #14DDB6;
+  --color-aqua-600: #0DB596;
+  --color-aqua-700: #0A8A73;
+  --color-aqua-800: #076B5A;
+  --color-red-100: #FEE7E9;
+  --color-red-500: #F04452;
+  --color-red-600: #D92D3A;
+  --color-red-700: #A81F2B;
+  --color-success-100: #DCFCE7;
+  --color-success-500: #16A34A;
+  --color-success-700: #166534;
+  --color-warning-100: #FEF3C7;
+  --color-warning-500: #F59E0B;
+  --color-warning-700: #8A5100;
+  --color-info-100: #E3EBFE;
+  --color-info-500: #3B6CF6;
+  --color-info-700: #2145B8;
+  --color-white: #FFFFFF;
+
+  /* Semánticos – tema claro (por defecto) */
+  --sem-bg-page: #FFFFFF;
+  --sem-bg-surface: #F8F8FA;
+  --sem-bg-raised: #FFFFFF;
+  --sem-bg-inverse: #0A0A0B;
+  --sem-border-subtle: #E4E4E9;
+  --sem-border-strong: #C6C6CE;
+  --sem-border-inverse: #2A2A30;
+  --sem-text-primary: #0A0A0B;
+  --sem-text-secondary: #6B6B76;
+  --sem-text-inverse: #FFFFFF;
+  --sem-text-accent: #076B5A;
+  --sem-text-danger: #D92D3A;
+  --sem-action-primary-bg: #0A0A0B;
+  --sem-action-primary-hover: #2A2A30;
+  --sem-action-primary-text: #FFFFFF;
+  --sem-action-accent-bg: #14DDB6;
+  --sem-action-accent-hover: #4BE8C8;
+  --sem-action-accent-text: #0A0A0B;
+  --sem-action-danger-bg: #D92D3A;
+  --sem-action-danger-hover: #A81F2B;
+  --sem-action-danger-text: #FFFFFF;
+  --sem-focus-ring: #0A0A0B;
+  --sem-selected-bg: #D8FBF2;
+  --sem-selected-border: #0A8A73;
+  --sem-disabled-bg: #F2F2F5;
+  --sem-disabled-text: #9A9AA5;
+
+  /* Tipografía */
+  --font-display: 'Geist', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-body: 'Geist', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+
+  /* Espaciado (base 4 px) */
+  --space-0: 0px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+  --space-20: 80px;
+
+  /* Radios */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --radius-full: 999px;
+
+  /* Sombras */
+  --shadow-sm: 0 1px 2px rgba(10,10,11,.08);
+  --shadow-md: 0 4px 12px rgba(10,10,11,.10);
+  --shadow-lg: 0 12px 32px rgba(10,10,11,.16);
+  --shadow-glow: 0 8px 24px rgba(20,221,182,.35);
+
+  /* Movimiento */
+  --motion-fast: 120ms;
+  --motion-base: 200ms;
+  --motion-slow: 320ms;
+  --motion-ease: cubic-bezier(.2,.8,.2,1);
+
+  /* Tamaños táctiles */
+  --tap-min: 44px;
+  --btn-h-sm: 36px;
+  --btn-h-md: 44px;
+  --btn-h-lg: 52px;
+  --input-h: 48px;
+  --container-booking: 480px;
+  --container-admin: 1280px;
+  --gutter-mobile: 16px;
+  --gutter-desktop: 24px;
+}
+
+/* Tema oscuro (opcional, admin y vistas nocturnas) */
+[data-theme="dark"] {
+  --sem-bg-page: #0A0A0B;
+  --sem-bg-surface: #121214;
+  --sem-bg-raised: #1B1B1F;
+  --sem-bg-inverse: #FFFFFF;
+  --sem-border-subtle: #2A2A30;
+  --sem-border-strong: #3C3C44;
+  --sem-border-inverse: #E4E4E9;
+  --sem-text-primary: #FFFFFF;
+  --sem-text-secondary: #C6C6CE;
+  --sem-text-inverse: #0A0A0B;
+  --sem-text-accent: #4BE8C8;
+  --sem-text-danger: #FF7A85;
+  --sem-action-primary-bg: #14DDB6;
+  --sem-action-primary-hover: #4BE8C8;
+  --sem-action-primary-text: #0A0A0B;
+  --sem-action-accent-bg: #14DDB6;
+  --sem-action-accent-hover: #4BE8C8;
+  --sem-action-accent-text: #0A0A0B;
+  --sem-action-danger-bg: #F04452;
+  --sem-action-danger-hover: #D92D3A;
+  --sem-action-danger-text: #FFFFFF;
+  --sem-focus-ring: #4BE8C8;
+  --sem-selected-bg: #0D2B26;
+  --sem-selected-border: #14DDB6;
+  --sem-disabled-bg: #1B1B1F;
+  --sem-disabled-text: #6B6B76;
+}
+
+/* Escala tipográfica */
+.t-display { font-family: var(--font-display); font-weight: 700; font-size: 38px; line-height: 1.05; letter-spacing: -0.035em; }
+.t-h1 { font-family: var(--font-display); font-weight: 700; font-size: 30px; line-height: 1.12; letter-spacing: -0.03em; }
+.t-h2 { font-family: var(--font-display); font-weight: 700; font-size: 24px; line-height: 1.18; letter-spacing: -0.025em; }
+.t-h3 { font-family: var(--font-display); font-weight: 600; font-size: 20px; line-height: 1.25; letter-spacing: -0.02em; }
+.t-h4 { font-family: var(--font-display); font-weight: 600; font-size: 17px; line-height: 1.3; letter-spacing: -0.01em; }
+.t-body-lg { font-family: var(--font-body); font-weight: 400; font-size: 17px; line-height: 1.5; letter-spacing: 0; }
+.t-body { font-family: var(--font-body); font-weight: 400; font-size: 16px; line-height: 1.5; letter-spacing: 0; }
+.t-body-sm { font-family: var(--font-body); font-weight: 400; font-size: 14px; line-height: 1.45; letter-spacing: 0; }
+.t-label { font-family: var(--font-body); font-weight: 500; font-size: 14px; line-height: 1.3; letter-spacing: 0; }
+.t-button { font-family: var(--font-body); font-weight: 600; font-size: 16px; line-height: 1.2; letter-spacing: 0; }
+.t-caption { font-family: var(--font-body); font-weight: 400; font-size: 12.5px; line-height: 1.35; letter-spacing: 0.005em; }
+.t-overline { font-family: var(--font-body); font-weight: 600; font-size: 12px; line-height: 1.3; letter-spacing: 0.08em; text-transform: uppercase; }
+.t-price { font-family: var(--font-display); font-weight: 700; font-size: 20px; line-height: 1.1; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.t-time { font-family: var(--font-body); font-weight: 600; font-size: 16px; line-height: 1.2; letter-spacing: 0; font-variant-numeric: tabular-nums; }
+@media (min-width: 768px) {
+  .t-display { font-size: 60px; }
+  .t-h1 { font-size: 40px; }
+  .t-h2 { font-size: 32px; }
+  .t-h3 { font-size: 24px; }
+  .t-h4 { font-size: 18px; }
+  .t-body-lg { font-size: 18px; }
+  .t-caption { font-size: 13px; }
+  .t-price { font-size: 22px; }
+}
+
+/* Foco visible */
+:focus-visible { outline: 2px solid var(--sem-focus-ring); outline-offset: 2px; }
