@@ -1,6 +1,6 @@
 name: Publicar en GitHub Pages
 
-# Cada push a main o a una rama claude/** construye el sitio y lo publica.
+# Cada push a main o a una rama claude/** publica la carpeta site/.
 # GitHub Pages tiene un solo sitio por repo: gana el último push.
 on:
   push:
@@ -21,19 +21,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      - run: npm test
-      - run: npm run build
-      # La app usa HashRouter, pero 404.html cubre enlaces viejos o mal escritos.
-      - run: cp dist/index.html dist/404.html
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: dist
+          path: site
 
   deploy:
     needs: build
