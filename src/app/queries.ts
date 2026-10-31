@@ -27,6 +27,8 @@ export function useSlots(q: SlotQuery | null) {
     queryFn: () => repo.getAvailableSlots(q!),
     enabled: Boolean(q && q.serviceIds.length > 0),
     staleTime: 15_000,
+    // Re-check while choosing so a time taken by someone else shows up quickly.
+    refetchInterval: 30_000,
   })
 }
 
