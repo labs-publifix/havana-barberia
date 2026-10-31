@@ -1,6 +1,7 @@
 /// <reference types="vitest/config" />
 import { defineConfig, loadEnv, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
+import { fileURLToPath, URL } from 'node:url'
 
 /**
  * Injects <link rel="preload"> for the hero image so the LCP image starts
@@ -42,6 +43,7 @@ export default defineConfig(({ mode }) => {
   return {
     base,
     plugins: [react(), preloadHero()],
+    resolve: { alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) } },
     build: {
       target: 'es2022',
       assetsInlineLimit: 0,
