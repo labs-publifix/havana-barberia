@@ -1,0 +1,13 @@
+/*
+ * Design tokens v2. Source of truth: docs/design/havana-tokens-v2.css
+ * (raw palette, semantic light/dark themes, type scale, spacing, motion).
+ * Only project-specific overrides live here.
+ */
+@import '../../docs/design/havana-tokens-v2.css';
+
+:root {
+  /* @fontsource/geist-sans registers the family as "Geist Sans". */
+  --font-display: 'Geist Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-body: 'Geist Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
