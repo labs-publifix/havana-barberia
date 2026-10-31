@@ -1,4 +1,5 @@
 import { Link, useParams } from 'react-router-dom'
+import { useDocumentTitle } from '@/app/useDocumentTitle'
 import { Gift, SearchX } from 'lucide-react'
 import { SimpleHeader } from '@/components/layout/SimpleHeader'
 import { SiteFooter } from '@/components/layout/SiteFooter'
@@ -12,6 +13,7 @@ import { business } from '@/config/business'
 
 export default function Loyalty() {
   const { token } = useParams()
+  useDocumentTitle('Tarjeta de lealtad', { noindex: true })
   const { data: card, isPending } = useLoyalty(token)
   const { loyaltyGoal, rewardValidityDays } = business.policy
 

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useDocumentTitle } from '@/app/useDocumentTitle'
 import { useNavigate, useSearchParams, Link } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -51,6 +52,7 @@ export default function Booking() {
   const catalog = useCatalog()
   const staffQuery = useStaff()
 
+  useDocumentTitle('Reserva tu cita')
   const step = (['1', '2', '3', '4', 'resumen'].includes(params.get('paso') ?? '') ? params.get('paso') : '1') as Step
   const serviceIds = useMemo(() => (params.get('servicios') ?? '').split(',').filter(Boolean), [params])
   const staffId = (params.get('barbero') || null) as StaffChoice | null

@@ -1,4 +1,5 @@
 import { useCallback, useRef, useState } from 'react'
+import { useDocumentTitle } from '@/app/useDocumentTitle'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { CalendarClock, CalendarPlus, Phone, SearchX, XCircle } from 'lucide-react'
@@ -25,6 +26,7 @@ import { capitalize, formatDateLong, formatTime12, localDate, localTime } from '
 /** /cita/:token — view, cancel (up to 4 h before) or reschedule (reuses step 3). */
 export default function ManageAppointment() {
   const { token = '' } = useParams()
+  useDocumentTitle('Tu cita', { noindex: true })
   const [params, setParams] = useSearchParams()
   const navigate = useNavigate()
   const repo = useRepository()

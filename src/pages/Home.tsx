@@ -1,4 +1,5 @@
 import { useNavigate, Link } from 'react-router-dom'
+import { useDocumentTitle } from '@/app/useDocumentTitle'
 import { CalendarCheck, MapPin, Navigation, Phone, Star } from 'lucide-react'
 import heroUrl from '@/assets/images/hero.jpg'
 import local1 from '@/assets/images/local-1.jpg'
@@ -271,6 +272,7 @@ function About() {
 }
 
 export default function Home() {
+  useDocumentTitle(null)
   return (
     <div data-theme="dark" className="min-h-dvh bg-page text-fg">
       <header className="sticky top-0 z-sticky border-b border-ink-800 bg-ink-950/90 backdrop-blur supports-[backdrop-filter]:bg-ink-950/75">

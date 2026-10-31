@@ -1,4 +1,5 @@
 import { Link, useParams } from 'react-router-dom'
+import { useDocumentTitle } from '@/app/useDocumentTitle'
 import { CalendarPlus, Check, MessageCircle, Navigation, SearchX } from 'lucide-react'
 import { SimpleHeader } from '@/components/layout/SimpleHeader'
 import { SiteFooter } from '@/components/layout/SiteFooter'
@@ -16,6 +17,7 @@ import { business } from '@/config/business'
 
 export default function Confirmation() {
   const { token } = useParams()
+  useDocumentTitle('Cita agendada', { noindex: true })
   const appt = useAppointment(token)
   const catalog = useCatalog()
   const staff = useStaff()

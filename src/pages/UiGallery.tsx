@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react'
+import { useDocumentTitle } from '@/app/useDocumentTitle'
 import { ArrowRight, CalendarPlus } from 'lucide-react'
 import type { Service, Slot, Staff } from '@/domain/types'
 import { Alert } from '@/components/ui/Alert'
@@ -68,6 +69,7 @@ function Section({ title, children }: { title: string; children: (tone: 'light' 
 }
 
 export default function UiGallery() {
+  useDocumentTitle('Galería de componentes', { noindex: true })
   const [selected, setSelected] = useState(false)
   const [staffValue, setStaffValue] = useState<string | null>('any')
   const [day, setDay] = useState<string | null>(today)
@@ -79,7 +81,6 @@ export default function UiGallery() {
   return (
     <main className="mx-auto grid max-w-6xl gap-10 py-8 md:px-6">
       <header className="grid gap-2 px-4 md:px-0">
-        <meta name="robots" content="noindex" />
         <p className="t-overline text-fg-accent">Solo desarrollo y vista previa</p>
         <h1 className="t-h1">Galería de componentes</h1>
         <p className="text-fg-muted">Design tokens v2 · {catalog.data?.services.length ?? '…'} servicios en el mock.</p>
