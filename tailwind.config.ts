@@ -3,6 +3,8 @@ import tokens from './docs/design/havana-tokens-v2.json'
 
 const c = tokens.color
 const v = (name: string) => `var(--${name})`
+/** Semantic color that still supports Tailwind opacity modifiers (bg-fg/5). */
+const sem = (name: string) => `color-mix(in srgb, var(--${name}) calc(<alpha-value> * 100%), transparent)`
 
 // Raw palette comes from the tokens JSON; semantic colors point at the CSS
 // variables so light/dark themes switch without touching components.
@@ -19,24 +21,40 @@ export default {
         success: c.success,
         warning: c.warning,
         info: c.info,
-        page: v('sem-bg-page'),
-        surface: v('sem-bg-surface'),
-        raised: v('sem-bg-raised'),
-        inverse: v('sem-bg-inverse'),
-        line: { DEFAULT: v('sem-border-subtle'), strong: v('sem-border-strong'), inverse: v('sem-border-inverse') },
-        fg: {
-          DEFAULT: v('sem-text-primary'),
-          muted: v('sem-text-secondary'),
-          inverse: v('sem-text-inverse'),
-          accent: v('sem-text-accent'),
-          danger: v('sem-text-danger'),
+        page: sem('sem-bg-page'),
+        surface: sem('sem-bg-surface'),
+        raised: sem('sem-bg-raised'),
+        inverse: sem('sem-bg-inverse'),
+        line: {
+          DEFAULT: sem('sem-border-subtle'),
+          strong: sem('sem-border-strong'),
+          inverse: sem('sem-border-inverse'),
         },
-        primary: { DEFAULT: v('sem-action-primary-bg'), hover: v('sem-action-primary-hover'), fg: v('sem-action-primary-text') },
-        accent: { DEFAULT: v('sem-action-accent-bg'), hover: v('sem-action-accent-hover'), fg: v('sem-action-accent-text') },
-        danger: { DEFAULT: v('sem-action-danger-bg'), hover: v('sem-action-danger-hover'), fg: v('sem-action-danger-text') },
-        selected: { DEFAULT: v('sem-selected-bg'), border: v('sem-selected-border') },
-        disabled: { DEFAULT: v('sem-disabled-bg'), fg: v('sem-disabled-text') },
-        focus: v('sem-focus-ring'),
+        fg: {
+          DEFAULT: sem('sem-text-primary'),
+          muted: sem('sem-text-secondary'),
+          inverse: sem('sem-text-inverse'),
+          accent: sem('sem-text-accent'),
+          danger: sem('sem-text-danger'),
+        },
+        primary: {
+          DEFAULT: sem('sem-action-primary-bg'),
+          hover: sem('sem-action-primary-hover'),
+          fg: sem('sem-action-primary-text'),
+        },
+        accent: {
+          DEFAULT: sem('sem-action-accent-bg'),
+          hover: sem('sem-action-accent-hover'),
+          fg: sem('sem-action-accent-text'),
+        },
+        danger: {
+          DEFAULT: sem('sem-action-danger-bg'),
+          hover: sem('sem-action-danger-hover'),
+          fg: sem('sem-action-danger-text'),
+        },
+        selected: { DEFAULT: sem('sem-selected-bg'), border: sem('sem-selected-border') },
+        disabled: { DEFAULT: sem('sem-disabled-bg'), fg: sem('sem-disabled-text') },
+        focus: sem('sem-focus-ring'),
       },
       fontFamily: {
         sans: [v('font-body')],
@@ -51,6 +69,7 @@ export default {
       },
       boxShadow: { sm: v('shadow-sm'), md: v('shadow-md'), lg: v('shadow-lg'), glow: v('shadow-glow') },
       height: { 'btn-sm': v('btn-h-sm'), 'btn-md': v('btn-h-md'), 'btn-lg': v('btn-h-lg'), input: v('input-h') },
+      spacing: { tap: v('tap-min') },
       minHeight: { tap: v('tap-min') },
       minWidth: { tap: v('tap-min') },
       maxWidth: { booking: v('container-booking') },
