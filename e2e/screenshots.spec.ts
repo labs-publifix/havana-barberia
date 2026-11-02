@@ -3,8 +3,11 @@ import { expect, test } from '@playwright/test'
 /**
  * Captures every screen at the four reference sizes into docs/screenshots.
  * Run with: SCREENSHOTS=1 npx playwright test e2e/screenshots.spec.ts
+ * SHOT_DIR changes the output folder (e.g. docs/screenshots/accent-gold).
  */
 test.skip(!process.env.SCREENSHOTS, 'Set SCREENSHOTS=1 to refresh docs/screenshots')
+
+const dir = process.env.SHOT_DIR ?? 'docs/screenshots'
 
 const sizes = [
   [360, 740],
@@ -27,7 +30,7 @@ const screens: {
     name: '05-fecha-hora',
     path: './reservar?paso=3&servicios=corte-barba&barbero=any',
     prepare: async (p) => {
-      await p.locator('fieldset button:not([disabled])').nth(1).click()
+      await p.locator('fieldset button:not([disabled])').first().click()
     },
   },
   {
@@ -46,6 +49,7 @@ const screens: {
   { name: '08-lealtad', path: './lealtad/demo-lealtad' },
   { name: '09-politicas', path: './politicas' },
   { name: '10-404', path: './no-existe' },
+  { name: '12-galeria-ui', path: './__ui', full: true },
 ]
 
 for (const [w, h] of sizes) {
@@ -60,7 +64,7 @@ for (const [w, h] of sizes) {
         await page.waitForTimeout(400)
         expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(w)
         await page.screenshot({
-          path: `docs/screenshots/${w}x${h}/${s.name}.jpg`,
+          path: `${dir}/${w}x${h}/${s.name}.jpg`,
           type: 'jpeg',
           quality: 80,
           fullPage: s.full ?? false,
@@ -76,12 +80,12 @@ for (const [w, h] of sizes) {
       await page.getByLabel('Correo electrónico').fill(`ana${w}@correo.com`)
       await page.getByRole('checkbox').check()
       await page.getByRole('button', { name: /Continuar/ }).click()
-      await page.screenshot({ path: `docs/screenshots/${w}x${h}/10b-resumen.jpg`, type: 'jpeg', quality: 80 })
+      await page.screenshot({ path: `${dir}/${w}x${h}/10b-resumen.jpg`, type: 'jpeg', quality: 80 })
       await page.getByRole('button', { name: 'Confirmar cita' }).click()
       await expect(page.getByRole('heading', { name: /Tu cita está agendada/ })).toBeVisible()
       await page.waitForTimeout(500)
       await page.screenshot({
-        path: `docs/screenshots/${w}x${h}/11-confirmacion.jpg`,
+        path: `${dir}/${w}x${h}/11-confirmacion.jpg`,
         type: 'jpeg',
         quality: 80,
         fullPage: true,
