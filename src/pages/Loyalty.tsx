@@ -59,7 +59,7 @@ export default function Loyalty() {
                 aria-valuenow={card.stamps}
               >
                 <div
-                  className="h-full rounded-full bg-gradient-to-r from-aqua-700 via-aqua-400 to-aqua-500 transition-[width] duration-slow"
+                  className="h-full rounded-full bg-gradient-to-r from-accent-700 via-accent-400 to-accent-500 transition-[width] duration-slow"
                   style={{ width: `${Math.min(100, (card.stamps / card.goal) * 100)}%` }}
                 />
               </div>

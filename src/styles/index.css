@@ -18,11 +18,11 @@
     font-feature-settings: 'ss01' 0;
   }
   ::selection {
-    background: var(--color-aqua-300);
+    background: var(--color-accent-300);
     color: var(--color-ink-950);
   }
   [data-theme='dark'] ::selection {
-    background: var(--color-aqua-500);
+    background: var(--color-accent-500);
   }
   input,
   select,

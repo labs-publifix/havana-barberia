@@ -53,7 +53,7 @@ export default function Confirmation() {
         ) : (
           <>
             <div className="grid justify-items-start gap-4 motion-safe:animate-[rise_320ms_cubic-bezier(.2,.8,.2,1)]">
-              <span className="grid size-14 place-items-center rounded-full bg-ink-950 text-aqua-500 shadow-glow">
+              <span className="grid size-14 place-items-center rounded-full bg-ink-950 text-accent-500 shadow-glow">
                 <Check className="size-7" strokeWidth={2.5} aria-hidden />
               </span>
               <div className="grid gap-2">

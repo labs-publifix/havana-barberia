@@ -34,7 +34,10 @@ export function Avatar({
   ) : (
     <span
       aria-hidden
-      className={cn('grid shrink-0 place-items-center rounded-full bg-ink-950 font-semibold text-aqua-500', className)}
+      className={cn(
+        'grid shrink-0 place-items-center rounded-full bg-ink-950 font-semibold text-accent-400',
+        className,
+      )}
       style={{ width: size, height: size, fontSize: size * 0.32 }}
     >
       {initials(name)}
@@ -46,7 +49,7 @@ export function AnyBarberIcon({ size = 56 }: { size?: number }) {
   return (
     <span
       aria-hidden
-      className="grid shrink-0 place-items-center rounded-full bg-ink-950 text-aqua-500"
+      className="grid shrink-0 place-items-center rounded-full bg-ink-950 text-accent-500"
       style={{ width: size, height: size }}
     >
       <Sparkles className="size-6" strokeWidth={1.75} />

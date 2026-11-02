@@ -12,7 +12,7 @@ export function StepIndicator({ step, total = 4, label }: { step: number; total?
             key={i}
             className={cn(
               'h-1 flex-1 rounded-full transition-colors duration-base',
-              i < step ? 'bg-aqua-500' : 'bg-gray-200',
+              i < step ? 'bg-accent-500' : 'bg-gray-200',
             )}
           />
         ))}

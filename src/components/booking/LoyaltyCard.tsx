@@ -4,7 +4,7 @@ import { cn } from '@/lib/cn'
 import { formatDateLong, localDate } from '@/lib/time'
 import { businessHours } from '@/config/business'
 
-/** Dark 10-stamp card from the design tokens: earned = aqua, pending = dashed, reward = star. */
+/** Dark 10-stamp card from the design tokens: earned = accent-500 with black number, pending = dashed, reward = accent-500 outline with accent-400 star. */
 export function LoyaltyCard({ card, className }: { card: Card; className?: string }) {
   const remaining = Math.max(card.goal - card.stamps, 0)
   const full = remaining === 0
@@ -33,9 +33,9 @@ export function LoyaltyCard({ card, className }: { card: Card; className?: strin
               className={cn(
                 'tabular grid aspect-square place-items-center rounded-full text-sm font-semibold',
                 earned
-                  ? 'bg-aqua-500 text-ink-950'
+                  ? 'bg-accent-500 text-ink-950'
                   : reward
-                    ? 'border-[1.5px] border-aqua-500 text-aqua-500'
+                    ? 'border-[1.5px] border-accent-500 text-accent-400'
                     : 'border-[1.5px] border-dashed border-ink-600 text-gray-400',
               )}
             >
@@ -45,7 +45,7 @@ export function LoyaltyCard({ card, className }: { card: Card; className?: strin
         })}
       </ol>
       {full && card.rewardExpiresAt ? (
-        <p className="mt-4 text-sm text-aqua-300">
+        <p className="mt-4 text-sm text-accent-400">
           Canjéalo antes del {formatDateLong(localDate(card.rewardExpiresAt, businessHours.timeZone))}.
         </p>
       ) : null}

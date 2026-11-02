@@ -1,0 +1,26 @@
+/*
+ * ACCENT THEME · Aqua Caribe (design tokens v2, original). BACKUP, not imported.
+ *
+ * To revert the gold test in one step: in src/styles/tokens.css import
+ * './accent.aqua.css' instead of './accent.css'.
+ */
+:root {
+  --color-accent-100: #d8fbf2;
+  --color-accent-300: #8df2db;
+  --color-accent-400: #4be8c8;
+  --color-accent-500: #14ddb6;
+  --color-accent-600: #0db596;
+  --color-accent-700: #0a8a73;
+  --color-accent-800: #076b5a;
+
+  /* Role: accent text on light backgrounds (aqua v2 used 800, 6.4:1). */
+  --color-accent-text-light: var(--color-accent-800);
+
+  --color-accent-selected-dark: #0d2b26;
+
+  --shadow-glow: 0 8px 24px rgba(20, 221, 182, 0.35);
+
+  --color-warning-100: #fef3c7;
+  --color-warning-500: #f59e0b;
+  --color-warning-700: #8a5100;
+}

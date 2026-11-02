@@ -3,6 +3,11 @@ import tokens from './docs/design/havana-tokens-v2.json'
 
 const c = tokens.color
 const v = (name: string) => `var(--${name})`
+/** Palette scale read from CSS variables (--color-<name>-<step>), with opacity support. */
+const scale = (name: string, steps: string[]) =>
+  Object.fromEntries(
+    steps.map((st) => [st, `color-mix(in srgb, var(--color-${name}-${st}) calc(<alpha-value> * 100%), transparent)`]),
+  )
 /** Semantic color that still supports Tailwind opacity modifiers (bg-fg/5). */
 const sem = (name: string) => `color-mix(in srgb, var(--${name}) calc(<alpha-value> * 100%), transparent)`
 
@@ -16,10 +21,9 @@ export default {
       colors: {
         ink: c.ink,
         gray: c.gray,
-        aqua: c.aqua,
         red: c.red,
         success: c.success,
-        warning: c.warning,
+        warning: scale('warning', ['100', '500', '700']),
         info: c.info,
         page: sem('sem-bg-page'),
         surface: sem('sem-bg-surface'),
@@ -43,6 +47,9 @@ export default {
           fg: sem('sem-action-primary-text'),
         },
         accent: {
+          // Brand accent scale (values in src/styles/accent.css) + semantic action colors.
+          ...scale('accent', ['100', '300', '400', '500', '600', '700', '800']),
+          'selected-dark': `var(--color-accent-selected-dark)`,
           DEFAULT: sem('sem-action-accent-bg'),
           hover: sem('sem-action-accent-hover'),
           fg: sem('sem-action-accent-text'),

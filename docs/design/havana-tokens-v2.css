@@ -1,4 +1,5 @@
-/* HAVANA BARBERÍA – Design tokens v2 (31 oct 2026) */
+/* HAVANA BARBERÍA – Design tokens v2.1 (31 oct 2026; accent made theme-able 2 nov 2026)
+   The accent scale is named semantically (accent-*) and its values live in src/styles/accent.css. */
 :root {
   --color-ink-600: #3C3C44;
   --color-ink-700: #2A2A30;
@@ -11,13 +12,7 @@
   --color-gray-300: #C6C6CE;
   --color-gray-400: #9A9AA5;
   --color-gray-500: #6B6B76;
-  --color-aqua-100: #D8FBF2;
-  --color-aqua-300: #8DF2DB;
-  --color-aqua-400: #4BE8C8;
-  --color-aqua-500: #14DDB6;
-  --color-aqua-600: #0DB596;
-  --color-aqua-700: #0A8A73;
-  --color-aqua-800: #076B5A;
+  /* Accent scale (accent-100…800), selected-dark and glow: src/styles/accent.css */
   --color-red-100: #FEE7E9;
   --color-red-500: #F04452;
   --color-red-600: #D92D3A;
@@ -25,9 +20,7 @@
   --color-success-100: #DCFCE7;
   --color-success-500: #16A34A;
   --color-success-700: #166534;
-  --color-warning-100: #FEF3C7;
-  --color-warning-500: #F59E0B;
-  --color-warning-700: #8A5100;
+  /* Warning scale: src/styles/accent.css (changes with the accent theme) */
   --color-info-100: #E3EBFE;
   --color-info-500: #3B6CF6;
   --color-info-700: #2145B8;
@@ -44,20 +37,20 @@
   --sem-text-primary: #0A0A0B;
   --sem-text-secondary: #6B6B76;
   --sem-text-inverse: #FFFFFF;
-  --sem-text-accent: #076B5A;
+  --sem-text-accent: var(--color-accent-text-light);
   --sem-text-danger: #D92D3A;
   --sem-action-primary-bg: #0A0A0B;
   --sem-action-primary-hover: #2A2A30;
   --sem-action-primary-text: #FFFFFF;
-  --sem-action-accent-bg: #14DDB6;
-  --sem-action-accent-hover: #4BE8C8;
+  --sem-action-accent-bg: var(--color-accent-500);
+  --sem-action-accent-hover: var(--color-accent-400);
   --sem-action-accent-text: #0A0A0B;
   --sem-action-danger-bg: #D92D3A;
   --sem-action-danger-hover: #A81F2B;
   --sem-action-danger-text: #FFFFFF;
   --sem-focus-ring: #0A0A0B;
-  --sem-selected-bg: #D8FBF2;
-  --sem-selected-border: #0A8A73;
+  --sem-selected-bg: var(--color-accent-100);
+  --sem-selected-border: var(--color-accent-700);
   --sem-disabled-bg: #F2F2F5;
   --sem-disabled-text: #9A9AA5;
 
@@ -90,7 +83,7 @@
   --shadow-sm: 0 1px 2px rgba(10,10,11,.08);
   --shadow-md: 0 4px 12px rgba(10,10,11,.10);
   --shadow-lg: 0 12px 32px rgba(10,10,11,.16);
-  --shadow-glow: 0 8px 24px rgba(20,221,182,.35);
+  /* --shadow-glow: src/styles/accent.css */
 
   /* Movimiento */
   --motion-fast: 120ms;
@@ -122,20 +115,20 @@
   --sem-text-primary: #FFFFFF;
   --sem-text-secondary: #C6C6CE;
   --sem-text-inverse: #0A0A0B;
-  --sem-text-accent: #4BE8C8;
+  --sem-text-accent: var(--color-accent-400);
   --sem-text-danger: #FF7A85;
-  --sem-action-primary-bg: #14DDB6;
-  --sem-action-primary-hover: #4BE8C8;
+  --sem-action-primary-bg: var(--color-accent-500);
+  --sem-action-primary-hover: var(--color-accent-400);
   --sem-action-primary-text: #0A0A0B;
-  --sem-action-accent-bg: #14DDB6;
-  --sem-action-accent-hover: #4BE8C8;
+  --sem-action-accent-bg: var(--color-accent-500);
+  --sem-action-accent-hover: var(--color-accent-400);
   --sem-action-accent-text: #0A0A0B;
   --sem-action-danger-bg: #F04452;
   --sem-action-danger-hover: #D92D3A;
   --sem-action-danger-text: #FFFFFF;
-  --sem-focus-ring: #4BE8C8;
-  --sem-selected-bg: #0D2B26;
-  --sem-selected-border: #14DDB6;
+  --sem-focus-ring: var(--color-accent-400);
+  --sem-selected-bg: var(--color-accent-selected-dark);
+  --sem-selected-border: var(--color-accent-500);
   --sem-disabled-bg: #1B1B1F;
   --sem-disabled-text: #6B6B76;
 }

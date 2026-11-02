@@ -56,7 +56,7 @@ function Rating() {
       rel="noreferrer"
       className="inline-flex min-h-tap items-center gap-1.5 rounded-full text-sm text-gray-300 underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-focus"
     >
-      <Star className="size-4 text-aqua-500" fill="currentColor" strokeWidth={1.5} aria-hidden />
+      <Star className="size-4 text-accent-500" fill="currentColor" strokeWidth={1.5} aria-hidden />
       <span className="tabular font-semibold text-white">{business.rating.value.toFixed(1)}</span>
       <span className="tabular">({business.rating.count} reseñas en Google)</span>
     </a>
@@ -77,7 +77,7 @@ function Hero() {
           decoding="async"
           className="aspect-[4/3] w-full object-cover lg:aspect-[382/510]"
         />
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1 bg-gradient-to-r from-aqua-700 via-aqua-400 to-aqua-500" />
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1 bg-gradient-to-r from-accent-700 via-accent-400 to-accent-500" />
       </div>
       <div className="grid justify-items-start gap-5">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
@@ -152,7 +152,7 @@ function Services() {
             if (items.length === 0) return null
             return (
               <div key={cat.id} className="grid gap-3">
-                <h3 className="t-overline text-aqua-400">{cat.name}</h3>
+                <h3 className="t-overline text-accent-400">{cat.name}</h3>
                 <div className="grid gap-3 md:grid-cols-2">
                   {items.map((s) => (
                     <ServiceCard
@@ -219,7 +219,7 @@ function About() {
                     <tr key={wd} className={cn('border-b border-ink-800', isToday && 'text-white')}>
                       <th scope="row" className={cn('py-3 font-normal', isToday ? 'font-semibold' : 'text-gray-300')}>
                         {DAY_NAMES[wd]}
-                        {isToday && <span className="ml-2 text-xs font-semibold text-aqua-400">Hoy</span>}
+                        {isToday && <span className="ml-2 text-xs font-semibold text-accent-400">Hoy</span>}
                       </th>
                       <td className={cn('tabular py-3 text-right', isToday ? 'font-semibold' : 'text-gray-300')}>
                         {ranges.length === 0
@@ -237,7 +237,7 @@ function About() {
             <h3 className="t-h3">Visítanos</h3>
             <address className="grid gap-1 not-italic text-gray-300">
               <span className="flex items-start gap-2">
-                <MapPin className="mt-0.5 size-5 shrink-0 text-aqua-400" strokeWidth={1.75} aria-hidden />
+                <MapPin className="mt-0.5 size-5 shrink-0 text-accent-400" strokeWidth={1.75} aria-hidden />
                 <span>
                   {business.addressLines[0]}
                   <br />
@@ -261,7 +261,7 @@ function About() {
               </a>
             </div>
             <a href={business.reviewsHref} target="_blank" rel="noreferrer" className={cn(link, 'text-gray-300')}>
-              <Star className="size-4 text-aqua-500" fill="currentColor" strokeWidth={1.5} aria-hidden />
+              <Star className="size-4 text-accent-500" fill="currentColor" strokeWidth={1.5} aria-hidden />
               Lee las {business.rating.count} reseñas en Google
             </a>
           </div>

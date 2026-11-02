@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { AlertTriangle } from 'lucide-react'
 import type { AppointmentStatus } from '@/domain/types'
 import { cn } from '@/lib/cn'
 
@@ -6,7 +7,7 @@ export type BadgeTone = 'info' | 'accent' | 'success' | 'warning' | 'neutral' | 
 
 const tones: Record<BadgeTone, string> = {
   info: 'bg-info-100 text-info-700',
-  accent: 'bg-aqua-100 text-aqua-800',
+  accent: 'bg-accent-100 text-accent-800',
   success: 'bg-success-100 text-success-700',
   warning: 'bg-warning-100 text-warning-700',
   neutral: 'bg-gray-100 text-gray-500',
@@ -32,7 +33,12 @@ export function Badge({
         className,
       )}
     >
-      <span className="size-1.5 rounded-full bg-current" aria-hidden />
+      {tone === 'warning' ? (
+        // Warning always carries an icon so it never relies on color alone.
+        <AlertTriangle className="size-3.5" strokeWidth={2} aria-hidden />
+      ) : (
+        <span className="size-1.5 rounded-full bg-current" aria-hidden />
+      )}
       {children}
     </span>
   )

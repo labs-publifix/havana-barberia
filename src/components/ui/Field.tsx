@@ -5,7 +5,7 @@ import { cn } from '@/lib/cn'
 const control = cn(
   'w-full rounded-md border-[1.5px] bg-raised px-4 text-base text-fg transition-[border-color,box-shadow] duration-fast ease-brand',
   'placeholder:text-gray-500 caret-ink-950',
-  'focus:border-fg focus:outline-none focus:ring-4 focus:ring-aqua-500/30',
+  'focus:border-fg focus:outline-none focus:ring-4 focus:ring-accent-500/30',
   'disabled:bg-disabled disabled:text-disabled-fg',
 )
 

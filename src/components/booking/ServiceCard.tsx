@@ -31,7 +31,7 @@ export function ServiceCard({
         'transition-[background-color,border-color,box-shadow] duration-base ease-brand',
         'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus',
         dark
-          ? 'border-ink-700 bg-ink-900 hover:border-ink-600 aria-pressed:border-aqua-500 aria-pressed:bg-[#0D2B26]'
+          ? 'border-ink-700 bg-ink-900 hover:border-ink-600 aria-pressed:border-accent-500 aria-pressed:bg-accent-selected-dark'
           : 'border-line bg-raised shadow-sm hover:border-line-strong aria-pressed:border-selected-border aria-pressed:bg-selected',
       )}
     >
@@ -52,10 +52,10 @@ export function ServiceCard({
           'inline-flex h-btn-sm items-center gap-1.5 justify-self-end rounded-full px-4 text-sm font-semibold transition-colors duration-fast',
           selected
             ? dark
-              ? 'bg-aqua-500 text-ink-950'
+              ? 'bg-accent-500 text-ink-950'
               : 'bg-primary text-primary-fg'
             : dark
-              ? 'bg-white text-ink-950 group-hover:bg-aqua-300'
+              ? 'bg-white text-ink-950 group-hover:bg-accent-300'
               : 'border-[1.5px] border-fg text-fg group-hover:bg-fg/5',
         )}
       >

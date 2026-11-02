@@ -1,0 +1,38 @@
+/*
+ * ACCENT THEME · Dorado (prueba de color, 2 nov 2026)
+ *
+ * This is the ONLY file that holds accent values. Everything else (semantic
+ * tokens, Tailwind `accent-*` classes, gradients, glow, badges, stamps) reads
+ * these variables. To try another accent, change the values below.
+ *
+ * Revert to aqua in one step: in src/styles/tokens.css import
+ * './accent.aqua.css' instead of './accent.css'.
+ *
+ * Usage rules (see docs/design/havana-paleta-dorado-onepager.pdf):
+ * - On black: accent-500 buttons with ink-950 text (never white); accent text uses accent-400.
+ * - On white: primary button stays black; accent-500 is decorative only (lines, large icons, stamps);
+ *   accent text uses accent-700 (strong: accent-800).
+ * - Selected: accent-100 background, accent-700 border, black text.
+ */
+:root {
+  --color-accent-100: #faf0db; /* soft backgrounds, selection */
+  --color-accent-300: #f0ce8a; /* highlights, gradients */
+  --color-accent-400: #e3b35f; /* accent text on black, dark focus ring */
+  --color-accent-500: #d19c40; /* brand base: buttons and details */
+  --color-accent-600: #b5812a; /* pressed */
+  --color-accent-700: #8f6420; /* accent text and borders on light (5.2:1 on white) */
+  --color-accent-800: #6b4a14; /* strong text on light tints */
+
+  /* Role: accent text on light backgrounds (gold: 700, 5.2:1 on white). */
+  --color-accent-text-light: var(--color-accent-700);
+
+  /* Selected surface on dark backgrounds (accent-500 at ~15% over ink-950). */
+  --color-accent-selected-dark: #282013;
+
+  --shadow-glow: 0 8px 24px rgba(209, 156, 64, 0.35);
+
+  /* Warning moves to burnt orange so it does not read as gold. Always with icon + text. */
+  --color-warning-100: #fdecdd;
+  --color-warning-500: #e8590c;
+  --color-warning-700: #8f3606;
+}

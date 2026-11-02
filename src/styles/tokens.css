@@ -4,6 +4,8 @@
  * Only project-specific overrides live here.
  */
 @import '../../docs/design/havana-tokens-v2.css';
+/* Accent theme: the single file to change for a color test. Backup: ./accent.aqua.css */
+@import './accent.css';
 
 :root {
   /* @fontsource/geist-sans registers the family as "Geist Sans". */
