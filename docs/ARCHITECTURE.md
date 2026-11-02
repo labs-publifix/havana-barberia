@@ -71,3 +71,20 @@ Ninguna pantalla debería cambiar.
 | Capturas 360/390/768/1280 en `docs/screenshots/`                      | `e2e/screenshots.spec.ts`                   | `SCREENSHOTS=1 npm run e2e` |
 
 Playwright construye la app igual que CI y la sirve con `e2e/pages-server.mjs`, que imita a GitHub Pages: sin reescrituras, `404.html` como respaldo y gzip.
+
+## Color de acento (pruebas de color)
+
+- El acento se llama `accent-*` en todas partes: variables CSS (`--color-accent-100…800`), clases de Tailwind (`bg-accent-500`, `text-accent-700`…), tokens semánticos y documentación.
+- **Sus valores viven solo en `src/styles/accent.css`.** Ahí también están el rol de texto de acento sobre claro, la superficie seleccionada sobre oscuro, el brillo (`--shadow-glow`) y la escala de advertencia, porque esta cambia junto con el acento.
+- **Respaldo aqua:** `src/styles/accent.aqua.css`. Para revertir en un paso, en `src/styles/tokens.css` importa `./accent.aqua.css` en lugar de `./accent.css`.
+- `npm run contrast` calcula el contraste WCAG de cada combinación con los valores reales y escribe `docs/design/contrast-accent.md`. Para revisar otro tema: `node scripts/check-contrast.mjs src/styles/accent.aqua.css`. CI lo corre antes del build.
+- `e2e/accent-rules.spec.ts` recorre las pantallas renderizadas y falla si hay texto blanco sobre el acento, accent-500 como texto sobre fondo claro o colores de la paleta anterior.
+
+### Mostrar una rama de prueba en la vista previa
+
+GitHub Pages tiene un solo sitio por repositorio. El workflow **Deploy to GitHub Pages** se puede lanzar a mano desde cualquier rama:
+
+1. GitHub → **Actions** → **Deploy to GitHub Pages** → **Run workflow**.
+2. En «Use workflow from», elige la rama (p. ej. `feat/accent-gold-test`) y confirma.
+
+Ese despliegue reemplaza lo publicado. Para volver a la versión de `main`, lanza el mismo workflow eligiendo `main` (o haz cualquier push a `main`).

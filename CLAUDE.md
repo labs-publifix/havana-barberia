@@ -22,11 +22,13 @@ Sistema propio de reservas (público, móvil primero) y panel administrativo par
 - Accesibilidad: contraste AA, foco visible, teclado, `prefers-reduced-motion`.
 - Logo: usar solo mediante `<Logo />` (hoy JPG; pendiente SVG).
 
-## Diseño (tokens v2)
-- Negro base `#0A0A0B`; acento único aqua Caribe `#14DDB6` (texto de acento sobre claro: `#076B5A`); rojo solo para errores.
+## Diseño (tokens v2.1)
+- Negro base `#0A0A0B`; acento único con nombre semántico **`accent-*`** (100/300/400/500/600/700/800). Sus valores viven **solo** en `src/styles/accent.css`: una prueba de color es un cambio en ese archivo. Respaldo de la paleta aqua original: `src/styles/accent.aqua.css` (para revertir, importarlo en `src/styles/tokens.css`).
+- Prueba actual (rama `feat/accent-gold-test`): dorado, base `#D19C40`. Sobre negro: botón accent-500 con texto ink-950 (nunca blanco) y texto de acento accent-400. Sobre blanco: botón principal negro; accent-500 solo decorativo (líneas, íconos grandes, sellos), texto de acento accent-700. Seleccionado: fondo accent-100, borde accent-700, texto negro. «Confirmada»: accent-100 / accent-800. Foco: negro sobre claro, accent-400 sobre oscuro.
+- Advertencia en naranja quemado (`#FDECDD` / `#E8590C` / `#8F3606`), siempre con ícono y texto; rojo solo para errores, verde éxito, azul información.
 - Tipografía Geist (400/500/600/700), sin serifas, cifras tabulares en precios y horarios.
-- Botones en píldora; radios 8/12/16/24; botón principal negro con texto blanco (aqua con texto negro sobre fondo oscuro).
-- Tokens completos en `src/styles/tokens.css` (y `docs/design/` si existe).
+- Botones en píldora; radios 8/12/16/24; botón principal negro con texto blanco (acento con texto negro sobre fondo oscuro).
+- Tokens en `docs/design/havana-tokens-v2.css` (+ `src/styles/accent.css`). Verificar contraste con `npm run contrast` después de cualquier cambio de color.
 
 ## Políticas de reserva (configurables)
 Cancelar o reprogramar hasta 4 h antes; anticipación mínima 1 h y máxima 30 días; cuadrícula de 15 min; tolerancia 10 min; máximo 2 citas futuras activas por cliente; reserva sin cuenta (nombre, teléfono, correo). Lealtad: 10 sellos = corte gratis; el sello se gana al completar la cita.
