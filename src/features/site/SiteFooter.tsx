@@ -20,7 +20,7 @@ export function SiteFooter() {
   })
   return (
     <footer className="border-t border-white/10 bg-ink-950 pb-24 text-sm text-gray-300 lg:pb-0">
-      <div className="mx-auto grid max-w-6xl gap-10 px-4 py-16 md:grid-cols-[1.2fr_1fr_1fr_1.3fr] md:px-8">
+      <div className="mx-auto grid max-w-6xl gap-10 px-4 py-16 sm:grid-cols-2 md:px-8 lg:grid-cols-[1.2fr_1fr_1fr_1.3fr]">
         <div className="grid content-start gap-4">
           <Logo variant="white" className="w-[132px]" />
           <p className="max-w-[28ch] text-gray-400">{business.tagline}.</p>
@@ -56,7 +56,7 @@ export function SiteFooter() {
             {hours.map((h) => (
               <div key={h.wd} className="contents">
                 <dt className="text-gray-400">{DAY[h.wd]}</dt>
-                <dd className="tabular">{h.text}</dd>
+                <dd className="tabular whitespace-nowrap">{h.text}</dd>
               </div>
             ))}
           </dl>

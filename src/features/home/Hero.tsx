@@ -98,7 +98,7 @@ export function Hero() {
           className="hidden min-h-tap items-center gap-2 rounded-full text-xs uppercase tracking-[0.2em] text-gray-300 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-aqua-400 sm:inline-flex"
         >
           Descubre
-          <ArrowDown className="size-4 motion-safe:animate-bounce" strokeWidth={1.75} aria-hidden />
+          <ArrowDown className="scroll-cue size-4" strokeWidth={1.75} aria-hidden />
         </a>
       </div>
     </section>

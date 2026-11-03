@@ -27,7 +27,7 @@ export default function Home() {
   useHashScroll()
   const solidRef = useRef<HTMLDivElement>(null)
   return (
-    <div data-theme="dark" className="min-h-dvh text-white">
+    <div data-theme="dark" className="relative isolate min-h-dvh bg-ink-950 text-white">
       <SkipLink />
       <LocalBusinessJsonLd />
       <HeroBackdrop coverRef={solidRef} />

@@ -7,7 +7,9 @@ test('home: hero CTA, floating nav, quick links into the flow, no horizontal scr
   await expect(nav).toHaveAttribute('data-state', 'top')
   await page.mouse.wheel(0, 400)
   await expect(nav).toHaveAttribute('data-state', 'floating')
-  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(page.viewportSize()!.width)
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
+    page.viewportSize()!.width,
+  )
   // "Reservar con Isaac" preselects the barber through the flow's existing ?barbero param.
   await page.getByRole('link', { name: 'Reservar con Isaac' }).click()
   await expect(page).toHaveURL(/reservar\?barbero=isaac/)
