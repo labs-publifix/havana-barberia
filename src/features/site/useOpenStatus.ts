@@ -11,7 +11,7 @@ export function useOpenStatus() {
     return {
       open: true,
       label: `Abierto ahora · cierra a las ${closes}`,
-      chip: `Abierto hoy hasta las ${closes}`,
+      chip: `Abierto hasta las ${closes}`,
       short: 'Abierto',
     }
   }

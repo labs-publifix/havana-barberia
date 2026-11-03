@@ -25,22 +25,6 @@
   animation-delay: var(--d, 0ms);
 }
 
-/* ---------- Subtle scroll cue ---------- */
-@keyframes scroll-cue {
-  0%,
-  100% {
-    transform: translateY(0);
-    opacity: 0.7;
-  }
-  50% {
-    transform: translateY(4px);
-    opacity: 1;
-  }
-}
-.scroll-cue {
-  animation: scroll-cue 2.4s var(--motion-ease) infinite;
-}
-
 /* ---------- Fixed hero backdrop: blur and veil grow with --hero-progress ---------- */
 .hero-backdrop {
   --p: var(--hero-progress, 0);
@@ -143,8 +127,7 @@
     filter: none;
     transform: none;
   }
-  .marquee__track,
-  .scroll-cue {
+  .marquee__track {
     animation: none;
   }
 }

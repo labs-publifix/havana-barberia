@@ -27,12 +27,12 @@ Sistema propio de reservas (público, móvil primero) y panel administrativo par
 - Negro base `#0A0A0B`; acento único aqua Caribe `#14DDB6` (texto de acento sobre claro: `#076B5A`); rojo solo para errores.
 - Tipografía Geist (400/500/600/700), sin serifas, cifras tabulares en precios y horarios.
 - Botones en píldora; radios 8/12/16/24; botón principal negro con texto blanco (aqua con texto negro sobre fondo oscuro).
-- Aqua brillante solo sobre oscuro (botón Reservar, insignias, palabra resaltada, subrayados, «Abierto ahora»); sobre claro solo aqua-800 para texto. Nunca hexadecimales sueltos: tokens en `src/styles/tokens.css` y `docs/design/`.
+- Aqua brillante solo sobre oscuro y con moderación: en el hero un solo elemento relleno (el CTA principal); el «Reservar» del navbar va en contorno blanco sobre el hero y en aqua cuando flota. Nunca titulares en aqua. Sobre claro solo aqua-800 para texto. Nunca hexadecimales sueltos: tokens en `src/styles/tokens.css` y `docs/design/`.
 - Tokens completos en `src/styles/tokens.css` (y `docs/design/` si existe).
 
 ## Sitio público (portada y páginas internas)
 - Rutas públicas: `/` (portada), `/servicios`, `/politicas`, `/privacidad`, 404. Flujo de reserva (no tocar sin pedirlo): `/reservar`, `/confirmacion/:token`, `/cita/:token`, `/lealtad/:token`. Enlaces al flujo con preselección: `routes.bookWith({ serviceIds, staffId, step })` (usa los parámetros que el flujo ya lee).
-- Portada en este orden: hero (video de fondo + panel de reserva rápida ≥1024 px) · reseñas (`#resenas`) · tratamientos (`#tratamientos`) · barberos (`#barberos`) · galería (`#galeria`) · ubicación (`#ubicacion`) · CTA final · footer. Todo en oscuro.
+- Portada en este orden: hero (video de fondo; abajo a la izquierda: calificación, titular en blanco, línea de precios y horario, un solo CTA relleno y tarjetas «¿Con quién te sientas?» que abren el flujo con el barbero preseleccionado) · reseñas (`#resenas`) · tratamientos (`#tratamientos`) · barberos (`#barberos`) · galería (`#galeria`) · ubicación (`#ubicacion`) · CTA final · footer. Todo en oscuro.
 - `HeroBackdrop`: capa fija detrás de la página; desenfoque y velo según `--hero-progress` (un solo listener con rAF). Reseñas, tratamientos y barberos van con fondo transparente; galería en adelante, negro sólido (pausa el video).
 - `SiteNav`: un solo componente; transparente sobre el hero y píldora flotante después de 24 px; `startFloating` en páginas internas. `MobileBookBar` aparece al salir del hero.
 - Animación: CSS + IntersectionObserver (`Reveal`), sin librerías; todo respeta `prefers-reduced-motion` (el marquee se vuelve lista manual).

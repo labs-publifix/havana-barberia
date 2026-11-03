@@ -12,7 +12,7 @@ import { Logo } from '@/components/Logo'
 import { DisplayHeading, Eyebrow, Light } from '@/features/site/Section'
 import { GoogleRating } from '@/features/site/GoogleRating'
 import { ReviewCard } from '@/features/home/Reviews'
-import { QuickBookPanel } from '@/features/home/QuickBookPanel'
+import { HeroBarberPicker } from '@/features/home/HeroBarberPicker'
 import { reviews } from '@/config/reviews'
 import { StepIndicator } from '@/components/booking/StepIndicator'
 import { ServiceCard } from '@/components/booking/ServiceCard'
@@ -297,9 +297,7 @@ export default function UiGallery() {
           </div>
           <div className="flex flex-wrap items-start gap-6">
             <ReviewCard review={reviews[0]!} />
-            <div className="w-[380px] max-w-full">
-              <QuickBookPanel />
-            </div>
+            <HeroBarberPicker />
           </div>
           <div className="flex flex-wrap gap-3">
             <span className="inline-flex h-[24px] items-center gap-1.5 rounded-full bg-aqua-500 px-2.5 text-[12px] font-semibold text-ink-950">

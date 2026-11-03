@@ -1,105 +1,108 @@
 import { Link } from 'react-router-dom'
-import { ArrowDown, CalendarCheck, Clock, MapPin, Phone, ShieldCheck, UserRound } from 'lucide-react'
-import type { CSSProperties, ReactNode } from 'react'
+import { CalendarCheck } from 'lucide-react'
+import type { CSSProperties } from 'react'
 import { buttonClass } from '@/components/ui/buttonClass'
+import { useCatalog } from '@/app/queries'
 import { routes } from '@/app/routes'
 import { business } from '@/config/business'
-import { GoogleRating } from '@/features/site/GoogleRating'
+import { Stars } from '@/features/site/GoogleRating'
 import { useOpenStatus } from '@/features/site/useOpenStatus'
-import { QuickBookPanel } from './QuickBookPanel'
+import { money } from '@/lib/time'
+import { HeroBarberPicker } from './HeroBarberPicker'
 
 const delay = (ms: number) => ({ '--d': `${ms}ms` }) as CSSProperties
 
-function Chip({ icon: Icon, children }: { icon: typeof Clock; children: ReactNode }) {
+/** "Corte $280 · Corte y barba $500 · Abre hoy a las 10:00" — prices from the catalog, status from the hours. */
+function InfoLine() {
+  const { data } = useCatalog()
+  const status = useOpenStatus()
+  const prices = business.heroPrices.map((p) => ({
+    ...p,
+    price: data?.services.find((s) => s.id === p.serviceId)?.price,
+  }))
   return (
-    <li className="inline-flex min-h-[36px] items-center gap-2 rounded-full border border-white/15 bg-white/[0.06] px-3.5 text-[13px] font-medium text-gray-200 backdrop-blur-sm">
-      <Icon className="size-4 shrink-0 text-aqua-400" strokeWidth={1.75} aria-hidden />
-      {children}
-    </li>
+    <p className="grid gap-1 text-[15px] text-gray-200 sm:flex sm:flex-wrap sm:items-center sm:gap-x-2.5 md:text-base">
+      <span className="flex flex-wrap items-center gap-x-2.5">
+        {prices.map((p, i) => (
+          <span key={p.serviceId} className="whitespace-nowrap">
+            {i > 0 && (
+              <span className="mr-2.5 text-gray-400" aria-hidden>
+                ·
+              </span>
+            )}
+            {p.label}{' '}
+            <span className="tabular font-semibold text-white">{p.price === undefined ? '—' : money(p.price)}</span>
+          </span>
+        ))}
+      </span>
+      <span className="whitespace-nowrap">
+        <span className="mr-2.5 hidden text-gray-400 sm:inline" aria-hidden>
+          ·
+        </span>
+        <span className="tabular">{status.chip}</span>
+      </span>
+    </p>
   )
 }
 
-/** Full-height hero. The video and mask live in <HeroBackdrop>, fixed behind the page. */
+/**
+ * Full-height hero. Video and mask live in <HeroBackdrop> (fixed behind the page).
+ * Content sits at the bottom so the video leads; one filled accent button only.
+ */
 export function Hero() {
-  const status = useOpenStatus()
-  const cutoffH = business.policy.changeCutoffMin / 60
+  const { value, count } = business.rating
   return (
-    <section id="inicio" aria-labelledby="hero-title" className="relative flex min-h-[100svh] flex-col text-white">
-      <div className="mx-auto grid w-full max-w-7xl flex-1 items-end gap-10 px-4 pb-10 pt-28 md:px-8 lg:grid-cols-[minmax(0,1fr)_380px] lg:items-center lg:pb-16 lg:pt-32">
-        <div className="grid max-w-[44rem] justify-items-start gap-6">
-          <p className="hero-in text-xs font-semibold uppercase tracking-[0.24em] text-gray-200" style={delay(0)}>
-            Barbería profesional <span className="text-aqua-400">·</span> Querétaro
-          </p>
+    <section
+      id="inicio"
+      aria-labelledby="hero-title"
+      className="relative flex min-h-[100svh] flex-col justify-end text-white"
+    >
+      <div className="mx-auto grid w-full max-w-7xl gap-10 px-4 pb-10 pt-32 md:px-8 md:pb-14 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end lg:gap-12 lg:pb-16">
+        <div className="grid max-w-[46rem] justify-items-start gap-5 md:gap-6">
+          <a
+            href={business.reviewsHref}
+            target="_blank"
+            rel="noreferrer"
+            className="hero-in inline-flex min-h-tap items-center gap-2.5 rounded-full text-sm text-white underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-aqua-400"
+            style={delay(0)}
+          >
+            <Stars />
+            <span>
+              <span className="tabular font-semibold text-white">{value.toFixed(1)}</span> ·{' '}
+              <span className="tabular">{count}</span> reseñas en Google
+            </span>
+          </a>
           <h1
             id="hero-title"
-            className="hero-in text-[clamp(2.75rem,8.5vw,6rem)] font-semibold leading-[0.98] tracking-[-0.04em]"
+            className="hero-in text-[clamp(2.6rem,8.2vw,5.75rem)] font-semibold leading-[0.98] tracking-[-0.04em]"
             style={delay(90)}
           >
-            Donde el corte <span className="font-light italic tracking-[-0.03em] text-gray-200">se vuelve</span>{' '}
-            <span className="text-aqua-400">oficio.</span>
+            <span className="block whitespace-nowrap">Donde el corte</span>{' '}
+            <span className="block whitespace-nowrap font-light italic tracking-[-0.03em]">se vuelve oficio.</span>
           </h1>
-          <p className="hero-in t-body-lg max-w-[38ch] text-gray-200" style={delay(180)}>
-            Fades limpios, barbas al detalle y el ritual de la navaja caliente. Reserva en menos de un minuto y siéntate
-            con quien sabe lo que hace.
-          </p>
-          <div className="hero-in grid w-full gap-3 sm:flex sm:w-auto" style={delay(260)}>
+          <div className="hero-in" style={delay(170)}>
+            <InfoLine />
+          </div>
+          <div className="hero-in flex w-full flex-wrap items-center gap-x-7 gap-y-3" style={delay(240)}>
             <Link
               to={routes.book()}
-              className={buttonClass({ variant: 'accent', size: 'lg', block: true, className: 'sm:w-auto' })}
+              className={buttonClass({ variant: 'accent', size: 'lg', className: 'w-full sm:w-auto sm:px-8' })}
             >
               <CalendarCheck className="size-5" strokeWidth={1.75} aria-hidden />
               Reservar cita
             </Link>
             <Link
               to={routes.services}
-              className={buttonClass({
-                variant: 'secondary',
-                size: 'lg',
-                block: true,
-                className: 'border-white text-white hover:bg-white/10 sm:w-auto',
-              })}
+              className="inline-flex min-h-tap items-center rounded-sm text-base font-semibold text-white underline decoration-white/40 underline-offset-[6px] transition-colors hover:decoration-aqua-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-aqua-400"
             >
               Ver servicios
             </Link>
           </div>
-          <div className="hero-in" style={delay(320)}>
-            <GoogleRating />
-          </div>
-          <ul className="hero-in flex flex-wrap gap-2" style={delay(380)} aria-label="Por qué reservar aquí">
-            <Chip icon={Clock}>
-              <span className="tabular">{status.chip}</span>
-            </Chip>
-            <Chip icon={UserRound}>Reserva sin cuenta</Chip>
-            <Chip icon={ShieldCheck}>Cancelación gratis hasta {cutoffH} h antes</Chip>
-          </ul>
         </div>
 
-        <div className="hero-in hidden lg:block" style={delay(300)}>
-          <QuickBookPanel />
+        <div className="hero-in" style={delay(320)}>
+          <HeroBarberPicker />
         </div>
-      </div>
-
-      <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-4 border-t border-white/10 px-4 py-4 text-[13px] text-gray-300 md:px-8">
-        <div className="flex flex-wrap items-center gap-x-6 gap-y-1">
-          <span className="inline-flex items-center gap-2">
-            <MapPin className="size-4 text-gray-400" strokeWidth={1.75} aria-hidden />
-            {business.addressLines[0]}
-          </span>
-          <a
-            href={business.phoneHref}
-            className="tabular inline-flex min-h-tap items-center gap-2 rounded-sm hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-aqua-400"
-          >
-            <Phone className="size-4 text-gray-400" strokeWidth={1.75} aria-hidden />
-            {business.phoneDisplay}
-          </a>
-        </div>
-        <a
-          href="#resenas"
-          className="hidden min-h-tap items-center gap-2 rounded-full text-xs uppercase tracking-[0.2em] text-gray-300 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-aqua-400 sm:inline-flex"
-        >
-          Descubre
-          <ArrowDown className="scroll-cue size-4" strokeWidth={1.75} aria-hidden />
-        </a>
       </div>
     </section>
   )

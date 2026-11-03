@@ -114,7 +114,14 @@ export function SiteNav({ startFloating = false }: { startFloating?: boolean }) 
           <div className="hidden items-center gap-7 lg:flex">{links}</div>
 
           <div className="flex items-center gap-2">
-            <Link to={routes.book()} className={buttonClass({ variant: 'accent', size: 'sm', className: 'px-5' })}>
+            <Link
+              to={routes.book()}
+              className={buttonClass({
+                variant: floating ? 'accent' : 'secondary',
+                size: 'sm',
+                className: cn('px-5', !floating && 'border-white text-white hover:bg-white/10'),
+              })}
+            >
               Reservar
             </Link>
             <Dialog.Root open={menuOpen} onOpenChange={setMenuOpen}>

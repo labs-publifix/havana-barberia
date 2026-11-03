@@ -50,8 +50,11 @@ export const business = {
   rating: { value: 4.8, count: 257 },
   // TODO(instagram): set the official profile URL when the client confirms it; the button stays hidden while null.
   instagramUrl: null as string | null,
-  /** Services offered in the home quick-booking panel (ids from the catalog). Editorial choice, not a popularity claim. */
-  quickBookServiceIds: ['corte-adulto', 'corte-barba', 'afeitado-barba'],
+  /** Hero info line: short label + catalog id (price comes from the catalog). */
+  heroPrices: [
+    { label: 'Corte', serviceId: 'corte-adulto' },
+    { label: 'Corte y barba', serviceId: 'corte-barba' },
+  ],
   /** Treatments shown on the home teaser, with their photo key. */
   featuredServiceIds: ['corte-adulto', 'corte-barba', 'afeitado-barba', 'barba-premium'],
   reviewsHref: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`Havana Barbería ${address}`)}`,

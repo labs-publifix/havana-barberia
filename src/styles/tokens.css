@@ -15,8 +15,9 @@
   --color-google-star: #fbbc04;
 
   /* Home hero mask over the video (layers, from tokens: ink-950 at different strengths). */
-  --hero-mask-base: rgb(10 10 11 / 0.6);
-  --hero-mask-top: rgb(10 10 11 / 0.75);
+  --hero-mask-base: rgb(10 10 11 / 0.32);
+  --hero-mask-top: rgb(10 10 11 / 0.7);
+  --hero-mask-mid: rgb(10 10 11 / 0.72);
   --hero-mask-bottom: rgb(10 10 11 / 1);
 
   /* Glass surfaces on dark (floating nav, quick booking panel). */

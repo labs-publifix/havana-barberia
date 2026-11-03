@@ -149,7 +149,9 @@ describe('home', () => {
   it('shows the open status from the real hours during business hours', async () => {
     vi.setSystemTime(zonedInstant('2026-11-02', '11:00', TZ))
     renderApp('/')
-    expect(await screen.findByText('Abierto hoy hasta las 8:30 p. m.')).toBeInTheDocument()
+    expect(await screen.findByText('Abierto hasta las 8:30 p. m.')).toBeInTheDocument()
+    // Hero info line: prices from the catalog.
+    expect((await screen.findAllByText('$500')).length).toBeGreaterThan(0)
     // Treatments teaser takes name and price from the catalog.
     expect(await screen.findByRole('heading', { name: 'Corte de cabello adulto' })).toBeInTheDocument()
   })

@@ -24,13 +24,25 @@ test('home: mobile menu opens, traps focus and closes with Escape', async ({ pag
   await expect(page.getByRole('dialog')).toBeHidden()
 })
 
-test('desktop quick panel opens the flow on the date step with barber and service', async ({ browser }) => {
+test('hero barber cards open the flow with the barber preselected', async ({ page }) => {
+  await page.goto('./')
+  const hero = page.locator('#inicio')
+  await hero.getByRole('link', { name: /Leonardo Gómez/ }).click()
+  await expect(page).toHaveURL(/reservar\?barbero=leonardo/)
+  await expect(page.getByRole('heading', { name: 'Elige tus servicios' })).toBeVisible()
+})
+
+test('only one filled accent element in the hero; nav Reservar is outlined until it floats', async ({ browser }) => {
   const page = await browser.newPage({ viewport: { width: 1280, height: 800 } })
   await page.goto('./')
-  await page.getByText('Leonardo Gómez', { exact: true }).first().click()
-  await page.getByRole('button', { name: /Ver disponibilidad/ }).click()
-  await expect(page).toHaveURL(/paso=3&servicios=corte-adulto&barbero=leonardo/)
-  await expect(page.getByRole('heading', { name: 'Elige día y hora' })).toBeVisible()
+  await page.waitForTimeout(1200)
+  const navBtn = page.getByTestId('site-nav').getByRole('link', { name: 'Reservar' })
+  const bg = () => navBtn.evaluate((el) => getComputedStyle(el).backgroundColor)
+  expect(await bg()).toMatch(/rgba?\(0, 0, 0, 0\)|transparent/)
+  await page.mouse.wheel(0, 500)
+  await expect(page.getByTestId('site-nav')).toHaveAttribute('data-state', 'floating')
+  await page.waitForTimeout(400)
+  expect(await bg()).not.toMatch(/rgba?\(0, 0, 0, 0\)|transparent/)
   await page.close()
 })
 
