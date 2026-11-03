@@ -108,6 +108,8 @@ describe('ReviewsMarquee', () => {
   })
 
   it('marks every placeholder review as such', () => {
-    expect(reviews.every((r) => !r.isPlaceholder || r.text.startsWith('Reseña de ejemplo: reemplazar por reseña real'))).toBe(true)
+    expect(
+      reviews.every((r) => !r.isPlaceholder || r.text.startsWith('Reseña de ejemplo: reemplazar por reseña real')),
+    ).toBe(true)
   })
 })

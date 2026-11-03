@@ -20,13 +20,24 @@ Sistema propio de reservas (público, móvil primero) y panel administrativo par
 - La base de la app sale de `VITE_BASE`; todas las rutas y recursos deben respetarla. El workflow copia `index.html` a `404.html`.
 - Móvil primero: probar en 360 y 390 px; sin desplazamiento horizontal; zonas táctiles ≥ 44 px; campos ≥ 16 px.
 - Accesibilidad: contraste AA, foco visible, teclado, `prefers-reduced-motion`.
-- Logo: usar solo mediante `<Logo />` (hoy JPG; pendiente SVG).
+- Logo: usar solo mediante `<Logo variant="white" | "black" />`. `white` en navbar, footer y cualquier fondo oscuro; `black` solo sobre fondos claros (p. ej. el encabezado del flujo de reserva). Hoy son WebP con alfa generados desde `src/assets/brand/*-source.png`. TODO(logo-svg): reemplazar por el SVG oficial (blanco y negro) en `src/components/Logo.tsx`; nada más cambia.
+- Recursos: originales en `src/assets/{brand,services,team,video}/*-source.*`; versiones web con `python3 scripts/optimize-assets.py` (nunca escala hacia arriba). Fotos con `width`/`height` y `loading="lazy"` fuera del primer pantallazo.
 
 ## Diseño (tokens v2)
 - Negro base `#0A0A0B`; acento único aqua Caribe `#14DDB6` (texto de acento sobre claro: `#076B5A`); rojo solo para errores.
 - Tipografía Geist (400/500/600/700), sin serifas, cifras tabulares en precios y horarios.
 - Botones en píldora; radios 8/12/16/24; botón principal negro con texto blanco (aqua con texto negro sobre fondo oscuro).
+- Aqua brillante solo sobre oscuro (botón Reservar, insignias, palabra resaltada, subrayados, «Abierto ahora»); sobre claro solo aqua-800 para texto. Nunca hexadecimales sueltos: tokens en `src/styles/tokens.css` y `docs/design/`.
 - Tokens completos en `src/styles/tokens.css` (y `docs/design/` si existe).
+
+## Sitio público (portada y páginas internas)
+- Rutas públicas: `/` (portada), `/servicios`, `/politicas`, `/privacidad`, 404. Flujo de reserva (no tocar sin pedirlo): `/reservar`, `/confirmacion/:token`, `/cita/:token`, `/lealtad/:token`. Enlaces al flujo con preselección: `routes.bookWith({ serviceIds, staffId, step })` (usa los parámetros que el flujo ya lee).
+- Portada en este orden: hero (video de fondo + panel de reserva rápida ≥1024 px) · reseñas (`#resenas`) · tratamientos (`#tratamientos`) · barberos (`#barberos`) · galería (`#galeria`) · ubicación (`#ubicacion`) · CTA final · footer. Todo en oscuro.
+- `HeroBackdrop`: capa fija detrás de la página; desenfoque y velo según `--hero-progress` (un solo listener con rAF). Reseñas, tratamientos y barberos van con fondo transparente; galería en adelante, negro sólido (pausa el video).
+- `SiteNav`: un solo componente; transparente sobre el hero y píldora flotante después de 24 px; `startFloating` en páginas internas. `MobileBookBar` aparece al salir del hero.
+- Animación: CSS + IntersectionObserver (`Reveal`), sin librerías; todo respeta `prefers-reduced-motion` (el marquee se vuelve lista manual).
+- Contenido sin inventar: reseñas en `src/config/reviews.ts` (hoy marcadores), rol y bio de barberos en `src/config/team.ts` (vacíos), insignias en `src/config/serviceBadges.ts` (vacío), `business.instagramUrl` (null = botón oculto).
+- Estrellas de Google en amarillo (`text-google-star`), no en el acento.
 
 ## Políticas de reserva (configurables)
 Cancelar o reprogramar hasta 4 h antes; anticipación mínima 1 h y máxima 30 días; cuadrícula de 15 min; tolerancia 10 min; máximo 2 citas futuras activas por cliente; reserva sin cuenta (nombre, teléfono, correo). Lealtad: 10 sellos = corte gratis; el sello se gana al completar la cita.

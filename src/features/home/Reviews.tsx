@@ -35,7 +35,7 @@ export function ReviewCard({ review }: { review: Review }) {
     <figure className="flex h-full w-[280px] shrink-0 flex-col rounded-lg bg-white p-5 text-left shadow-md">
       <Stars />
       <blockquote
-        className="mt-3 line-clamp-5 flex-1 text-[15px] leading-[1.5] text-ink-700 [mask-image:linear-gradient(180deg,#000_70%,transparent)]"
+        className="mt-3 line-clamp-5 flex-1 text-[15px] leading-[1.5] text-ink-700 [mask-image:linear-gradient(180deg,black_70%,transparent)]"
         lang="es-MX"
       >
         {review.text}

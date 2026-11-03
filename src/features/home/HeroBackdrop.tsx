@@ -81,7 +81,7 @@ export function HeroBackdrop({ coverRef }: { coverRef: RefObject<Element | null>
           height={720}
           {...{ fetchpriority: 'high' }}
           decoding="async"
-          className="absolute inset-0 h-full w-full object-cover object-[62%_center]"
+          className="absolute inset-0 h-full w-full object-cover object-[70%_center]"
         />
         {src && (
           <video
@@ -94,7 +94,7 @@ export function HeroBackdrop({ coverRef }: { coverRef: RefObject<Element | null>
             autoPlay
             preload="auto"
             disablePictureInPicture
-            className="absolute inset-0 h-full w-full object-cover object-[62%_center]"
+            className="absolute inset-0 h-full w-full object-cover object-[70%_center]"
           />
         )}
       </div>
@@ -106,7 +106,7 @@ export function HeroBackdrop({ coverRef }: { coverRef: RefObject<Element | null>
           width={480}
           height={270}
           decoding="async"
-          className="hero-backdrop__blurred absolute inset-0 h-full w-full scale-110 object-cover object-[62%_center]"
+          className="hero-backdrop__blurred absolute inset-0 h-full w-full scale-110 object-cover object-[70%_center]"
         />
       )}
       {/* Mask: base darkening, top gradient for the nav, bottom gradient into the next section. */}

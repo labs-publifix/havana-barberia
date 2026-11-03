@@ -1,0 +1,43 @@
+import { expect, test } from '@playwright/test'
+
+test('home: hero CTA, floating nav, quick links into the flow, no horizontal scroll', async ({ page }) => {
+  await page.goto('./')
+  await expect(page.getByRole('heading', { level: 1 })).toContainText('Donde el corte se vuelve oficio.')
+  const nav = page.getByTestId('site-nav')
+  await expect(nav).toHaveAttribute('data-state', 'top')
+  await page.mouse.wheel(0, 400)
+  await expect(nav).toHaveAttribute('data-state', 'floating')
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(page.viewportSize()!.width)
+  // "Reservar con Isaac" preselects the barber through the flow's existing ?barbero param.
+  await page.getByRole('link', { name: 'Reservar con Isaac' }).click()
+  await expect(page).toHaveURL(/reservar\?barbero=isaac/)
+  await expect(page.getByRole('heading', { name: 'Elige tus servicios' })).toBeVisible()
+})
+
+test('home: mobile menu opens, traps focus and closes with Escape', async ({ page }) => {
+  await page.goto('./')
+  await page.getByRole('button', { name: 'Abrir menú' }).click()
+  await expect(page.getByRole('dialog')).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('dialog')).toBeHidden()
+})
+
+test('desktop quick panel opens the flow on the date step with barber and service', async ({ browser }) => {
+  const page = await browser.newPage({ viewport: { width: 1280, height: 800 } })
+  await page.goto('./')
+  await page.getByText('Leonardo Gómez', { exact: true }).first().click()
+  await page.getByRole('button', { name: /Ver disponibilidad/ }).click()
+  await expect(page).toHaveURL(/paso=3&servicios=corte-adulto&barbero=leonardo/)
+  await expect(page.getByRole('heading', { name: 'Elige día y hora' })).toBeVisible()
+  await page.close()
+})
+
+test('reduced motion: video replaced by the poster and reviews become a list', async ({ browser }) => {
+  const ctx = await browser.newContext({ reducedMotion: 'reduce', viewport: { width: 390, height: 844 } })
+  const page = await ctx.newPage()
+  await page.goto('./')
+  await page.waitForTimeout(1200)
+  expect(await page.locator('video').count()).toBe(0)
+  await expect(page.getByTestId('reviews-list')).toBeAttached()
+  await ctx.close()
+})

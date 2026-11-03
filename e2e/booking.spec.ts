@@ -23,8 +23,9 @@ test.beforeEach(async ({ page }) => {
 
 test('books one service with a specific barber at 360px in under a minute', async ({ page }) => {
   const started = Date.now()
-  await page.goto('./')
-  await page.getByRole('button', { name: /Corte de cabello adulto/ }).click()
+  // Entry from the public site: /servicios "Agendar" preselects the service, as the old home cards did.
+  await page.goto('./servicios')
+  await page.getByRole('button', { name: 'Agendar Corte de cabello adulto' }).click()
   await page.getByRole('button', { name: /Continuar/ }).click()
   await page.getByRole('radio', { name: /Leonardo Gómez/ }).click()
   await page.getByRole('button', { name: /Continuar/ }).click()
