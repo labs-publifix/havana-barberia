@@ -66,7 +66,12 @@ export class MockBookingRepository implements BookingRepository {
       const raw = this.storage?.getItem(STORAGE_KEY)
       if (!raw) return null
       const data = JSON.parse(raw) as MockDb
-      return data.version === MOCK_DB_VERSION ? data : null
+      if (data.version !== MOCK_DB_VERSION) return null
+      // The catalog (categories, services, staff with photos and order) always comes from
+      // the current seed: asset URLs are hashed per build, so stored ones go stale.
+      // Only bookings, customers, loyalty and blocks are kept from storage.
+      const fresh = createSeed(this.now())
+      return { ...data, categories: fresh.categories, services: fresh.services, staff: fresh.staff }
     } catch {
       return null
     }
