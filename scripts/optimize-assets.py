@@ -54,6 +54,8 @@ for src in sorted((A / "services").glob("*-source.png")):
 # --- Team: 4:5 portraits and face crops -----------------------------------------------
 # Face boxes (x, y, side) measured on the sources; square crops for the booking avatars.
 FACES = {"isaac-fuentes": (231, 40, 520), "leonardo-gomez": (131, 88, 460)}
+# Head-and-shoulders squares with breathing room, for the home hero barber cards.
+CARDS = {"isaac-fuentes": (171, 0, 640), "leonardo-gomez": (71, 30, 620)}
 print("team")
 for src in sorted((A / "team").glob("*-source.png")):
     name = src.name.replace("-source.png", "")
@@ -69,6 +71,10 @@ for src in sorted((A / "team").glob("*-source.png")):
     face = im.crop((fx, fy, fx + side, fy + side))
     for s in (160, 320):
         webp(face.resize((s, s), Image.LANCZOS), A / "team" / f"{name}-face-{s}.webp", quality=85)
+    cx, cy, cs = CARDS[name]
+    card = im.crop((cx, cy, cx + cs, cy + cs))
+    for s in (120, 240):
+        webp(card.resize((s, s), Image.LANCZOS), A / "team" / f"{name}-card-{s}.webp", quality=85)
 
 # --- Video poster (first frame) and a blurred version for the scrolled backdrop ---------
 print("video")

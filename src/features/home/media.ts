@@ -11,6 +11,10 @@ import isaacFace160 from '@/assets/team/isaac-fuentes-face-160.webp'
 import isaacFace320 from '@/assets/team/isaac-fuentes-face-320.webp'
 import leoFace160 from '@/assets/team/leonardo-gomez-face-160.webp'
 import leoFace320 from '@/assets/team/leonardo-gomez-face-320.webp'
+import isaacCard120 from '@/assets/team/isaac-fuentes-card-120.webp'
+import isaacCard240 from '@/assets/team/isaac-fuentes-card-240.webp'
+import leoCard120 from '@/assets/team/leonardo-gomez-card-120.webp'
+import leoCard240 from '@/assets/team/leonardo-gomez-card-240.webp'
 import isaacPortrait400 from '@/assets/team/isaac-fuentes-portrait-400.webp'
 import isaacPortrait800 from '@/assets/team/isaac-fuentes-portrait-800.webp'
 import leoPortrait400 from '@/assets/team/leonardo-gomez-portrait-400.webp'
@@ -46,6 +50,12 @@ export const servicePhotos: Record<string, Responsive & { alt: string }> = {
 export const staffFaces: Record<string, { src: string; srcSet: string }> = {
   isaac: { src: isaacFace160, srcSet: `${isaacFace160} 160w, ${isaacFace320} 320w` },
   leonardo: { src: leoFace160, srcSet: `${leoFace160} 160w, ${leoFace320} 320w` },
+}
+
+/** Head-and-shoulders squares for the hero barber picker. */
+export const staffCards: Record<string, { src: string; srcSet: string }> = {
+  isaac: { src: isaacCard120, srcSet: `${isaacCard120} 120w, ${isaacCard240} 240w` },
+  leonardo: { src: leoCard120, srcSet: `${leoCard120} 120w, ${leoCard240} 240w` },
 }
 
 export const staffPortraits: Record<string, Responsive & { position: string }> = {
