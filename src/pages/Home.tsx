@@ -282,7 +282,7 @@ export default function Home() {
             aria-label="Havana Barbería, inicio"
             className="rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-focus"
           >
-            <Logo tone="onDark" className="w-[84px]" />
+            <Logo variant="white" className="w-[84px]" />
           </Link>
           <Link to={routes.book()} className={buttonClass({ variant: 'secondary', size: 'sm' })}>
             Reservar

@@ -25,7 +25,7 @@ export function SimpleHeader({ onBack, backLabel = 'Atrás' }: { onBack?: () => 
           aria-label="Havana Barbería, inicio"
           className="rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-focus"
         >
-          <Logo className="w-[92px]" />
+          <Logo variant="black" className="w-[92px]" />
         </Link>
       </div>
     </header>

@@ -10,8 +10,8 @@ import type {
 } from '@/domain/types'
 import { bookingPolicy, businessHours } from '@/config/business'
 import { addDays, localDate, toMinutes, weekdayOf, zonedInstant } from '@/lib/time'
-import avatarIsaac from '@/assets/images/avatar-isaac.webp'
-import avatarLeonardo from '@/assets/images/avatar-leonardo.webp'
+import avatarIsaac from '@/assets/team/isaac-fuentes-face-160.webp'
+import avatarLeonardo from '@/assets/team/leonardo-gomez-face-160.webp'
 
 /** Demo-only data. Real catalog, team and customers are captured later in the admin. */
 

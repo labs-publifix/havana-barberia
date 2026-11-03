@@ -10,4 +10,16 @@
   --font-display: 'Geist Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --font-body: 'Geist Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --safe-bottom: env(safe-area-inset-bottom, 0px);
+
+  /* Google review stars: part of Google's visual language, not the Havana accent. */
+  --color-google-star: #fbbc04;
+
+  /* Home hero mask over the video (layers, from tokens: ink-950 at different strengths). */
+  --hero-mask-base: rgb(10 10 11 / 0.6);
+  --hero-mask-top: rgb(10 10 11 / 0.75);
+  --hero-mask-bottom: rgb(10 10 11 / 1);
+
+  /* Glass surfaces on dark (floating nav, quick booking panel). */
+  --glass-bg: rgb(18 18 20 / 0.62);
+  --glass-border: rgb(255 255 255 / 0.12);
 }

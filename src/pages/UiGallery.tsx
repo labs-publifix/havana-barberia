@@ -89,7 +89,7 @@ export default function UiGallery() {
       <Section title="Logo">
         {(tone) => (
           <div className={cn('rounded-lg p-4', tone === 'light' ? 'bg-white' : 'bg-ink-950')}>
-            <Logo tone={tone === 'light' ? 'onLight' : 'onDark'} className="w-[180px]" />
+            <Logo variant={tone === 'light' ? 'black' : 'white'} className="w-[180px]" />
           </div>
         )}
       </Section>
