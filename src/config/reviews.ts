@@ -7,7 +7,7 @@
  *   we never reword, correct or add to what a customer wrote.
  * - Names as published, abbreviated to first name + initial of the surname.
  * - Dates are omitted (relative dates like "hace 3 meses" go stale).
- * TODO(reviews-stars): the client selected these as positive; confirm each is 5 stars.
+ * All selected reviews are 5 stars (confirmed by the client).
  */
 export interface Review {
   id: string

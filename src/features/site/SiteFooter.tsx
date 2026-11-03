@@ -44,6 +44,11 @@ export function SiteFooter() {
           <a href={business.directionsHref} target="_blank" rel="noreferrer" className={link}>
             Cómo llegar
           </a>
+          {business.instagramUrl && (
+            <a href={business.instagramUrl} target="_blank" rel="noreferrer" className={link}>
+              Instagram
+            </a>
+          )}
           <address className="mt-2 not-italic leading-relaxed text-gray-400">
             {business.addressLines[0]}
             <br />

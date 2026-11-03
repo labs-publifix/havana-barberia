@@ -44,9 +44,15 @@ for (const [w, h] of sizes) {
 
     test('servicios', async ({ page }) => {
       await page.goto('./servicios')
-      await page.getByRole('heading', { level: 2, name: 'Cortes' }).waitFor()
-      await page.waitForTimeout(500)
-      await shot(page, w, h, '09-servicios')
+      await page.waitForLoadState('networkidle')
+      await page.waitForTimeout(1200)
+      await shot(page, w, h, '09-servicios-hero')
+      await page.evaluate(() => window.scrollTo(0, window.innerHeight + 420))
+      await page.waitForTimeout(900)
+      await shot(page, w, h, '10-servicios-filtros')
+      await page.evaluate(() => document.getElementById('lugar-title')!.scrollIntoView({ block: 'center' }))
+      await page.waitForTimeout(1100)
+      await shot(page, w, h, '11-servicios-lugar')
     })
   })
 }

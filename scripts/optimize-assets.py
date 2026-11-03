@@ -51,6 +51,15 @@ for src in sorted((A / "services").glob("*-source.png")):
     for w in (640, 1024):
         webp(resize_w(im, w), A / "services" / f"{name}-{w}.webp")
 
+# --- /servicios hero (1280x720) and real shop photos (low-res originals, never upscaled)
+print("services hero + shop")
+hero = Image.open(A / "services" / "servicios-hero-source.webp").convert("RGB")
+for w in (640, 1280):
+    webp(resize_w(hero, w), A / "services" / f"servicios-hero-{w}.webp", quality=74)
+for src in sorted((A / "shop").glob("*-source.jpg")):
+    name = src.name.replace("-source.jpg", "")
+    webp(Image.open(src).convert("RGB"), A / "shop" / f"{name}.webp", quality=84)
+
 # --- Gallery: 4:5 photos of real cuts -----------------------------------------------
 print("gallery")
 for src in sorted((A / "gallery").glob("*-source.jpg")):

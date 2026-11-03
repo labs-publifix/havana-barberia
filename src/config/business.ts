@@ -48,8 +48,7 @@ export const business = {
   directionsHref: `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(`Havana Barbería, ${address}`)}`,
   // TODO(google-rating): static for now; replace with the live value later.
   rating: { value: 4.8, count: 257 },
-  // TODO(instagram): set the official profile URL when the client confirms it; the button stays hidden while null.
-  instagramUrl: null as string | null,
+  instagramUrl: 'https://www.instagram.com/havana.barberia/' as string | null,
   /** Hero info line: short label + catalog id (price comes from the catalog). */
   heroPrices: [
     { label: 'Corte', serviceId: 'corte-adulto' },
