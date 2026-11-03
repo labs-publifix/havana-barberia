@@ -36,7 +36,7 @@ Sistema propio de reservas (público, móvil primero) y panel administrativo par
 - `HeroBackdrop`: capa fija detrás de la página; desenfoque y velo según `--hero-progress` (un solo listener con rAF). Reseñas, tratamientos y barberos van con fondo transparente; galería en adelante, negro sólido (pausa el video).
 - `SiteNav`: un solo componente; transparente sobre el hero y píldora flotante después de 24 px; `startFloating` en páginas internas. `MobileBookBar` aparece al salir del hero.
 - Animación: CSS + IntersectionObserver (`Reveal`), sin librerías; todo respeta `prefers-reduced-motion` (el marquee se vuelve lista manual).
-- Contenido sin inventar: reseñas en `src/config/reviews.ts` (hoy marcadores), rol y bio de barberos en `src/config/team.ts` (vacíos), insignias en `src/config/serviceBadges.ts` (vacío), `business.instagramUrl` (null = botón oculto).
+- Contenido sin inventar: reseñas reales de Google en `src/config/reviews.ts` (texto literal; solo se recorta con «…», nunca se reescribe; nombre + inicial), rol y bio de barberos en `src/config/team.ts` (vacíos), insignias en `src/config/serviceBadges.ts` (vacío), `business.instagramUrl` (null = botón oculto).
 - Estrellas de Google en amarillo (`text-google-star`), no en el acento.
 
 ## Políticas de reserva (configurables)
