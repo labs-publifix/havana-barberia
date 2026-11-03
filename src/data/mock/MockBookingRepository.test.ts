@@ -158,4 +158,22 @@ describe('MockBookingRepository', () => {
     const r3 = new MockBookingRepository({ storage: broken, now: () => NOW })
     expect((await r3.listStaff()).length).toBe(2)
   })
+
+  it('refreshes the catalog from the seed but keeps stored bookings', async () => {
+    const stale = emptyDb()
+    stale.staff = stale.staff.map((s) => ({ ...s, photoUrl: '/old-hash.webp', order: 9 - s.order }))
+    const r1 = new MockBookingRepository({ storage: null, initial: stale, now: () => NOW })
+    const a = await r1.createAppointment(booking(iso(MONDAY, '10:00')))
+    const store = new Map<string, string>([['havana:mock-db', JSON.stringify({ ...stale, appointments: [a] })]])
+    const storage = {
+      getItem: (k: string) => store.get(k) ?? null,
+      setItem: (k: string, v: string) => void store.set(k, v),
+      removeItem: (k: string) => void store.delete(k),
+    }
+    const r2 = new MockBookingRepository({ storage, now: () => NOW })
+    const staff = await r2.listStaff()
+    expect(staff.map((s) => s.name)).toEqual(['Leonardo Gómez', 'Isaac Fuentes'])
+    expect(staff.every((s) => s.photoUrl !== '/old-hash.webp')).toBe(true)
+    expect(await r2.getAppointmentByToken(a.token)).toBeTruthy()
+  })
 })

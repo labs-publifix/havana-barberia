@@ -1,4 +1,4 @@
-import { Sparkles } from 'lucide-react'
+import { Scissors } from 'lucide-react'
 import { cn } from '@/lib/cn'
 
 const initials = (name: string) =>
@@ -49,7 +49,7 @@ export function AnyBarberIcon({ size = 56 }: { size?: number }) {
       className="grid shrink-0 place-items-center rounded-full bg-ink-950 text-aqua-500"
       style={{ width: size, height: size }}
     >
-      <Sparkles className="size-6" strokeWidth={1.75} />
+      <Scissors className="size-6" strokeWidth={1.75} />
     </span>
   )
 }
