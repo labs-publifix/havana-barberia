@@ -21,15 +21,24 @@ function preloadHero(): Plugin {
         const files = Object.values(ctx.bundle ?? {})
           .filter((c) => c.type === 'asset')
           .map((c) => c.fileName)
-        const hero = files.find((f) => /(^|\/)hero-[\w-]+\.(jpe?g|webp)$/.test(f))
+        // Home hero poster (LCP): 640w and 1280w versions, chosen by the browser.
+        const poster = files.find((f) => /(^|\/)hero-poster-[\w-]+\.webp$/.test(f) && !/-(640|blur)-/.test(f))
+        const poster640 = files.find((f) => /(^|\/)hero-poster-640-[\w-]+\.webp$/.test(f))
         // The display heading uses Geist 700: fetch it early so the LCP text does not wait.
         const font = files.find((f) => /geist-sans-latin-700-normal-[\w-]+\.woff2$/.test(f))
         const tags = [
-          ...(hero
+          ...(poster && poster640
             ? [
                 {
                   tag: 'link',
-                  attrs: { rel: 'preload', as: 'image', href: `${base}${hero}`, fetchpriority: 'high' },
+                  attrs: {
+                    rel: 'preload',
+                    as: 'image',
+                    href: `${base}${poster}`,
+                    imagesrcset: `${base}${poster640} 640w, ${base}${poster} 1280w`,
+                    imagesizes: '100vw',
+                    fetchpriority: 'high',
+                  },
                   injectTo: 'head' as const,
                 },
               ]

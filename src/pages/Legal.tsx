@@ -1,7 +1,7 @@
-import { useNavigate } from 'react-router-dom'
 import type { ReactNode } from 'react'
-import { SimpleHeader } from '@/components/layout/SimpleHeader'
-import { SiteFooter } from '@/components/layout/SiteFooter'
+import { SiteNav } from '@/features/site/SiteNav'
+import { SiteFooter } from '@/features/site/SiteFooter'
+import { SkipLink } from '@/features/site/SkipLink'
 import { Alert } from '@/components/ui/Alert'
 import { useDocumentTitle } from '@/app/useDocumentTitle'
 import { business } from '@/config/business'
@@ -68,13 +68,17 @@ const content: Record<'policies' | 'privacy', { title: string; body: ReactNode }
 }
 
 export default function Legal({ kind }: { kind: 'policies' | 'privacy' }) {
-  const navigate = useNavigate()
   const { title, body } = content[kind]
   useDocumentTitle(title)
   return (
-    <div className="min-h-dvh bg-page">
-      <SimpleHeader onBack={() => (window.history.length > 1 ? navigate(-1) : navigate('/'))} />
-      <main className="mx-auto grid max-w-booking gap-6 px-4 pb-12 pt-6">
+    <div data-theme="dark" className="min-h-dvh bg-page text-fg">
+      <SkipLink />
+      <SiteNav startFloating />
+      <main
+        id="contenido"
+        tabIndex={-1}
+        className="mx-auto grid max-w-2xl gap-6 px-4 pb-20 pt-32 outline-none md:pt-40"
+      >
         <h1 className="t-h1">{title}</h1>
         <Alert tone="warning" title="Borrador, pendiente de revisión legal.">
           Este texto es provisional y puede cambiar antes del lanzamiento.
@@ -83,7 +87,7 @@ export default function Legal({ kind }: { kind: 'policies' | 'privacy' }) {
           {body}
         </article>
       </main>
-      <SiteFooter tone="light" />
+      <SiteFooter />
     </div>
   )
 }

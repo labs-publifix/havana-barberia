@@ -48,6 +48,12 @@ export const business = {
   directionsHref: `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(`Havana Barbería, ${address}`)}`,
   // TODO(google-rating): static for now; replace with the live value later.
   rating: { value: 4.8, count: 257 },
+  // TODO(instagram): set the official profile URL when the client confirms it; the button stays hidden while null.
+  instagramUrl: null as string | null,
+  /** Services offered in the home quick-booking panel (ids from the catalog). Editorial choice, not a popularity claim. */
+  quickBookServiceIds: ['corte-adulto', 'corte-barba', 'afeitado-barba'],
+  /** Treatments shown on the home teaser, with their photo key. */
+  featuredServiceIds: ['corte-adulto', 'corte-barba', 'afeitado-barba', 'barba-premium'],
   reviewsHref: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`Havana Barbería ${address}`)}`,
   hours: businessHours,
   policy: bookingPolicy,

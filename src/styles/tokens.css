@@ -20,6 +20,6 @@
   --hero-mask-bottom: rgb(10 10 11 / 1);
 
   /* Glass surfaces on dark (floating nav, quick booking panel). */
-  --glass-bg: rgb(18 18 20 / 0.62);
+  --glass-bg: rgb(18 18 20 / 0.8);
   --glass-border: rgb(255 255 255 / 0.12);
 }

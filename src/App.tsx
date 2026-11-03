@@ -3,6 +3,7 @@ import { BrowserRouter, Route, Routes, useLocation } from 'react-router-dom'
 import Home from '@/pages/Home'
 
 const Booking = lazy(() => import('@/pages/Booking'))
+const Services = lazy(() => import('@/pages/Services'))
 const Confirmation = lazy(() => import('@/pages/Confirmation'))
 const ManageAppointment = lazy(() => import('@/pages/ManageAppointment'))
 const Loyalty = lazy(() => import('@/pages/Loyalty'))
@@ -29,6 +30,7 @@ export function AppRoutes() {
       <ScrollToTop />
       <Routes>
         <Route path="/" element={<Home />} />
+        <Route path="/servicios" element={<Services />} />
         <Route path="/reservar" element={<Booking />} />
         <Route path="/confirmacion/:token" element={<Confirmation />} />
         <Route path="/cita/:token" element={<ManageAppointment />} />
