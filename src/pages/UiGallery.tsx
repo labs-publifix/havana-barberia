@@ -9,6 +9,11 @@ import { Checkbox, TextArea, TextField } from '@/components/ui/Field'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { Dialog } from '@/components/ui/Dialog'
 import { Logo } from '@/components/Logo'
+import { DisplayHeading, Eyebrow, Light } from '@/features/site/Section'
+import { GoogleRating } from '@/features/site/GoogleRating'
+import { ReviewCard } from '@/features/home/Reviews'
+import { HeroBarberPicker } from '@/features/home/HeroBarberPicker'
+import { reviews } from '@/config/reviews'
 import { StepIndicator } from '@/components/booking/StepIndicator'
 import { ServiceCard } from '@/components/booking/ServiceCard'
 import { StaffPicker } from '@/components/booking/StaffPicker'
@@ -89,7 +94,7 @@ export default function UiGallery() {
       <Section title="Logo">
         {(tone) => (
           <div className={cn('rounded-lg p-4', tone === 'light' ? 'bg-white' : 'bg-ink-950')}>
-            <Logo tone={tone === 'light' ? 'onLight' : 'onDark'} className="w-[180px]" />
+            <Logo variant={tone === 'light' ? 'black' : 'white'} className="w-[180px]" />
           </div>
         )}
       </Section>
@@ -279,6 +284,31 @@ export default function UiGallery() {
           </div>
         )}
       </Section>
+
+      <section className="grid gap-3">
+        <h2 className="t-h2 px-4 md:px-0">Sitio público (siempre oscuro)</h2>
+        <div data-theme="dark" className="grid gap-8 bg-ink-950 p-6 text-white md:rounded-xl md:p-10">
+          <div className="grid gap-3">
+            <Eyebrow index="01">Lo que dice Querétaro</Eyebrow>
+            <DisplayHeading>
+              Del fade al ritual <Light>de toalla caliente.</Light>
+            </DisplayHeading>
+            <GoogleRating />
+          </div>
+          <div className="flex flex-wrap items-start gap-6">
+            <ReviewCard review={reviews[0]!} />
+            <HeroBarberPicker />
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <span className="inline-flex h-[24px] items-center gap-1.5 rounded-full bg-aqua-500 px-2.5 text-[12px] font-semibold text-ink-950">
+              <span className="size-1.5 rounded-full bg-current" aria-hidden /> Abierto ahora
+            </span>
+            <span className="inline-flex h-[24px] items-center gap-1.5 rounded-full bg-white/10 px-2.5 text-[12px] font-semibold text-gray-200">
+              <span className="size-1.5 rounded-full bg-current" aria-hidden /> Abre a las 10:00 a. m.
+            </span>
+          </div>
+        </div>
+      </section>
 
       <Dialog
         open={dialog}

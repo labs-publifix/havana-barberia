@@ -10,8 +10,9 @@ import type {
 } from '@/domain/types'
 import { bookingPolicy, businessHours } from '@/config/business'
 import { addDays, localDate, toMinutes, weekdayOf, zonedInstant } from '@/lib/time'
-import avatarIsaac from '@/assets/images/avatar-isaac.webp'
-import avatarLeonardo from '@/assets/images/avatar-leonardo.webp'
+// Head-and-shoulders crops (120px): the tighter face crops cut the faces at small sizes.
+import avatarIsaac from '@/assets/team/isaac-fuentes-card-120.webp'
+import avatarLeonardo from '@/assets/team/leonardo-gomez-card-120.webp'
 
 /** Demo-only data. Real catalog, team and customers are captured later in the admin. */
 
@@ -97,7 +98,7 @@ const staff: Staff[] = [
     role: 'barber',
     photoUrl: avatarIsaac,
     active: true,
-    order: 1,
+    order: 2,
     serviceIds: 'all',
     schedule: isaacSchedule,
   },
@@ -107,7 +108,7 @@ const staff: Staff[] = [
     role: 'barber',
     photoUrl: avatarLeonardo,
     active: true,
-    order: 2,
+    order: 1,
     serviceIds: 'all',
     schedule: leonardoSchedule,
   },

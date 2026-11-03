@@ -1,0 +1,133 @@
+/* Public site (home, /servicios, legal, 404). The booking flow does not use these styles. */
+
+/* ---------- Reveal on scroll ---------- */
+[data-reveal] {
+  opacity: 0;
+  transform: translateY(18px);
+  transition:
+    opacity 700ms var(--motion-ease) var(--reveal-delay, 0ms),
+    transform 700ms var(--motion-ease) var(--reveal-delay, 0ms);
+}
+[data-reveal].is-visible {
+  opacity: 1;
+  transform: none;
+}
+
+/* ---------- Hero entrance (staggered, CSS only) ---------- */
+@keyframes hero-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+}
+.hero-in {
+  animation: hero-in 800ms var(--motion-ease) both;
+  animation-delay: var(--d, 0ms);
+}
+
+/* ---------- Fixed hero backdrop: blur and veil grow with --hero-progress ---------- */
+.hero-backdrop {
+  --p: var(--hero-progress, 0);
+}
+.hero-backdrop__media {
+  will-change: filter, transform;
+  /* 0 → 24px as the hero scrolls away; slight scale hides the blurred edges. */
+  filter: blur(calc(var(--p) * 24px)) saturate(calc(1 - var(--p) * 0.25));
+  transform: scale(calc(1 + var(--p) * 0.06));
+}
+.hero-backdrop__veil {
+  opacity: calc(var(--p) * 0.55);
+}
+.hero-backdrop__blurred {
+  opacity: var(--p);
+}
+@media (max-width: 767px), (pointer: coarse) {
+  /* Mobile: no live blur on video; cross-fade to a pre-blurred poster instead. */
+  .hero-backdrop__media {
+    filter: none;
+    transform: none;
+  }
+}
+
+/* ---------- Floating nav ---------- */
+.site-nav__bar {
+  transition:
+    max-width 300ms var(--motion-ease),
+    margin-top 300ms var(--motion-ease),
+    padding 300ms var(--motion-ease),
+    border-radius 300ms var(--motion-ease),
+    background-color 300ms var(--motion-ease),
+    border-color 300ms var(--motion-ease),
+    box-shadow 300ms var(--motion-ease),
+    backdrop-filter 300ms var(--motion-ease);
+}
+.site-nav__logo {
+  transition: width 300ms var(--motion-ease);
+}
+.nav-link {
+  position: relative;
+}
+.nav-link::after,
+.hover-underline::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -4px;
+  height: 1.5px;
+  background: var(--color-aqua-500);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 300ms var(--motion-ease);
+}
+.nav-link:hover::after,
+.nav-link[aria-current='true']::after,
+.group:hover .hover-underline::after,
+.group:focus-visible .hover-underline::after {
+  transform: scaleX(1);
+}
+
+/* ---------- Reviews marquee ---------- */
+@keyframes marquee-left {
+  to {
+    transform: translateX(-50%);
+  }
+}
+@keyframes marquee-right {
+  from {
+    transform: translateX(-50%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+.marquee {
+  -webkit-mask-image: linear-gradient(90deg, transparent, black 8%, black 92%, transparent);
+  mask-image: linear-gradient(90deg, transparent, black 8%, black 92%, transparent);
+}
+.marquee__track {
+  animation: var(--marquee-name) var(--marquee-duration, 60s) linear infinite;
+}
+.marquee:hover .marquee__track,
+.marquee:focus-within .marquee__track,
+.marquee[data-paused='true'] .marquee__track {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-reveal] {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+  .hero-in {
+    animation: none;
+  }
+  .hero-backdrop__media {
+    filter: none;
+    transform: none;
+  }
+  .marquee__track {
+    animation: none;
+  }
+}

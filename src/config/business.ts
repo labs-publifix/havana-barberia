@@ -48,6 +48,14 @@ export const business = {
   directionsHref: `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(`Havana Barbería, ${address}`)}`,
   // TODO(google-rating): static for now; replace with the live value later.
   rating: { value: 4.8, count: 257 },
+  instagramUrl: 'https://www.instagram.com/havana.barberia/' as string | null,
+  /** Hero info line: short label + catalog id (price comes from the catalog). */
+  heroPrices: [
+    { label: 'Corte', serviceId: 'corte-adulto' },
+    { label: 'Corte y barba', serviceId: 'corte-barba' },
+  ],
+  /** Treatments shown on the home teaser, with their photo key. */
+  featuredServiceIds: ['corte-adulto', 'corte-barba', 'afeitado-barba', 'barba-premium'],
   reviewsHref: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`Havana Barbería ${address}`)}`,
   hours: businessHours,
   policy: bookingPolicy,

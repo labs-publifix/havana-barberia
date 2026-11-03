@@ -42,7 +42,7 @@ describe('MockBookingRepository', () => {
       price: 500,
       description: 'Servicio de corte + barba clásico.',
     })
-    expect((await r.listStaff()).map((s) => s.name)).toEqual(['Isaac Fuentes', 'Leonardo Gómez'])
+    expect((await r.listStaff()).map((s) => s.name)).toEqual(['Leonardo Gómez', 'Isaac Fuentes'])
   })
 
   it('never lets two simultaneous bookings take the same slot', async () => {

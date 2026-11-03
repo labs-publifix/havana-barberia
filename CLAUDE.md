@@ -20,13 +20,25 @@ Sistema propio de reservas (público, móvil primero) y panel administrativo par
 - La base de la app sale de `VITE_BASE`; todas las rutas y recursos deben respetarla. El workflow copia `index.html` a `404.html`.
 - Móvil primero: probar en 360 y 390 px; sin desplazamiento horizontal; zonas táctiles ≥ 44 px; campos ≥ 16 px.
 - Accesibilidad: contraste AA, foco visible, teclado, `prefers-reduced-motion`.
-- Logo: usar solo mediante `<Logo />` (hoy JPG; pendiente SVG).
+- Logo: usar solo mediante `<Logo variant="white" | "black" />`. `white` en navbar, footer y cualquier fondo oscuro; `black` solo sobre fondos claros (p. ej. el encabezado del flujo de reserva). Hoy son WebP con alfa generados desde `src/assets/brand/*-source.png`. TODO(logo-svg): reemplazar por el SVG oficial (blanco y negro) en `src/components/Logo.tsx`; nada más cambia.
+- Recursos: originales en `src/assets/{brand,services,team,video,gallery}/*-source.*`; versiones web con `python3 scripts/optimize-assets.py` (nunca escala hacia arriba). Fotos con `width`/`height` y `loading="lazy"` fuera del primer pantallazo.
 
 ## Diseño (tokens v2)
 - Negro base `#0A0A0B`; acento único aqua Caribe `#14DDB6` (texto de acento sobre claro: `#076B5A`); rojo solo para errores.
 - Tipografía Geist (400/500/600/700), sin serifas, cifras tabulares en precios y horarios.
 - Botones en píldora; radios 8/12/16/24; botón principal negro con texto blanco (aqua con texto negro sobre fondo oscuro).
+- Aqua brillante solo sobre oscuro y con moderación: en el hero un solo elemento relleno (el CTA principal); el «Reservar» del navbar va en contorno blanco sobre el hero y en aqua cuando flota. Nunca titulares en aqua. Sobre claro solo aqua-800 para texto. Nunca hexadecimales sueltos: tokens en `src/styles/tokens.css` y `docs/design/`.
 - Tokens completos en `src/styles/tokens.css` (y `docs/design/` si existe).
+
+## Sitio público (portada y páginas internas)
+- Rutas públicas: `/` (portada), `/servicios`, `/politicas`, `/privacidad`, 404. Flujo de reserva (no tocar sin pedirlo): `/reservar`, `/confirmacion/:token`, `/cita/:token`, `/lealtad/:token`. Enlaces al flujo con preselección: `routes.bookWith({ serviceIds, staffId, step })` (usa los parámetros que el flujo ya lee).
+- Portada en este orden: hero (video de fondo; abajo a la izquierda: calificación, titular en blanco, línea de precios y horario, un solo CTA relleno y tarjetas «¿Con quién te sientas?» que abren el flujo con el barbero preseleccionado; en móvil <768 px solo calificación, titular y «Reservar cita», y las tarjetas de barberos bajan justo debajo del hero, igual que en tableta <1024 px) · reseñas (`#resenas`) · tratamientos (`#tratamientos`) · barberos (`#barberos`) · galería (`#galeria`) · ubicación (`#ubicacion`) · CTA final · footer. Todo en oscuro.
+- `HeroBackdrop`: capa fija detrás de la página; desenfoque y velo según `--hero-progress` (un solo listener con rAF). Reseñas, tratamientos y barberos van con fondo transparente; galería en adelante, negro sólido (pausa el video).
+- `/servicios`: hero de foto a pantalla completa (navbar transparente que flota al bajar), filtros por categoría en píldora de vidrio fija bajo el navbar con desvanecido negro detrás, lista del catálogo («Agendar» en contorno; el aqua solo en «Reservar cita»), franja «El lugar» con fotos reales del local (`src/assets/shop`) y CTA final.
+- `SiteNav`: un solo componente; transparente sobre el hero y píldora flotante después de 24 px; `startFloating` en páginas internas. `MobileBookBar` aparece al salir del hero.
+- Animación: CSS + IntersectionObserver (`Reveal`), sin librerías; todo respeta `prefers-reduced-motion` (el marquee se vuelve lista manual).
+- Contenido sin inventar: reseñas reales de Google en `src/config/reviews.ts` (texto literal; solo se recorta con «…», nunca se reescribe; nombre + inicial), rol y bio de barberos en `src/config/team.ts` (vacíos), insignias en `src/config/serviceBadges.ts` (vacío), `business.instagramUrl` (hoy https://www.instagram.com/havana.barberia/; null oculta los botones).
+- Estrellas de Google en amarillo (`text-google-star`), no en el acento.
 
 ## Políticas de reserva (configurables)
 Cancelar o reprogramar hasta 4 h antes; anticipación mínima 1 h y máxima 30 días; cuadrícula de 15 min; tolerancia 10 min; máximo 2 citas futuras activas por cliente; reserva sin cuenta (nombre, teléfono, correo). Lealtad: 10 sellos = corte gratis; el sello se gana al completar la cita.
