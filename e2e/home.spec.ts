@@ -26,8 +26,11 @@ test('home: mobile menu opens, traps focus and closes with Escape', async ({ pag
 
 test('hero barber cards open the flow with the barber preselected', async ({ page }) => {
   await page.goto('./')
-  const hero = page.locator('#inicio')
-  await hero.getByRole('link', { name: /Leonardo Gómez/ }).click()
+  // Phones: the picker sits right below the hero; desktop: inside it.
+  await page
+    .getByRole('list', { name: '¿Con quién te sientas?' })
+    .getByRole('link', { name: /Leonardo Gómez/ })
+    .click()
   await expect(page).toHaveURL(/reservar\?barbero=leonardo/)
   await expect(page.getByRole('heading', { name: 'Elige tus servicios' })).toBeVisible()
 })
@@ -44,6 +47,18 @@ test('only one filled accent element in the hero; nav Reservar is outlined until
   await page.waitForTimeout(400)
   expect(await bg()).not.toMatch(/rgba?\(0, 0, 0, 0\)|transparent/)
   await page.close()
+})
+
+test('phones: the hero only shows rating, headline and the booking button', async ({ page }) => {
+  await page.goto('./')
+  const hero = page.locator('#inicio')
+  await expect(hero.getByRole('link', { name: 'Reservar cita' })).toBeVisible()
+  await expect(hero.getByText('Corte y barba')).toBeHidden()
+  await expect(hero.getByRole('link', { name: 'Ver servicios' })).toBeHidden()
+  await expect(hero.getByText('¿Con quién te sientas?')).toBeHidden()
+  // The booking button ends inside the first screen.
+  const box = await hero.getByRole('link', { name: 'Reservar cita' }).boundingBox()
+  expect(box!.y + box!.height).toBeLessThanOrEqual(page.viewportSize()!.height)
 })
 
 test('reduced motion: video replaced by the poster and reviews become a list', async ({ browser }) => {

@@ -57,13 +57,13 @@ export function Hero() {
       aria-labelledby="hero-title"
       className="relative flex min-h-[100svh] flex-col justify-end text-white"
     >
-      <div className="mx-auto grid w-full max-w-7xl gap-10 px-4 pb-10 pt-32 md:px-8 md:pb-14 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end lg:gap-12 lg:pb-16">
-        <div className="grid max-w-[46rem] justify-items-start gap-5 md:gap-6">
+      <div className="mx-auto grid w-full max-w-7xl gap-10 px-4 pb-8 pt-32 md:px-8 md:pb-14 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end lg:gap-12 lg:pb-16">
+        <div className="grid max-w-[46rem] justify-items-start gap-4 md:gap-6">
           <a
             href={business.reviewsHref}
             target="_blank"
             rel="noreferrer"
-            className="hero-in inline-flex min-h-tap items-center gap-2.5 rounded-full text-sm text-white underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-aqua-400"
+            className="hero-in inline-flex min-h-tap items-center gap-2.5 rounded-full text-[13px] text-white underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-aqua-400 md:text-sm"
             style={delay(0)}
           >
             <Stars />
@@ -74,13 +74,14 @@ export function Hero() {
           </a>
           <h1
             id="hero-title"
-            className="hero-in text-[clamp(2.6rem,8.2vw,5.75rem)] font-semibold leading-[0.98] tracking-[-0.04em]"
+            className="hero-in text-[clamp(2.25rem,9.2vw,5.75rem)] font-semibold leading-[1] tracking-[-0.04em]"
             style={delay(90)}
           >
             <span className="block whitespace-nowrap">Donde el corte</span>{' '}
             <span className="block whitespace-nowrap font-light italic tracking-[-0.03em]">se vuelve oficio.</span>
           </h1>
-          <div className="hero-in" style={delay(170)}>
+          {/* Phones: only rating, headline and the CTA, so the video leads. */}
+          <div className="hero-in hidden md:block" style={delay(170)}>
             <InfoLine />
           </div>
           <div className="hero-in flex w-full flex-wrap items-center gap-x-7 gap-y-3" style={delay(240)}>
@@ -93,14 +94,15 @@ export function Hero() {
             </Link>
             <Link
               to={routes.services}
-              className="inline-flex min-h-tap items-center rounded-sm text-base font-semibold text-white underline decoration-white/40 underline-offset-[6px] transition-colors hover:decoration-aqua-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-aqua-400"
+              className="hidden min-h-tap items-center rounded-sm text-base font-semibold text-white underline decoration-white/40 underline-offset-[6px] transition-colors hover:decoration-aqua-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-aqua-400 md:inline-flex"
             >
               Ver servicios
             </Link>
           </div>
         </div>
 
-        <div className="hero-in" style={delay(320)}>
+        {/* Below 1024px the picker moves right under the hero (see Home). */}
+        <div className="hero-in hidden lg:block" style={delay(320)}>
           <HeroBarberPicker />
         </div>
       </div>

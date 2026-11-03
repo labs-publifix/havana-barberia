@@ -112,7 +112,7 @@ export function HeroBackdrop({ coverRef }: { coverRef: RefObject<Element | null>
       {/* Mask: base darkening, top gradient for the nav, bottom gradient into the next section. */}
       <div className="absolute inset-0 bg-[var(--hero-mask-base)]" />
       <div className="absolute inset-x-0 top-0 h-48 bg-gradient-to-b from-[var(--hero-mask-top)] to-transparent" />
-      <div className="absolute inset-x-0 bottom-0 h-[85svh] bg-gradient-to-t from-[var(--hero-mask-bottom)] via-[var(--hero-mask-mid)] to-transparent md:h-[72svh]" />
+      <div className="absolute inset-x-0 bottom-0 h-[62svh] bg-gradient-to-t from-[var(--hero-mask-bottom)] via-[var(--hero-mask-mid)] to-transparent md:h-[72svh]" />
       <div className="hero-backdrop__veil absolute inset-0 bg-ink-950" />
     </div>
   )

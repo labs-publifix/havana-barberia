@@ -34,10 +34,7 @@ export function ReviewCard({ review }: { review: Review }) {
   return (
     <figure className="flex h-full w-[280px] shrink-0 flex-col rounded-lg bg-white p-5 text-left shadow-md">
       <Stars />
-      <blockquote
-        className="mt-3 line-clamp-6 flex-1 text-[15px] leading-[1.5] text-ink-700"
-        lang="es-MX"
-      >
+      <blockquote className="mt-3 line-clamp-6 flex-1 text-[15px] leading-[1.5] text-ink-700" lang="es-MX">
         {review.text}
       </blockquote>
       <figcaption className="mt-4 flex items-center gap-3 border-t border-gray-200 pt-4">

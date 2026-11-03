@@ -3,6 +3,7 @@ import { useDocumentTitle } from '@/app/useDocumentTitle'
 import { useScrollProgress } from '@/lib/hooks/useScrollProgress'
 import { HeroBackdrop } from '@/features/home/HeroBackdrop'
 import { Hero } from '@/features/home/Hero'
+import { HeroBarberPicker } from '@/features/home/HeroBarberPicker'
 import { Reviews } from '@/features/home/Reviews'
 import { Treatments } from '@/features/home/Treatments'
 import { Barbers } from '@/features/home/Barbers'
@@ -34,6 +35,10 @@ export default function Home() {
       <SiteNav />
       <main id="contenido" tabIndex={-1} className="outline-none">
         <Hero />
+        {/* Phones and tablets: the barber picker sits just below the hero to keep the video clean. */}
+        <section aria-label="Elige barbero" className="mx-auto max-w-6xl px-4 pt-10 md:px-8 lg:hidden">
+          <HeroBarberPicker />
+        </section>
         <Reviews />
         <Treatments />
         <Barbers />
