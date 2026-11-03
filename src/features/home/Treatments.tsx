@@ -33,7 +33,7 @@ export function Treatments() {
       </div>
 
       <ul
-        className="no-scrollbar mx-auto mt-12 flex max-w-6xl snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-2 md:grid md:grid-cols-2 md:gap-6 md:overflow-visible md:px-8"
+        className="no-scrollbar mx-auto mt-12 flex max-w-6xl snap-x snap-mandatory scroll-px-4 gap-4 overflow-x-auto px-4 pb-2 md:grid md:grid-cols-4 md:gap-5 md:overflow-visible md:px-8"
         aria-label="Tratamientos destacados"
       >
         {business.featuredServiceIds.map((id, i) => {
@@ -41,18 +41,18 @@ export function Treatments() {
           const photo = servicePhotos[id]
           const badge = serviceBadges[id]
           return (
-            <Reveal as="li" key={id} delay={i * 90} className="w-[84%] shrink-0 snap-start md:w-auto">
+            <Reveal as="li" key={id} delay={i * 90} className="w-[68%] shrink-0 snap-start sm:w-[44%] md:w-auto">
               {!s || !photo ? (
-                <Skeleton className="aspect-[4/3] rounded-xl bg-white/[0.06]" />
+                <Skeleton className="aspect-[3/4] rounded-xl bg-white/[0.06]" />
               ) : (
                 <Link
                   to={`${routes.services}#${s.id}`}
-                  className="group relative block aspect-[4/3] overflow-hidden rounded-xl border border-white/10 bg-ink-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-aqua-400"
+                  className="group relative block aspect-[3/4] overflow-hidden rounded-xl border border-white/10 bg-ink-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-aqua-400"
                 >
                   <img
                     src={photo.src}
                     srcSet={photo.srcSet}
-                    sizes="(min-width: 1152px) 552px, (min-width: 768px) 46vw, 84vw"
+                    sizes="(min-width: 1152px) 360px, (min-width: 768px) 32vw, 90vw"
                     alt={photo.alt}
                     width={photo.width}
                     height={photo.height}
@@ -66,18 +66,18 @@ export function Treatments() {
                       {badge}
                     </span>
                   )}
-                  <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-4 p-5 md:p-6">
-                    <div className="min-w-0">
-                      <h3 className="text-[clamp(1.35rem,2.4vw,1.9rem)] font-semibold leading-tight tracking-[-0.02em] text-white">
-                        <span className="hover-underline relative">{s.name}</span>
-                      </h3>
-                      <p className="tabular mt-1.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-gray-300">
+                  <div className="absolute inset-x-0 bottom-0 grid gap-3 p-5">
+                    <h3 className="text-[clamp(1.2rem,1.7vw,1.45rem)] font-semibold leading-tight tracking-[-0.02em] text-white">
+                      <span className="hover-underline relative">{s.name}</span>
+                    </h3>
+                    <div className="flex items-end justify-between gap-3 border-t border-white/15 pt-3">
+                      <p className="tabular text-[11px] font-semibold uppercase tracking-[0.2em] text-gray-300">
                         {durationLabel(s.durationMin)}
                       </p>
+                      <p className="tabular text-[1.4rem] font-semibold leading-none tracking-[-0.02em] text-white">
+                        {money(s.price)}
+                      </p>
                     </div>
-                    <p className="tabular shrink-0 text-[clamp(1.5rem,2.6vw,2rem)] font-semibold tracking-[-0.02em] text-white">
-                      {money(s.price)}
-                    </p>
                   </div>
                 </Link>
               )}

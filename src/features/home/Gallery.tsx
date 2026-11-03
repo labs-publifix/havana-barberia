@@ -1,47 +1,40 @@
 import { useState } from 'react'
 import * as RD from '@radix-ui/react-dialog'
 import { Camera, ChevronLeft, ChevronRight, X } from 'lucide-react'
-import local1 from '@/assets/images/local-1.jpg'
-import local2 from '@/assets/images/local-2.jpg'
-import team1 from '@/assets/images/team-1.jpg'
-import team2 from '@/assets/images/team-2.jpg'
-import interior from '@/assets/images/hero.jpg'
+import g1s from '@/assets/gallery/corte-01-480.webp'
+import g1l from '@/assets/gallery/corte-01-960.webp'
+import g2s from '@/assets/gallery/corte-02-480.webp'
+import g2l from '@/assets/gallery/corte-02-960.webp'
+import g3s from '@/assets/gallery/corte-03-480.webp'
+import g3l from '@/assets/gallery/corte-03-960.webp'
+import g4s from '@/assets/gallery/corte-04-480.webp'
+import g4l from '@/assets/gallery/corte-04-960.webp'
+import g5s from '@/assets/gallery/corte-05-480.webp'
+import g5l from '@/assets/gallery/corte-05-960.webp'
+import g6s from '@/assets/gallery/corte-06-480.webp'
+import g6l from '@/assets/gallery/corte-06-960.webp'
 import { buttonClass } from '@/components/ui/buttonClass'
 import { business } from '@/config/business'
 import { DisplayHeading, Eyebrow, Light } from '@/features/site/Section'
 import { Reveal } from '@/features/site/Reveal'
 import { cn } from '@/lib/cn'
-import { servicePhotos } from './media'
 
 interface Photo {
-  src: string
-  srcSet?: string
-  width: number
-  height: number
+  small: string
+  large: string
   alt: string
-  /** Bento cell span on desktop. */
-  span: string
 }
 
 const photos: Photo[] = [
-  { ...servicePhotos['corte-adulto']!, span: 'md:col-span-2 md:row-span-2' },
-  {
-    src: local1,
-    width: 382,
-    height: 510,
-    alt: 'Sillones de barbero dorados bajo luces hexagonales',
-    span: 'md:row-span-2',
-  },
-  { ...servicePhotos['afeitado-barba']!, span: '' },
-  { src: team1, width: 340, height: 510, alt: 'Barbero haciendo un corte de cabello', span: 'md:row-span-2' },
-  { ...servicePhotos['barba-premium']!, span: 'md:col-span-2' },
-  { src: team2, width: 382, height: 510, alt: 'Barbero perfilando la barba de un cliente', span: 'md:row-span-2' },
-  { ...servicePhotos['corte-barba']!, span: '' },
-  { src: interior, width: 382, height: 510, alt: 'Interior de la barbería', span: '' },
-  { src: local2, width: 287, height: 510, alt: 'Luces hexagonales en el techo de la barbería', span: '' },
+  { small: g1s, large: g1l, alt: 'Corte clásico con raya marcada y barba perfilada' },
+  { small: g2s, large: g2l, alt: 'Corte corto con degradado, vista de perfil' },
+  { small: g3s, large: g3l, alt: 'Degradado alto con barba completa, de perfil' },
+  { small: g4s, large: g4l, alt: 'Degradado medio con textura arriba' },
+  { small: g5s, large: g5l, alt: 'Peinado hacia atrás con degradado bajo y raya' },
+  { small: g6s, large: g6l, alt: 'Nuca con degradado limpio, vista trasera' },
 ]
 
-/** Bento grid of service and shop photos with an accessible lightbox (Radix Dialog). */
+/** Grid of real cuts (4:5) with an accessible lightbox (Radix Dialog). */
 export function Gallery() {
   const [open, setOpen] = useState<number | null>(null)
   const current = open === null ? null : photos[open]
@@ -72,27 +65,25 @@ export function Gallery() {
         </div>
       </div>
 
-      <ul className="mx-auto mt-12 grid max-w-6xl auto-rows-[160px] grid-cols-2 gap-3 px-4 md:auto-rows-[200px] md:grid-cols-4 md:gap-4 md:px-8">
+      <ul
+        className="mx-auto mt-12 grid max-w-6xl grid-cols-2 gap-3 px-4 md:grid-cols-3 md:gap-5 md:px-8"
+        aria-label="Fotos de cortes"
+      >
         {photos.map((p, i) => (
-          <Reveal
-            as="li"
-            key={p.src}
-            delay={(i % 4) * 70}
-            className={cn('relative', p.span, i === 0 && 'col-span-2 row-span-2')}
-          >
+          <Reveal as="li" key={p.small} delay={(i % 3) * 80} className={cn(i % 3 === 1 && 'md:mt-12')}>
             <button
               type="button"
               onClick={() => setOpen(i)}
-              className="group block h-full w-full overflow-hidden rounded-lg bg-ink-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-aqua-400"
+              className="group block aspect-[4/5] w-full overflow-hidden rounded-lg bg-ink-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-aqua-400"
               aria-label={`Ampliar: ${p.alt}`}
             >
               <img
-                src={p.src}
-                srcSet={p.srcSet}
-                sizes="(min-width: 768px) 25vw, 50vw"
+                src={p.small}
+                srcSet={`${p.small} 480w, ${p.large} 960w`}
+                sizes="(min-width: 1152px) 360px, (min-width: 768px) 31vw, 46vw"
                 alt=""
-                width={p.width}
-                height={p.height}
+                width={480}
+                height={600}
                 loading="lazy"
                 decoding="async"
                 className="h-full w-full object-cover transition-transform duration-slow ease-brand group-hover:scale-[1.04] motion-reduce:transition-none"
@@ -117,10 +108,10 @@ export function Gallery() {
             {current && (
               <figure className="grid max-h-full justify-items-center gap-3">
                 <img
-                  src={current.srcSet ? current.srcSet.split(', ').at(-1)!.split(' ')[0] : current.src}
+                  src={current.large}
                   alt={current.alt}
-                  width={current.width}
-                  height={current.height}
+                  width={960}
+                  height={1200}
                   className="max-h-[78vh] w-auto max-w-full rounded-lg object-contain"
                 />
                 <figcaption className="text-sm text-gray-300">{current.alt}</figcaption>

@@ -51,6 +51,14 @@ for src in sorted((A / "services").glob("*-source.png")):
     for w in (640, 1024):
         webp(resize_w(im, w), A / "services" / f"{name}-{w}.webp")
 
+# --- Gallery: 4:5 photos of real cuts -----------------------------------------------
+print("gallery")
+for src in sorted((A / "gallery").glob("*-source.jpg")):
+    name = src.name.replace("-source.jpg", "")
+    im = Image.open(src).convert("RGB")
+    for w in (480, 960):
+        webp(resize_w(im, w), A / "gallery" / f"{name}-{w}.webp", quality=80)
+
 # --- Team: 4:5 portraits and face crops -----------------------------------------------
 # Face boxes (x, y, side) measured on the sources; square crops for the booking avatars.
 FACES = {"isaac-fuentes": (231, 40, 520), "leonardo-gomez": (131, 88, 460)}

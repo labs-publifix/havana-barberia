@@ -21,7 +21,7 @@ Sistema propio de reservas (público, móvil primero) y panel administrativo par
 - Móvil primero: probar en 360 y 390 px; sin desplazamiento horizontal; zonas táctiles ≥ 44 px; campos ≥ 16 px.
 - Accesibilidad: contraste AA, foco visible, teclado, `prefers-reduced-motion`.
 - Logo: usar solo mediante `<Logo variant="white" | "black" />`. `white` en navbar, footer y cualquier fondo oscuro; `black` solo sobre fondos claros (p. ej. el encabezado del flujo de reserva). Hoy son WebP con alfa generados desde `src/assets/brand/*-source.png`. TODO(logo-svg): reemplazar por el SVG oficial (blanco y negro) en `src/components/Logo.tsx`; nada más cambia.
-- Recursos: originales en `src/assets/{brand,services,team,video}/*-source.*`; versiones web con `python3 scripts/optimize-assets.py` (nunca escala hacia arriba). Fotos con `width`/`height` y `loading="lazy"` fuera del primer pantallazo.
+- Recursos: originales en `src/assets/{brand,services,team,video,gallery}/*-source.*`; versiones web con `python3 scripts/optimize-assets.py` (nunca escala hacia arriba). Fotos con `width`/`height` y `loading="lazy"` fuera del primer pantallazo.
 
 ## Diseño (tokens v2)
 - Negro base `#0A0A0B`; acento único aqua Caribe `#14DDB6` (texto de acento sobre claro: `#076B5A`); rojo solo para errores.
