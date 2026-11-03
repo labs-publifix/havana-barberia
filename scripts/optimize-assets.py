@@ -46,6 +46,8 @@ for tone in ("white", "black"):
 # --- Services: two widths -------------------------------------------------------------
 print("services")
 for src in sorted((A / "services").glob("*-source.png")):
+    if src.name.startswith("servicios-hero"):
+        continue  # handled below
     name = src.name.replace("-source.png", "")
     im = Image.open(src).convert("RGB")
     for w in (640, 1024):
@@ -53,9 +55,9 @@ for src in sorted((A / "services").glob("*-source.png")):
 
 # --- /servicios hero (1280x720) and real shop photos (low-res originals, never upscaled)
 print("services hero + shop")
-hero = Image.open(A / "services" / "servicios-hero-source.webp").convert("RGB")
+hero = Image.open(A / "services" / "servicios-hero-source.png").convert("RGB")
 for w in (640, 1280):
-    webp(resize_w(hero, w), A / "services" / f"servicios-hero-{w}.webp", quality=74)
+    webp(resize_w(hero, w), A / "services" / f"servicios-hero-{w}.webp", quality=86)
 for src in sorted((A / "shop").glob("*-source.jpg")):
     name = src.name.replace("-source.jpg", "")
     webp(Image.open(src).convert("RGB"), A / "shop" / f"{name}.webp", quality=84)
@@ -69,9 +71,7 @@ for src in sorted((A / "gallery").glob("*-source.jpg")):
         webp(resize_w(im, w), A / "gallery" / f"{name}-{w}.webp", quality=80)
 
 # --- Team: 4:5 portraits and face crops -----------------------------------------------
-# Face boxes (x, y, side) measured on the sources; square crops for the booking avatars.
-FACES = {"isaac-fuentes": (231, 40, 520), "leonardo-gomez": (131, 88, 460)}
-# Head-and-shoulders squares with breathing room, for the home hero barber cards.
+# Head-and-shoulders squares with breathing room: hero barber pills and booking avatars.
 CARDS = {"isaac-fuentes": (171, 0, 640), "leonardo-gomez": (71, 30, 620)}
 print("team")
 for src in sorted((A / "team").glob("*-source.png")):
@@ -84,10 +84,6 @@ for src in sorted((A / "team").glob("*-source.png")):
     portrait = im.crop((x0, 0, x0 + pw, ph))
     for w in (400, 800):
         webp(resize_w(portrait, w), A / "team" / f"{name}-portrait-{w}.webp")
-    fx, fy, side = FACES[name]
-    face = im.crop((fx, fy, fx + side, fy + side))
-    for s in (160, 320):
-        webp(face.resize((s, s), Image.LANCZOS), A / "team" / f"{name}-face-{s}.webp", quality=85)
     cx, cy, cs = CARDS[name]
     card = im.crop((cx, cy, cx + cs, cy + cs))
     for s in (120, 240):

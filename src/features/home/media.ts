@@ -7,10 +7,6 @@ import afeitado640 from '@/assets/services/afeitado-barba-640.webp'
 import afeitado1024 from '@/assets/services/afeitado-barba-1024.webp'
 import premium640 from '@/assets/services/barba-premium-640.webp'
 import premium1024 from '@/assets/services/barba-premium-1024.webp'
-import isaacFace160 from '@/assets/team/isaac-fuentes-face-160.webp'
-import isaacFace320 from '@/assets/team/isaac-fuentes-face-320.webp'
-import leoFace160 from '@/assets/team/leonardo-gomez-face-160.webp'
-import leoFace320 from '@/assets/team/leonardo-gomez-face-320.webp'
 import isaacCard120 from '@/assets/team/isaac-fuentes-card-120.webp'
 import isaacCard240 from '@/assets/team/isaac-fuentes-card-240.webp'
 import leoCard120 from '@/assets/team/leonardo-gomez-card-120.webp'
@@ -45,11 +41,6 @@ export const servicePhotos: Record<string, Responsive & { alt: string }> = {
   },
   'afeitado-barba': { ...r(afeitado640, 640, afeitado1024, 1024, 0.75), alt: 'Afeitado con navaja y espuma' },
   'barba-premium': { ...r(premium640, 640, premium1024, 1024, 0.75), alt: 'Cliente con toalla caliente en la barba' },
-}
-
-export const staffFaces: Record<string, { src: string; srcSet: string }> = {
-  isaac: { src: isaacFace160, srcSet: `${isaacFace160} 160w, ${isaacFace320} 320w` },
-  leonardo: { src: leoFace160, srcSet: `${leoFace160} 160w, ${leoFace320} 320w` },
 }
 
 /** Head-and-shoulders squares for the hero barber picker. */
