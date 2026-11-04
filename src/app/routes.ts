@@ -29,4 +29,8 @@ export const routes = {
   policies: '/politicas',
   privacy: '/privacidad',
   gallery: '/__ui',
+  admin: '/admin',
+  adminLogin: '/admin/entrar',
+  adminVerify: '/admin/verificar',
+  adminSection: (id: string) => `/admin/${id}`,
 }

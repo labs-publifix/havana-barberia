@@ -20,6 +20,11 @@
   --hero-mask-mid: rgb(10 10 11 / 0.72);
   --hero-mask-bottom: rgb(10 10 11 / 1);
 
+  /* Admin sign-in photo mask (ink-950 at different strengths). */
+  --auth-mask-top: rgb(10 10 11 / 0.55);
+  --auth-mask-mid: rgb(10 10 11 / 0.35);
+  --auth-mask-bottom: rgb(10 10 11 / 0.92);
+
   /* Glass surfaces on dark (floating nav, quick booking panel). */
   --glass-bg: rgb(18 18 20 / 0.8);
   --glass-border: rgb(255 255 255 / 0.12);

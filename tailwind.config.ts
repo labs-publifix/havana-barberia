@@ -1,4 +1,5 @@
 import type { Config } from 'tailwindcss'
+import plugin from 'tailwindcss/plugin'
 import tokens from './docs/design/havana-tokens-v2.json'
 
 const c = tokens.color
@@ -11,7 +12,7 @@ const sem = (name: string) => `color-mix(in srgb, var(--${name}) calc(<alpha-val
 export default {
   content: ['./index.html', './src/**/*.{ts,tsx}'],
   theme: {
-    screens: { sm: '480px', md: '768px', lg: '1024px', xl: '1280px' },
+    screens: { sm: '480px', md: '768px', lg: '1024px', xl: '1280px', '2xl': '1536px' },
     extend: {
       colors: {
         ink: c.ink,
@@ -80,5 +81,8 @@ export default {
       zIndex: { sticky: '10', dropdown: '20', overlay: '30', modal: '40', toast: '50' },
     },
   },
-  plugins: [],
+  plugins: [
+    // Touch screens get 44px controls even where the desktop admin uses denser ones.
+    plugin(({ addVariant }) => addVariant('coarse', '@media (pointer: coarse)')),
+  ],
 } satisfies Config

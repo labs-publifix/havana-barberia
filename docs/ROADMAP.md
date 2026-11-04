@@ -22,14 +22,14 @@ aprobada por el cliente; después la conexión a Supabase y Resend sin cambiar p
 
 ## Estado
 
-| Etapa | Estado |
-|---|---|
-| Hito 1A · Sitio público y flujo de reserva (mock) | ✅ Aprobado por el cliente |
-| Rediseño del sitio público | ✅ Aprobado y publicado |
-| Hito 1B · Panel administrativo (UI con datos de prueba) | ⏭ Siguiente |
-| Hito 1C · Backend: Supabase + conexión del panel y de la reserva | Pendiente |
-| Hito 1D · Lanzamiento (dominio, migración de AgendaPro, Google) | Pendiente |
-| Fase 3 · Crecimiento | Pendiente |
+| Etapa                                                            | Estado                                     |
+| ---------------------------------------------------------------- | ------------------------------------------ |
+| Hito 1A · Sitio público y flujo de reserva (mock)                | ✅ Aprobado por el cliente                 |
+| Rediseño del sitio público                                       | ✅ Aprobado y publicado                    |
+| Hito 1B · Panel administrativo (UI con datos de prueba)          | 🔨 En curso: entrega 1 lista para revisión |
+| Hito 1C · Backend: Supabase + conexión del panel y de la reserva | Pendiente                                  |
+| Hito 1D · Lanzamiento (dominio, migración de AgendaPro, Google)  | Pendiente                                  |
+| Fase 3 · Crecimiento                                             | Pendiente                                  |
 
 ## Hito 1B · Panel administrativo con datos de prueba (`/admin`)
 
@@ -41,7 +41,7 @@ Solo datos inventados y genéricos.
 
 Entregas, cada una publicada en la vista previa para revisión:
 
-1. **Base del panel:** inicio de sesión (con paso de verificación en dos pasos, visual),
+1. ✅ **Base del panel:** inicio de sesión (con paso de verificación en dos pasos, visual),
    estructura de navegación, selector de rol de demostración y componentes de trabajo
    (tablas, filtros, formularios, paneles laterales).
 2. **Vista general:** citas de hoy, siguiente cita, ocupación por barbero, alertas.

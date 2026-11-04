@@ -71,3 +71,19 @@ Ninguna pantalla debería cambiar.
 | Capturas 360/390/768/1280 en `docs/screenshots/`                      | `e2e/screenshots.spec.ts`                   | `SCREENSHOTS=1 npm run e2e` |
 
 Playwright construye la app igual que CI y la sirve con `e2e/pages-server.mjs`, que imita a GitHub Pages: sin reescrituras, `404.html` como respaldo y gzip.
+
+## Panel administrativo (`/admin`)
+
+Vive en `src/admin/` y se carga como un bloque aparte (`AdminApp`, carga diferida), así el sitio público no lo descarga.
+
+```
+Pantallas del panel ──▶ AdminRepository ──▶ MockAdminRepository     (hoy)
+                                         └──▶ SupabaseAdminRepository (hito 1C)
+```
+
+- **`sections.ts`** es la única fuente de las secciones: etiqueta, icono, roles con acceso, entrega del roadmap y qué hará cada una. De ahí salen la navegación, los permisos (`canAccess`) y las fichas de las secciones que aún no se construyen.
+- **Roles** (`domain.ts`): dueño y gerente ven todo (finanzas incluidas) y usan verificación en dos pasos; recepción opera agenda, clientes, ventas, catálogo y equipo; el barbero solo ve su vista general, su agenda y sus comisiones.
+- **Acceso simulado:** `MockAdminRepository` acepta los usuarios de demostración (`*@havana.test`, contraseña `demo1234`) y cualquier código de 6 dígitos. La pantalla de entrada ofrece un acceso directo por rol. Los permisos de la UI solo dan forma a la interfaz: la seguridad real será Supabase Auth + RLS.
+- **Componentes de trabajo** (`src/admin/ui`): controles densos (40 px en escritorio, 44 px en pantallas táctiles, texto de 16 px), `DataTable` (orden accesible, fila que abre con Tab + Enter), `SidePanel` (Radix Dialog lateral), `Toast`, `Card`, `StatCard`, `EmptyState`. Se revisan en `/admin/componentes` (solo en desarrollo y en la vista previa).
+- **Diseño:** escritorio primero (pantalla grande de la barbería) y responsive: barra lateral fija desde 1024 px y menú lateral desplegable debajo. Columna lateral oscura con el logo blanco; contenido claro; aqua solo para el indicador de sección activa y estados.
+- **Conectar Supabase:** implementar `AdminRepository` (`signIn` → `auth.signInWithPassword`, `verifyMfa` → `auth.mfa.challengeAndVerify`, `listUsers` → tabla de perfiles con RLS) y agregar el `case 'supabase'` en `src/admin/data/index.ts`.
