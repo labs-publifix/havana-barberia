@@ -6,7 +6,7 @@ Sistema propio de reservas (público, móvil primero) y panel administrativo par
 ## Stack
 - Frontend: Vite + React 18 + TypeScript (strict) + Tailwind CSS + React Router + TanStack Query + react-hook-form + zod + date-fns/date-fns-tz + lucide-react + Radix UI.
 - Hosting: GitHub Pages (GitHub Actions). Sin servidor propio.
-- Backend (hito 1B, aún no): Supabase (Postgres, Auth, RLS, Edge Functions, pg_cron) y Resend para correos.
+- Backend (hito 1C, aún no; plan gratuito): Supabase (Postgres, Auth, RLS, Edge Functions, pg_cron) y Resend para correos.
 - Pruebas: Vitest, Testing Library, Playwright.
 
 ## Comandos
@@ -45,6 +45,11 @@ Cancelar o reprogramar hasta 4 h antes; anticipación mínima 1 h y máxima 30 d
 
 ## Datos del negocio
 Prol. Av. Zaragoza 46, Las Plazas, 76180 Santiago de Querétaro, Qro. · Tel. 442 537 7844 · L–V 10:00–20:30, sáb 10:00–18:00, dom 10:00–15:00 (confirmar domingo).
+
+## Panel administrativo (hito 1B, en curso)
+- Ruta `/admin`. Escritorio primero (pantalla grande en la barbería), responsive. Mismos tokens v2 adaptados a herramienta de trabajo de consulta frecuente.
+- UI con datos de prueba vía `AdminRepository` (mock hoy, Supabase en 1C). Login y roles simulados; solo datos ficticios genéricos.
+- Incluye adelanto visual de ventas, comisiones, cierre semanal y nómina. Alcance y orden en `docs/ROADMAP.md`.
 
 ## Flujo de trabajo
 Rama por funcionalidad, commits pequeños (Conventional Commits), PR hacia `main`. Verificar lint, typecheck, pruebas y build antes de cada PR.
