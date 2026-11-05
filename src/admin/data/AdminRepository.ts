@@ -1,12 +1,24 @@
-import type { Appointment, Customer, ID, LocalDate, LoyaltyCard, Slot, TimeBlock } from '@/domain/types'
+import type {
+  Appointment,
+  Customer,
+  ID,
+  LocalDate,
+  LoyaltyCard,
+  Service,
+  ServiceCategory,
+  Slot,
+  TimeBlock,
+} from '@/domain/types'
 import type { SlotQuery } from '@/data'
 import type {
+  AdminCatalog,
   AdminChange,
   AdminNewAppointment,
   AdminSession,
   AdminUser,
   AgendaDay,
   NewBlock,
+  ServiceInput,
   StaffStatusChange,
   StatusChangeResult,
 } from '../domain'
@@ -61,6 +73,18 @@ export interface AdminRepository {
   getCustomer(id: ID): Promise<{ summary: CustomerSummary; appointments: Appointment[] } | null>
   /** Contact details and notes. Errors: InvalidRequestError (phone/email taken or invalid). */
   updateCustomer(id: ID, patch: { name: string; phone: string; email: string; notes: string }): Promise<Customer>
+  // Catalog (Servicios y precios). Errors: InvalidRequestError with a message to show.
+  getCatalog(): Promise<AdminCatalog>
+  /** Create (no id) or update a service, including who performs it. */
+  saveService(input: ServiceInput): Promise<Service>
+  /** Only services never used in an appointment; used ones are hidden instead. */
+  deleteService(id: ID): Promise<void>
+  moveService(id: ID, dir: -1 | 1): Promise<void>
+  saveCategory(input: { id?: ID; name: string }): Promise<ServiceCategory>
+  moveCategory(id: ID, dir: -1 | 1): Promise<void>
+  /** Only empty categories. */
+  deleteCategory(id: ID): Promise<void>
+
   /**
    * Live updates: called on every change to appointments or blocks. Supabase:
    * a Realtime channel on those tables. Returns the unsubscribe function.

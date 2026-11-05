@@ -1,15 +1,27 @@
-import type { Appointment, Customer, ID, LocalDate, LoyaltyCard, Slot, TimeBlock } from '@/domain/types'
+import type {
+  Appointment,
+  Customer,
+  ID,
+  LocalDate,
+  LoyaltyCard,
+  Service,
+  ServiceCategory,
+  Slot,
+  TimeBlock,
+} from '@/domain/types'
 import type { SlotQuery } from '@/data'
 import { businessHours } from '@/config/business'
 import { MockBookingRepository } from '@/data/mock/MockBookingRepository'
 import { addDays, localDate, weekdayOf } from '@/lib/time'
 import type {
+  AdminCatalog,
   AdminChange,
   AdminNewAppointment,
   AdminSession,
   AdminUser,
   AgendaDay,
   NewBlock,
+  ServiceInput,
   StaffStatusChange,
   StatusChangeResult,
 } from '../../domain'
@@ -212,6 +224,35 @@ export class MockAdminRepository implements AdminRepository {
 
   updateCustomer(id: ID, patch: { name: string; phone: string; email: string; notes: string }): Promise<Customer> {
     return this.booking.adminUpdateCustomer(id, patch)
+  }
+
+  async getCatalog(): Promise<AdminCatalog> {
+    await this.delay()
+    return this.booking.adminCatalog()
+  }
+
+  saveService(input: ServiceInput): Promise<Service> {
+    return this.booking.adminSaveService(input)
+  }
+
+  deleteService(id: ID): Promise<void> {
+    return this.booking.adminDeleteService(id)
+  }
+
+  moveService(id: ID, dir: -1 | 1): Promise<void> {
+    return this.booking.adminMoveService(id, dir)
+  }
+
+  saveCategory(input: { id?: ID; name: string }): Promise<ServiceCategory> {
+    return this.booking.adminSaveCategory(input)
+  }
+
+  moveCategory(id: ID, dir: -1 | 1): Promise<void> {
+    return this.booking.adminMoveCategory(id, dir)
+  }
+
+  deleteCategory(id: ID): Promise<void> {
+    return this.booking.adminDeleteCategory(id)
   }
 
   subscribe(listener: (change: AdminChange) => void): () => void {

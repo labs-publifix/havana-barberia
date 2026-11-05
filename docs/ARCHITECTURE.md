@@ -124,3 +124,11 @@ Pantallas del panel ──▶ AdminRepository ──▶ MockAdminRepository     
 - **Lista:** indicadores (clientes, nuevos del mes, con cita próxima, cortes gratis por canjear), búsqueda, filtros (con cita, frecuentes con 3+ visitas, con no-shows, corte gratis) y tabla ordenable. La ficha se abre en un panel lateral con `?cliente=id`.
 - **Ficha:** agendar cita con el cliente ya elegido, llamar y WhatsApp; aviso de 3 no-shows en 90 días (la reserva en línea le pide contactar a la barbería); sellos; próximas citas e historial (abren la cita en la agenda); datos y notas editables (teléfono y correo únicos). El total gastado solo lo ven dueño y gerente. El barbero no entra a Clientes.
 - **Datos de demostración (versión 3):** clientes frecuentes con varias visitas, tarjetas de sellos variadas (una con corte gratis listo) y algunas notas; nadie repite día y cada frecuente tiene como máximo una cita pendiente.
+
+### Servicios y precios (`/admin/catalogo`)
+
+- **El catálogo es dato del negocio:** en la demo se guarda con el resto (`keepCatalog`) y ya no se regenera desde la semilla al recargar, al cambiar de día ni de versión; solo las fotos de los barberos vienen de la semilla (sus URLs cambian por compilación).
+- **Reglas** (métodos `admin*` de `MockBookingRepository`, con pruebas): nombre obligatorio y sin repetir (sin importar acentos ni mayúsculas); duración de 15 min a 4 h en pasos de 15; precio en pesos enteros, **único con cualquier barbero**; un servicio visible necesita al menos un barbero; un servicio con citas no se borra (se oculta); una categoría solo se borra vacía. Cambiar precio o duración no modifica citas ya agendadas.
+- **Quién lo realiza:** se guarda en `Staff.serviceIds`; un barbero con `'all'` pasa a lista explícita cuando se le quita un servicio. La disponibilidad del sitio y del panel lo respeta.
+- **Pantalla:** servicios por categoría en el orden del sitio, búsqueda y filtro visibles/ocultos; subir/bajar servicios y categorías; panel lateral con vista previa de la tarjeta pública (`ServiceCard`). Dueño y gerente editan; recepción solo consulta.
+- **Sitio público:** los cambios se ven al momento (se invalidan `catalog`, `staff` y `slots`). Si un servicio destacado en la portada se oculta, la portada lo omite.

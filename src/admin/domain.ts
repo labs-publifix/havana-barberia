@@ -6,6 +6,7 @@ import type {
   LocalDate,
   LoyaltyCard,
   Service,
+  ServiceCategory,
   Staff,
   StaffChoice,
   TimeBlock,
@@ -104,4 +105,31 @@ export interface NewBlock {
  */
 export interface AdminChange {
   created: Appointment[]
+}
+
+/** Everything the catalog screen needs, including hidden services. */
+export interface AdminCatalog {
+  categories: ServiceCategory[]
+  /** All services (active and hidden), by category then order. */
+  services: Service[]
+  staff: Staff[]
+  /** Barbers who perform each service. */
+  staffFor: Record<ID, ID[]>
+  /** Appointments that use each service (a used service is hidden, not deleted). */
+  usage: Record<ID, number>
+}
+
+export interface ServiceInput {
+  /** Missing for a new service. */
+  id?: ID
+  categoryId: ID
+  name: string
+  description: string
+  durationMin: number
+  /** MXN, whole pesos; the same with every barber. */
+  price: number
+  loyaltyEligible: boolean
+  /** Visible on the site and in booking. */
+  active: boolean
+  staffIds: ID[]
 }

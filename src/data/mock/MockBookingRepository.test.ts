@@ -463,3 +463,106 @@ describe('MockBookingRepository · customers', () => {
     ).rejects.toThrow('Revisa el correo')
   })
 })
+
+describe('MockBookingRepository · catalog', () => {
+  const base = {
+    categoryId: 'cortes',
+    name: 'Corte clásico',
+    description: ' Tijera y navaja ',
+    durationMin: 45,
+    price: 300,
+    loyaltyEligible: true,
+    active: true,
+    staffIds: ['leonardo', 'isaac'],
+  }
+
+  it('creates a service at the end of its category; the public catalog and slots see it', async () => {
+    const r = repo()
+    const svc = await r.adminSaveService(base)
+    expect(svc).toMatchObject({ id: 'corte-clasico', name: 'Corte clásico', description: 'Tijera y navaja', order: 4 })
+    const { services } = await r.listServices()
+    expect(services.find((s) => s.id === 'corte-clasico')?.price).toBe(300)
+    const slots = await r.getAvailableSlots({ serviceIds: ['corte-clasico'], staffId: 'isaac', date: MONDAY })
+    expect(slots.some((s) => s.available)).toBe(true)
+  })
+
+  it('validates name, duration, price and barbers', async () => {
+    const r = repo()
+    await expect(r.adminSaveService({ ...base, name: 'corte de CABELLO adulto' })).rejects.toThrow('Ya existe')
+    await expect(r.adminSaveService({ ...base, durationMin: 50 })).rejects.toThrow('pasos de 15 min')
+    await expect(r.adminSaveService({ ...base, price: 99.5 })).rejects.toThrow('sin centavos')
+    await expect(r.adminSaveService({ ...base, staffIds: [] })).rejects.toThrow('al menos un barbero')
+    // A hidden service may have nobody assigned yet.
+    await expect(r.adminSaveService({ ...base, active: false, staffIds: [] })).resolves.toBeTruthy()
+  })
+
+  it('price changes never rewrite past appointments; hidden services leave the site', async () => {
+    const r = repo()
+    const a = await r.createAppointment(booking(iso(MONDAY, '10:00')))
+    const cat = r.adminCatalog()
+    const corte = cat.services.find((s) => s.id === 'corte-adulto')!
+    await r.adminSaveService({ ...corte, price: 320, staffIds: cat.staffFor['corte-adulto']!, active: false })
+    expect(r.snapshot().appointments.find((x) => x.id === a.id)?.totalPrice).toBe(280)
+    expect((await r.listServices()).services.some((s) => s.id === 'corte-adulto')).toBe(false)
+    expect(r.adminCatalog().services.find((s) => s.id === 'corte-adulto')).toMatchObject({ price: 320, active: false })
+  })
+
+  it('assigns barbers: a barber who did everything gets an explicit list without this service', async () => {
+    const r = repo()
+    const cat = r.adminCatalog()
+    const tinte = cat.services.find((s) => s.id === 'tinte-cabello')!
+    await r.adminSaveService({ ...tinte, staffIds: ['leonardo'] })
+    const after = r.adminCatalog()
+    expect(after.staffFor['tinte-cabello']).toEqual(['leonardo'])
+    expect(after.staffFor['corte-adulto']).toEqual(['leonardo', 'isaac'])
+    // Booking with Isaac for that service now offers nothing.
+    const slots = await r.getAvailableSlots({ serviceIds: ['tinte-cabello'], staffId: 'isaac', date: MONDAY })
+    expect(slots.every((s) => !s.available)).toBe(true)
+  })
+
+  it('reorders services and categories; deletes only unused services and empty categories', async () => {
+    const r = repo()
+    await r.adminMoveService('corte-nino', -1)
+    expect(
+      r
+        .adminCatalog()
+        .services.filter((s) => s.categoryId === 'cortes')
+        .map((s) => s.id),
+    ).toEqual(['corte-nino', 'corte-adulto', 'delineado-corte'])
+    await r.adminMoveCategory('color', -1)
+    expect(r.adminCatalog().categories.map((c) => c.id)).toEqual(['cortes', 'barba', 'combos', 'color', 'facial'])
+
+    await r.createAppointment(booking(iso(MONDAY, '10:00')))
+    await expect(r.adminDeleteService('corte-adulto')).rejects.toThrow('Ocúltalo en lugar de borrarlo')
+    await r.adminDeleteService('mascarilla-negra')
+    expect(r.adminCatalog().services.some((s) => s.id === 'mascarilla-negra')).toBe(false)
+
+    await expect(r.adminDeleteCategory('facial')).rejects.toThrow('Tiene 1 servicio')
+    const cat = await r.adminSaveCategory({ name: ' Paquetes  especiales ' })
+    expect(cat).toMatchObject({ id: 'paquetes-especiales', name: 'Paquetes especiales', order: 6 })
+    await expect(r.adminSaveCategory({ name: 'cortes' })).rejects.toThrow('Ya existe una categoría')
+    await r.adminDeleteCategory(cat.id)
+  })
+
+  it('keeps an edited catalog after a reload and on a new day', async () => {
+    const store = new Map<string, string>()
+    const storage = {
+      getItem: (k: string) => store.get(k) ?? null,
+      setItem: (k: string, v: string) => void store.set(k, v),
+      removeItem: (k: string) => void store.delete(k),
+    }
+    const r1 = new MockBookingRepository({ storage, initial: emptyDb(), now: () => NOW })
+    await r1.adminSaveService(base)
+    expect(
+      new MockBookingRepository({ storage, now: () => NOW })
+        .adminCatalog()
+        .services.some((s) => s.id === 'corte-clasico'),
+    ).toBe(true)
+    const nextDay = new Date(NOW.getTime() + 24 * 3600 * 1000)
+    expect(
+      new MockBookingRepository({ storage, now: () => nextDay })
+        .adminCatalog()
+        .services.some((s) => s.id === 'corte-clasico'),
+    ).toBe(true)
+  })
+})

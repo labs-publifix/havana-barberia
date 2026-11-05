@@ -26,7 +26,7 @@ aprobada por el cliente; después la conexión a Supabase y Resend sin cambiar p
 | ---------------------------------------------------------------- | ------------------------------------------------ |
 | Hito 1A · Sitio público y flujo de reserva (mock)                | ✅ Aprobado por el cliente                       |
 | Rediseño del sitio público                                       | ✅ Aprobado y publicado                          |
-| Hito 1B · Panel administrativo (UI con datos de prueba)          | 🔨 En curso: entregas 1 a 4 listas para revisión |
+| Hito 1B · Panel administrativo (UI con datos de prueba)          | 🔨 En curso: entregas 1 a 5 listas para revisión |
 | Hito 1C · Backend: Supabase + conexión del panel y de la reserva | Pendiente                                        |
 | Hito 1D · Lanzamiento (dominio, migración de AgendaPro, Google)  | Pendiente                                        |
 | Fase 3 · Crecimiento                                             | Pendiente                                        |
@@ -48,7 +48,7 @@ Entregas, cada una publicada en la vista previa para revisión:
 3. ✅ **Agenda:** día y semana por barbero; detalle de cita; completar (otorga sello),
    no-show, cancelar, reprogramar; crear cita o walk-in; bloquear horario.
 4. ✅ **Clientes:** búsqueda, ficha con historial, no-shows y sellos.
-5. **Catálogo:** servicios, categorías, duración, precio, orden, activo y qué barbero
+5. ✅ **Catálogo:** servicios, categorías, duración, precio, orden, activo y qué barbero
    realiza cada servicio.
 6. **Equipo y horarios:** barberos, horario semanal, vacaciones, comidas, festivos.
 7. **Ajustes:** políticas de reserva y de lealtad, usuarios y roles.
@@ -107,6 +107,6 @@ inventario.
 - Exportación de AgendaPro (clientes e historial).
 - Decisiones para la fase 2: comisión de combos nuevos, tarifa por nivel o personal,
   bonos (ventas de producto, puntualidad, asistencia), día de inicio de la semana de
-  nómina, quién absorbe la comisión de un corte gratis, precio único o por barbero.
+  nómina, quién absorbe la comisión de un corte gratis, precio único o por barbero (resuelto: precio único).
 - Lealtad: servicios que dan sello y vigencia del corte gratis (propuesta 90 días).
 - Logo en SVG, horario de domingo, número de WhatsApp.

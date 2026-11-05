@@ -5,6 +5,8 @@ import type {
   ID,
   LoyaltyCard,
   NewAppointment,
+  Service,
+  ServiceCategory,
   Slot,
   Staff,
   StaffChoice,
@@ -102,12 +104,10 @@ export class MockBookingRepository implements BookingRepository {
       const data = JSON.parse(raw) as MockDb
       // Unknown shapes start over; older versions of this demo are refreshed like a new day.
       if (typeof data.version !== 'number' || data.version > MOCK_DB_VERSION) return null
-      // The catalog (categories, services, staff with photos and order) always comes from
-      // the current seed: asset URLs are hashed per build, so stored ones go stale.
-      // Only bookings, customers, loyalty and blocks are kept from storage.
+      // Staff profiles (photo URLs are hashed per build) come from the seed; the catalog is kept (keepCatalog).
       const fresh = createSeed(this.now())
       if (data.seededOn === fresh.seededOn && data.version === MOCK_DB_VERSION) {
-        return { ...data, categories: fresh.categories, services: fresh.services, staff: fresh.staff }
+        return { ...data, ...keepCatalog(data, fresh) }
       }
       return refreshDemo(data, fresh)
     } catch {
@@ -513,6 +513,188 @@ export class MockBookingRepository implements BookingRepository {
     )
   }
 
+  // ── Catalog (services and categories) ─────────────────────────────────────
+
+  adminCatalog() {
+    const catOrder = new Map(this.db.categories.map((c) => [c.id, c.order]))
+    const services = [...this.db.services].sort(
+      (a, b) => (catOrder.get(a.categoryId) ?? 99) - (catOrder.get(b.categoryId) ?? 99) || a.order - b.order,
+    )
+    const staff = [...this.db.staff].sort((a, b) => a.order - b.order)
+    const staffFor: Record<ID, ID[]> = {}
+    for (const sv of services)
+      staffFor[sv.id] = staff
+        .filter((st) => st.serviceIds === 'all' || st.serviceIds.includes(sv.id))
+        .map((st) => st.id)
+    const usage: Record<ID, number> = {}
+    for (const a of this.db.appointments) for (const id of a.serviceIds) usage[id] = (usage[id] ?? 0) + 1
+    return clone({
+      categories: [...this.db.categories].sort((a, b) => a.order - b.order),
+      services,
+      staff,
+      staffFor,
+      usage,
+    })
+  }
+
+  async adminSaveService(input: {
+    id?: ID
+    categoryId: ID
+    name: string
+    description: string
+    durationMin: number
+    price: number
+    loyaltyEligible: boolean
+    active: boolean
+    staffIds: ID[]
+  }): Promise<Service> {
+    await this.delay()
+    return this.exclusive(() => {
+      const name = input.name.trim().replace(/\s+/g, ' ')
+      if (!name) throw new InvalidRequestError('Escribe el nombre del servicio.')
+      if (this.db.services.some((x) => x.id !== input.id && fold(x.name) === fold(name)))
+        throw new InvalidRequestError('Ya existe un servicio con ese nombre.')
+      if (!this.db.categories.some((c) => c.id === input.categoryId))
+        throw new InvalidRequestError('Elige una categoría.')
+      if (
+        !Number.isInteger(input.durationMin) ||
+        input.durationMin < 15 ||
+        input.durationMin > 240 ||
+        input.durationMin % 15
+      )
+        throw new InvalidRequestError('La duración va de 15 min a 4 h, en pasos de 15 min.')
+      if (!Number.isInteger(input.price) || input.price < 0 || input.price > 20000)
+        throw new InvalidRequestError('Escribe el precio en pesos, sin centavos.')
+      const staffIds = input.staffIds.filter((id) => this.db.staff.some((st) => st.id === id))
+      if (input.active && staffIds.length === 0)
+        throw new InvalidRequestError('Elige al menos un barbero que realice el servicio.')
+
+      const existing = input.id ? this.db.services.find((x) => x.id === input.id) : undefined
+      if (input.id && !existing) throw new NotFoundError('ese servicio')
+      const lastIn = (categoryId: ID) =>
+        Math.max(0, ...this.db.services.filter((x) => x.categoryId === categoryId).map((x) => x.order)) + 1
+      let svc: Service
+      if (!existing) {
+        svc = { id: this.uniqueId(name, this.db.services), order: lastIn(input.categoryId) } as Service
+        this.db.services.push(svc)
+      } else {
+        svc = existing
+        if (svc.categoryId !== input.categoryId) svc.order = lastIn(input.categoryId)
+      }
+      Object.assign(svc, {
+        categoryId: input.categoryId,
+        name,
+        description: input.description.trim(),
+        durationMin: input.durationMin,
+        price: input.price,
+        loyaltyEligible: input.loyaltyEligible,
+        active: input.active,
+      })
+      this.assignStaff(svc.id, staffIds)
+      this.save()
+      return clone(svc)
+    })
+  }
+
+  async adminDeleteService(id: ID): Promise<void> {
+    await this.delay()
+    return this.exclusive(() => {
+      const i = this.db.services.findIndex((x) => x.id === id)
+      if (i < 0) throw new NotFoundError('ese servicio')
+      const used = this.db.appointments.filter((a) => a.serviceIds.includes(id)).length
+      if (used)
+        throw new InvalidRequestError(
+          `Tiene ${used} ${used === 1 ? 'cita' : 'citas'} en el historial. Ocúltalo en lugar de borrarlo.`,
+        )
+      this.db.services.splice(i, 1)
+      for (const st of this.db.staff) if (st.serviceIds !== 'all') st.serviceIds = st.serviceIds.filter((x) => x !== id)
+      this.save()
+    })
+  }
+
+  /** Move a service up or down within its category (the order the site shows). */
+  async adminMoveService(id: ID, dir: -1 | 1): Promise<void> {
+    await this.delay()
+    return this.exclusive(() => {
+      const svc = this.db.services.find((x) => x.id === id)
+      if (!svc) throw new NotFoundError('ese servicio')
+      const list = this.db.services.filter((x) => x.categoryId === svc.categoryId).sort((a, b) => a.order - b.order)
+      swapOrder(list, list.indexOf(svc), dir)
+      this.save()
+    })
+  }
+
+  async adminSaveCategory(input: { id?: ID; name: string }): Promise<ServiceCategory> {
+    await this.delay()
+    return this.exclusive(() => {
+      const name = input.name.trim().replace(/\s+/g, ' ')
+      if (!name) throw new InvalidRequestError('Escribe el nombre de la categoría.')
+      if (this.db.categories.some((c) => c.id !== input.id && fold(c.name) === fold(name)))
+        throw new InvalidRequestError('Ya existe una categoría con ese nombre.')
+      let cat = input.id ? this.db.categories.find((c) => c.id === input.id) : undefined
+      if (input.id && !cat) throw new NotFoundError('esa categoría')
+      if (!cat) {
+        cat = {
+          id: this.uniqueId(name, this.db.categories),
+          name,
+          order: Math.max(0, ...this.db.categories.map((c) => c.order)) + 1,
+        }
+        this.db.categories.push(cat)
+      } else cat.name = name
+      this.save()
+      return clone(cat)
+    })
+  }
+
+  async adminMoveCategory(id: ID, dir: -1 | 1): Promise<void> {
+    await this.delay()
+    return this.exclusive(() => {
+      const list = [...this.db.categories].sort((a, b) => a.order - b.order)
+      const i = list.findIndex((c) => c.id === id)
+      if (i < 0) throw new NotFoundError('esa categoría')
+      swapOrder(list, i, dir)
+      this.save()
+    })
+  }
+
+  async adminDeleteCategory(id: ID): Promise<void> {
+    await this.delay()
+    return this.exclusive(() => {
+      const i = this.db.categories.findIndex((c) => c.id === id)
+      if (i < 0) throw new NotFoundError('esa categoría')
+      const inside = this.db.services.filter((x) => x.categoryId === id).length
+      if (inside)
+        throw new InvalidRequestError(
+          `Tiene ${inside} ${inside === 1 ? 'servicio' : 'servicios'}. Muévelos a otra categoría antes de borrarla.`,
+        )
+      this.db.categories.splice(i, 1)
+      this.save()
+    })
+  }
+
+  /** Who performs a service: keeps "all" for barbers who do everything, otherwise explicit lists. */
+  private assignStaff(serviceId: ID, staffIds: ID[]) {
+    for (const st of this.db.staff) {
+      const wants = staffIds.includes(st.id)
+      if (st.serviceIds === 'all') {
+        if (!wants) st.serviceIds = this.db.services.map((x) => x.id).filter((x) => x !== serviceId)
+      } else if (wants && !st.serviceIds.includes(serviceId)) st.serviceIds = [...st.serviceIds, serviceId]
+      else if (!wants) st.serviceIds = st.serviceIds.filter((x) => x !== serviceId)
+    }
+  }
+
+  /** Readable id from a name ("Corte clásico" → "corte-clasico"), unique within `taken`. */
+  private uniqueId(name: string, taken: { id: ID }[]) {
+    const base =
+      fold(name)
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-|-$/g, '')
+        .slice(0, 40) || 'item'
+    let id = base
+    for (let n = 2; taken.some((x) => x.id === id); n++) id = `${base}-${n}`
+    return id
+  }
+
   /** Edit a customer's contact details and notes; past appointments show the new name/phone too. */
   async adminUpdateCustomer(
     id: ID,
@@ -626,8 +808,33 @@ function refreshDemo(stored: MockDb, fresh: MockDb): MockDb {
   const freshCards = new Set(fresh.loyalty.map((l) => l.token))
   return {
     ...fresh,
+    ...keepCatalog(stored, fresh),
     appointments: [...fresh.appointments.filter((a) => !overlaps(a)), ...own],
     customers: [...fresh.customers, ...stored.customers.filter((c) => ownCustomers.has(c.id) && !freshIds.has(c.id))],
     loyalty: [...fresh.loyalty, ...stored.loyalty.filter((l) => !freshCards.has(l.token))],
   }
+}
+
+/**
+ * The catalog (categories, services, who performs what) is business data edited
+ * in the admin, so it is kept from storage. Staff profiles still come from the
+ * seed: their photo URLs are hashed per build and go stale.
+ */
+function keepCatalog(stored: MockDb, fresh: MockDb): Pick<MockDb, 'categories' | 'services' | 'staff'> {
+  return {
+    categories: stored.categories?.length ? stored.categories : fresh.categories,
+    services: stored.services?.length ? stored.services : fresh.services,
+    staff: fresh.staff.map((s) => ({
+      ...s,
+      serviceIds: stored.staff?.find((x) => x.id === s.id)?.serviceIds ?? s.serviceIds,
+    })),
+  }
+}
+
+/** Swap an item's order with its neighbour (list sorted by order); renumbers 1..n. */
+function swapOrder<T extends { order: number }>(list: T[], i: number, dir: -1 | 1) {
+  const j = i + dir
+  if (i < 0 || j < 0 || j >= list.length) return
+  ;[list[i], list[j]] = [list[j]!, list[i]!]
+  list.forEach((x, k) => (x.order = k + 1))
 }

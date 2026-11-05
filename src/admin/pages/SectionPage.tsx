@@ -13,6 +13,7 @@ const Workbench = lazy(() => import('./Workbench'))
 const Overview = lazy(() => import('./Overview'))
 const Agenda = lazy(() => import('./Agenda'))
 const Customers = lazy(() => import('./Customers'))
+const Catalog = lazy(() => import('./Catalog'))
 
 const TOTAL_DELIVERIES = 8
 
@@ -101,6 +102,14 @@ export default function SectionPage() {
     return (
       <Suspense fallback={null}>
         <Customers />
+      </Suspense>
+    )
+  }
+
+  if (section === 'catalogo') {
+    return (
+      <Suspense fallback={null}>
+        <Catalog />
       </Suspense>
     )
   }
