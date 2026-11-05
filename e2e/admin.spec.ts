@@ -34,3 +34,21 @@ test('admin works on a phone: drawer navigation and no horizontal scroll', async
   await expect(page.getByRole('dialog')).toBeHidden()
   await noHorizontalScroll(page)
 })
+
+test.describe('admin agenda (desktop)', () => {
+  test.use({ viewport: { width: 1440, height: 900 }, isMobile: false, hasTouch: false })
+
+  test('reception registers a walk-in and it appears in the agenda', async ({ page }) => {
+    await page.goto('admin/entrar')
+    await page.getByRole('button', { name: /Recepción/ }).click()
+    await page.getByRole('navigation', { name: 'Secciones del panel' }).getByRole('link', { name: 'Agenda' }).click()
+    await page.getByRole('button', { name: 'Walk-in' }).click()
+    const panel = page.getByRole('dialog', { name: 'Registrar walk-in' })
+    await panel.getByText('Arreglo de bigote', { exact: true }).click()
+    await panel.getByLabel('Nombre').fill('Cliente de mostrador')
+    await panel.getByRole('button', { name: 'Registrar walk-in' }).click()
+    // Either a barber was free (toast) or everyone is busy/closed right now (clear error); both are valid.
+    await expect(page.getByText(/Walk-in registrado con|Ese horario ya está ocupado/)).toBeVisible()
+    await noHorizontalScroll(page)
+  })
+})

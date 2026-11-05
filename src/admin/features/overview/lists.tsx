@@ -1,11 +1,13 @@
 import type { ReactNode } from 'react'
+import { Link } from 'react-router-dom'
+import { routes } from '@/app/routes'
 import { Ban, BellRing, CalendarX2, CheckCircle2, Clock3, type LucideIcon, UserX } from 'lucide-react'
 import type { Appointment, Service, Staff } from '@/domain/types'
 import { Avatar } from '@/components/booking/Avatar'
 import { Badge } from '@/components/ui/Badge'
 import { cn } from '@/lib/cn'
 import { formatMxPhone } from '@/lib/phone'
-import { durationLabel, formatTime12, localTime } from '@/lib/time'
+import { durationLabel, formatTime12, localDate, localTime } from '@/lib/time'
 import type { AlertKind, OverviewAlert } from '../../overview'
 
 interface Ctx {
@@ -18,6 +20,10 @@ const time = (at: string, tz: string) => formatTime12(localTime(at, tz))
 const staffName = (ctx: Ctx, id: string | null) =>
   id ? (ctx.staff.find((s) => s.id === id)?.name ?? '') : 'Toda la barbería'
 const firstName = (name: string) => name.split(/\s+/)[0] ?? name
+const linkClass =
+  'rounded underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-focus'
+/** Agenda link that opens this appointment. */
+const agendaLink = (a: Appointment, tz: string) => routes.adminAgenda({ fecha: localDate(a.startsAt, tz), cita: a.id })
 
 /** "en 25 min", "en 1 h 10 min" for the next appointment. */
 function startsIn(at: string, now: Date) {
@@ -51,7 +57,11 @@ export function UpcomingList({
               {i === 0 && <p className="text-xs font-medium text-fg-muted">{startsIn(a.startsAt, now)}</p>}
             </div>
             <div className="min-w-0 flex-1">
-              <p className="truncate font-semibold">{a.customer.name}</p>
+              <p className="truncate font-semibold">
+                <Link to={agendaLink(a, ctx.timeZone)} className={linkClass}>
+                  {a.customer.name}
+                </Link>
+              </p>
               <p className="truncate text-sm text-fg-muted">
                 {services.join(', ')} · {durationLabel(a.durationMin)}
               </p>
@@ -129,7 +139,11 @@ export function AlertsList({ alerts, ...ctx }: Ctx & { alerts: OverviewAlert[] }
           )
         }
         if (!a) return null
-        const who = `${a.customer.name}, ${time(a.startsAt, ctx.timeZone)} con ${firstName(staffName(ctx, a.staffId))}`
+        const who = (
+          <Link to={agendaLink(a, ctx.timeZone)} className={linkClass}>
+            {a.customer.name}, {time(a.startsAt, ctx.timeZone)} con {firstName(staffName(ctx, a.staffId))}
+          </Link>
+        )
         const detail =
           al.kind === 'unclosed'
             ? 'Márcala como completada o no-show.'

@@ -33,4 +33,12 @@ export const routes = {
   adminLogin: '/admin/entrar',
   adminVerify: '/admin/verificar',
   adminSection: (id: string) => `/admin/${id}`,
+  /** Agenda on a date, optionally with an appointment open. */
+  adminAgenda: ({ fecha, cita }: { fecha?: string; cita?: string } = {}) => {
+    const q = new URLSearchParams()
+    if (fecha) q.set('fecha', fecha)
+    if (cita) q.set('cita', cita)
+    const s = q.toString()
+    return s ? `/admin/agenda?${s}` : '/admin/agenda'
+  },
 }

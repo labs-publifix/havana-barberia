@@ -11,6 +11,7 @@ import { Card, EmptyState, PageHeader } from '../ui/Panel'
 
 const Workbench = lazy(() => import('./Workbench'))
 const Overview = lazy(() => import('./Overview'))
+const Agenda = lazy(() => import('./Agenda'))
 
 const TOTAL_DELIVERIES = 8
 
@@ -83,6 +84,14 @@ export default function SectionPage() {
     return (
       <Suspense fallback={null}>
         <Overview />
+      </Suspense>
+    )
+  }
+
+  if (section === 'agenda') {
+    return (
+      <Suspense fallback={null}>
+        <Agenda />
       </Suspense>
     )
   }

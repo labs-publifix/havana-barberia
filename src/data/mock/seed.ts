@@ -31,7 +31,8 @@ export interface MockDb {
   loyalty: LoyaltyCard[]
 }
 
-export const MOCK_DB_VERSION = 1
+/** Bump when the demo data changes shape or content; stored demos refresh, keeping real bookings. */
+export const MOCK_DB_VERSION = 2
 
 const categories: ServiceCategory[] = [
   { id: 'cortes', name: 'Cortes', order: 1 },
@@ -279,6 +280,40 @@ export function createSeed(now: Date): MockDb {
           customer,
           `seed-${date}-${s.id}-${start}`,
           past ? 'completed' : rand() < 0.5 ? 'booked' : 'confirmed',
+        )
+        made++
+      }
+    }
+  }
+
+  // The previous week, already served (with a few no-shows), so the agenda's week
+  // view and customer histories are not empty. Separate PRNG: the days above stay as they were.
+  const pastRand = mulberry32(Number(today.replaceAll('-', '')) + 7)
+  for (let d = -7; d < 0; d++) {
+    const date = addDays(today, d)
+    for (const s of staff) {
+      const target = 4 + Math.floor(pastRand() * 4)
+      for (let tries = 0, made = 0; tries < 40 && made < target; tries++) {
+        const svc = services[Math.floor(pastRand() * services.length)]!
+        const start = 10 * 60 + Math.floor(pastRand() * 40) * 15
+        if (!fits(s, date, start, svc.durationMin)) continue
+        const n = customers.length
+        const customer: Customer = {
+          id: `cust-${n}`,
+          name: demoName(n),
+          phone: `44200000${String(n).padStart(2, '0')}`,
+          email: `cliente${n}@ejemplo.com`,
+          createdAt,
+        }
+        customers.push(customer)
+        add(
+          s,
+          date,
+          start,
+          [svc],
+          customer,
+          `seed-${date}-${s.id}-${start}`,
+          pastRand() < 0.08 ? 'no_show' : 'completed',
         )
         made++
       }

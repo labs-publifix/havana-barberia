@@ -3,30 +3,8 @@ import type { Appointment, Service, TimeBlock } from '@/domain/types'
 import { Avatar } from '@/components/booking/Avatar'
 import { cn } from '@/lib/cn'
 import { formatTime12, formatTimeCompact, localTime, toMinutes } from '@/lib/time'
-import { isPending, type StaffLoad } from '../../overview'
-
-const statusText: Record<Appointment['status'], string> = {
-  booked: 'sin confirmar',
-  confirmed: 'confirmada',
-  completed: 'completada',
-  cancelled: 'cancelada',
-  no_show: 'no se presentó',
-}
-
-/** Visual weight follows what needs attention: confirmed work is solid, unconfirmed is dashed, done is quiet. */
-const liveStyle = 'bg-ink-950 text-white ring-2 ring-inset ring-aqua-500'
-const statusStyle: Record<Appointment['status'], string> = {
-  confirmed: 'bg-ink-950 text-white',
-  booked: 'border-[1.5px] border-dashed border-ink-950 bg-raised text-fg',
-  completed: 'bg-success-100 text-success-700',
-  no_show: 'bg-red-100 text-red-700 line-through decoration-1',
-  cancelled: 'hidden',
-}
-
-const firstNameAndInitial = (name: string) => {
-  const [first = '', last = ''] = name.split(/\s+/)
-  return last ? `${first} ${last.charAt(0)}.` : first
-}
+import { type StaffLoad } from '../../overview'
+import { isLive, liveStyle, shortName as firstNameAndInitial, statusStyle, statusText } from '../../ui/appointmentStyle'
 
 /**
  * One row per barber across the opening hours: working time in white, time off
@@ -61,7 +39,6 @@ export function DayTimeline({
   const showNow = isToday && nowMin >= from && nowMin <= to
   const hours = Array.from({ length: Math.floor(span / 60) + 1 }, (_, i) => from + i * 60)
   const serviceName = (id: string) => services.find((s) => s.id === id)?.name ?? ''
-  const t = now.getTime()
 
   return (
     <div className="grid grid-cols-[188px_minmax(0,1fr)] gap-x-4 2xl:grid-cols-[208px_minmax(0,1fr)]">
@@ -134,7 +111,7 @@ export function DayTimeline({
                 {own.map((a) => {
                   const start = minOf(a.startsAt)
                   const end = minOf(a.endsAt)
-                  const live = isPending(a) && Date.parse(a.startsAt) <= t && t < Date.parse(a.endsAt)
+                  const live = isLive(a, now)
                   const services = a.serviceIds.map(serviceName).join(', ')
                   const time = formatTime12(localTime(a.startsAt, timeZone))
                   const style: CSSProperties = { left: pos(start), width: `calc(${width(start, end)} - 3px)` }

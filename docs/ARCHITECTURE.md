@@ -94,3 +94,14 @@ Pantallas del panel ──▶ AdminRepository ──▶ MockAdminRepository     
 - **Demo siempre al día:** cuando cambia el día, la semilla se regenera (para que «hoy» siempre tenga citas) y se conservan las reservas hechas por personas en la demo, sus clientes y tarjetas de lealtad.
 - **Lógica pura y probada** en `src/admin/overview.ts` (`computeOverview`, `timelineBounds`): totales, citas en curso y siguiente, ocupación (minutos reservados entre minutos de trabajo, descontando bloqueos sin contarlos dos veces), valor del día (sin cancelaciones ni no-shows) y avisos: _sin cerrar_ (ya terminó y nadie la marcó), _por confirmar_ (sin confirmar en las próximas 2 h), no-shows, bloqueos y cancelaciones.
 - **Pantalla:** indicadores arriba (el valor en dinero solo para dueño y gerente), línea de tiempo por barbero a todo lo ancho desde 1280 px (listas por barbero debajo de ese ancho), próximas citas y avisos. Se actualiza cada minuto. El barbero ve solo su día.
+
+### Agenda (`/admin/agenda`)
+
+- **Vistas:** día (una columna por barbero) y semana (una columna por día para un barbero). El estado vive en la URL (`?fecha`, `?vista`, `?barbero`, `?cita`), así los avisos de la vista general abren la cita directamente. Debajo de 1024 px la cuadrícula se vuelve lista.
+- **Acciones del personal** (`AdminRepository`; en mock, métodos `admin*` de `MockBookingRepository`, con las mismas reglas que aplicará el backend):
+  - confirmar; completar solo cuando la cita ya empezó (si algún servicio es elegible, suma un sello; al llegar a la meta el corte gratis vence en `rewardValidityDays`); no-show solo después de la tolerancia; cancelar con confirmación;
+  - crear citas desde el panel sin la anticipación mínima de 1 h de los clientes (hasta 90 días), y walk-ins «ahora» con el barbero libre que trabaje a esa hora; nunca dos citas a la vez para el mismo barbero;
+  - reprogramar (fecha, hora y barbero), notas, bloqueos (no se pueden poner encima de citas pendientes) y búsqueda de clientes.
+- **Permisos:** recepción, gerente y dueño hacen todo; el barbero ve solo su columna y puede confirmar, completar y marcar no-show.
+- **Origen de la cita** (`Appointment.source`): en línea, panel o walk-in.
+- **Datos de demostración (versión 2):** incluyen la semana anterior ya atendida (con algunos no-shows). Al subir `MOCK_DB_VERSION`, las demos guardadas se regeneran conservando las reservas reales.

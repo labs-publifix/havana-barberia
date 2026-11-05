@@ -38,7 +38,7 @@ describe('admin panel shell', () => {
     await user.click(screen.getByRole('button', { name: 'Entrar' }))
 
     expect(await screen.findByRole('heading', { level: 1, name: 'Agenda' })).toBeInTheDocument()
-    expect(screen.getByText('Entrega 3 de 8')).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: /Nueva cita/ })).toBeInTheDocument()
   })
 
   it('shows field errors and a clear message for wrong credentials', async () => {

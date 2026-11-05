@@ -1,8 +1,17 @@
-import type { LocalDate } from '@/domain/types'
+import type { Appointment, Customer, ID, LocalDate, LoyaltyCard, Slot, TimeBlock } from '@/domain/types'
+import type { SlotQuery } from '@/data'
 import { businessHours } from '@/config/business'
 import { MockBookingRepository } from '@/data/mock/MockBookingRepository'
 import { localDate, weekdayOf } from '@/lib/time'
-import type { AdminSession, AdminUser, AgendaDay } from '../../domain'
+import type {
+  AdminNewAppointment,
+  AdminSession,
+  AdminUser,
+  AgendaDay,
+  NewBlock,
+  StaffStatusChange,
+  StatusChangeResult,
+} from '../../domain'
 import { InvalidCredentialsError, InvalidMfaCodeError, type AdminRepository } from '../AdminRepository'
 
 /**
@@ -139,6 +148,43 @@ export class MockAdminRepository implements AdminRepository {
         .sort((a, b) => a.startsAt.localeCompare(b.startsAt)),
       blocks: db.blocks.filter((b) => localDate(b.startsAt, tz) <= date && date <= localDate(b.endsAt, tz)),
     }
+  }
+
+  async getAvailableSlots(query: SlotQuery): Promise<Slot[]> {
+    await this.delay()
+    return this.booking.adminSlots(query)
+  }
+
+  setAppointmentStatus(id: ID, status: StaffStatusChange): Promise<StatusChangeResult> {
+    return this.booking.adminSetStatus(id, status)
+  }
+
+  createAppointment(input: AdminNewAppointment): Promise<Appointment> {
+    return this.booking.adminCreateAppointment(input)
+  }
+
+  rescheduleAppointment(id: ID, change: { startsAt: string; staffId: ID }): Promise<Appointment> {
+    return this.booking.adminReschedule(id, change)
+  }
+
+  updateAppointmentNotes(id: ID, notes: string): Promise<Appointment> {
+    return this.booking.adminUpdateNotes(id, notes)
+  }
+
+  createBlock(input: NewBlock): Promise<TimeBlock> {
+    return this.booking.adminCreateBlock(input)
+  }
+
+  deleteBlock(id: ID): Promise<void> {
+    return this.booking.adminDeleteBlock(id)
+  }
+
+  findCustomers(query: string): Promise<Customer[]> {
+    return this.booking.adminFindCustomers(query)
+  }
+
+  getLoyaltyForCustomer(customerId: ID): Promise<LoyaltyCard | null> {
+    return this.booking.adminLoyaltyFor(customerId)
   }
 
   demo = {

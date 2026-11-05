@@ -97,7 +97,11 @@ export interface Appointment {
   createdAt: Instant
   /** Token of the customer's loyalty card, if any. */
   loyaltyToken: string | null
+  /** Where it came from: the public site, the panel (phone, front desk) or a walk-in. */
+  source?: AppointmentSource
 }
+
+export type AppointmentSource = 'online' | 'panel' | 'walk_in'
 
 export interface LoyaltyCard {
   token: string

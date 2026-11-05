@@ -1,7 +1,18 @@
-import type { Appointment, Customer, LoyaltyCard, NewAppointment, Slot, Staff } from '@/domain/types'
+import type {
+  Appointment,
+  AppointmentSource,
+  Customer,
+  ID,
+  LoyaltyCard,
+  NewAppointment,
+  Slot,
+  Staff,
+  StaffChoice,
+  TimeBlock,
+} from '@/domain/types'
 import { bookingPolicy, businessHours } from '@/config/business'
 import { computeSlots, isActiveStatus, nearestAvailable, staffForServices, totalDuration } from '@/lib/availability'
-import { localDate } from '@/lib/time'
+import { addDays, localDate, toMinutes, weekdayOf, zonedInstant } from '@/lib/time'
 import { normalizeMxPhone } from '@/lib/phone'
 import type { BookingRepository, ServiceCatalog, SlotQuery } from '../BookingRepository'
 import {
@@ -14,6 +25,19 @@ import {
 import { createSeed, DEMO_APPOINTMENT_TOKEN, MOCK_DB_VERSION, type MockDb } from './seed'
 
 const STORAGE_KEY = 'havana:mock-db'
+
+/** Staff may book from now on (no 1 h minimum) and up to 90 days ahead. */
+const STAFF_POLICY = { ...bookingPolicy, minNoticeMin: 0, maxAdvanceDays: 90 }
+
+/** Accent-insensitive lowercase, for searching names. */
+const fold = (s: string) =>
+  s
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .toLowerCase()
+
+/** End of a business-local day as an instant (rewards expire at the end of the day). */
+const zonedEndOfDay = (date: string) => zonedInstant(date, '23:59', businessHours.timeZone).toISOString()
 
 export interface MockOptions {
   /** Where to persist; null keeps everything in memory. */
@@ -71,12 +95,13 @@ export class MockBookingRepository implements BookingRepository {
       const raw = this.storage?.getItem(STORAGE_KEY)
       if (!raw) return null
       const data = JSON.parse(raw) as MockDb
-      if (data.version !== MOCK_DB_VERSION) return null
+      // Unknown shapes start over; older versions of this demo are refreshed like a new day.
+      if (typeof data.version !== 'number' || data.version > MOCK_DB_VERSION) return null
       // The catalog (categories, services, staff with photos and order) always comes from
       // the current seed: asset URLs are hashed per build, so stored ones go stale.
       // Only bookings, customers, loyalty and blocks are kept from storage.
       const fresh = createSeed(this.now())
-      if (data.seededOn === fresh.seededOn) {
+      if (data.seededOn === fresh.seededOn && data.version === MOCK_DB_VERSION) {
         return { ...data, categories: fresh.categories, services: fresh.services, staff: fresh.staff }
       }
       return refreshDemo(data, fresh)
@@ -104,7 +129,7 @@ export class MockBookingRepository implements BookingRepository {
     return run
   }
 
-  private slotsFor(q: SlotQuery): Slot[] {
+  private slotsFor(q: SlotQuery, policy = bookingPolicy): Slot[] {
     const services = this.db.services.filter((s) => s.active && q.serviceIds.includes(s.id))
     if (services.length !== q.serviceIds.length || services.length === 0) return []
     const candidates = staffForServices(this.db.staff, q.serviceIds)
@@ -114,7 +139,7 @@ export class MockBookingRepository implements BookingRepository {
       durationMin: totalDuration(services),
       staff,
       hours: businessHours,
-      policy: bookingPolicy,
+      policy,
       appointments: this.db.appointments,
       blocks: this.db.blocks,
       now: this.now(),
@@ -253,6 +278,254 @@ export class MockBookingRepository implements BookingRepository {
       this.save()
       return clone(a)
     })
+  }
+
+  // ── Staff actions (admin panel) ────────────────────────────────────────────
+  // Same rules the Supabase backend will enforce. Staff can book on short notice
+  // and further ahead than customers, but never double-book a barber.
+
+  adminSlots(q: SlotQuery): Slot[] {
+    return this.slotsFor(q, STAFF_POLICY)
+  }
+
+  async adminSetStatus(
+    id: ID,
+    status: 'confirmed' | 'completed' | 'no_show' | 'cancelled',
+  ): Promise<{ appointment: Appointment; loyalty: LoyaltyCard | null; stampAdded: boolean }> {
+    await this.delay()
+    return this.exclusive(() => {
+      const a = this.db.appointments.find((x) => x.id === id)
+      if (!a) throw new NotFoundError('esa cita')
+      if (a.status !== 'booked' && a.status !== 'confirmed') throw new InvalidRequestError('Esta cita ya está cerrada.')
+      const now = this.now().getTime()
+      const start = Date.parse(a.startsAt)
+      if (status === 'confirmed' && a.status === 'confirmed')
+        throw new InvalidRequestError('La cita ya está confirmada.')
+      if (status === 'completed' && now < start)
+        throw new InvalidRequestError('Solo puedes completar una cita cuando ya empezó.')
+      if (status === 'no_show' && now < start + bookingPolicy.toleranceMin * 60000)
+        throw new InvalidRequestError(`Marca no-show después de ${bookingPolicy.toleranceMin} minutos de tolerancia.`)
+      a.status = status
+
+      // The stamp is earned when the appointment is completed, if a service counts.
+      let stampAdded = false
+      let card = this.db.loyalty.find((c) => c.customerId === a.customerId) ?? null
+      const eligible = this.db.services.some((sv) => a.serviceIds.includes(sv.id) && sv.loyaltyEligible)
+      if (status === 'completed' && eligible) {
+        const customer = this.db.customers.find((c) => c.id === a.customerId)
+        if (customer) {
+          card = this.cardFor(customer)
+          if (card.stamps < card.goal) {
+            card.stamps += 1
+            stampAdded = true
+            if (card.stamps === card.goal) {
+              const until = addDays(localDate(this.now(), businessHours.timeZone), bookingPolicy.rewardValidityDays)
+              card.rewardExpiresAt = zonedEndOfDay(until)
+            }
+          }
+          a.loyaltyToken = card.token
+        }
+      }
+      this.save()
+      return { appointment: clone(a), loyalty: card ? clone(card) : null, stampAdded }
+    })
+  }
+
+  async adminCreateAppointment(input: {
+    serviceIds: ID[]
+    staffId: StaffChoice
+    startsAt: string
+    customer: { id: ID } | { name: string; phone: string; email: string }
+    notes: string
+    source: Exclude<AppointmentSource, 'online'>
+  }): Promise<Appointment> {
+    await this.delay()
+    return this.exclusive(() => {
+      const services = this.db.services.filter((s) => s.active && input.serviceIds.includes(s.id))
+      if (services.length === 0 || services.length !== input.serviceIds.length)
+        throw new InvalidRequestError('Elige al menos un servicio.')
+      const durationMin = totalDuration(services)
+      const startsAt = new Date(input.startsAt).toISOString()
+      const endsAt = new Date(Date.parse(startsAt) + durationMin * 60000).toISOString()
+
+      let staffId: ID | null
+      if (input.source === 'walk_in') {
+        // Walk-in: right now, with whoever is free (or the chosen barber), even off the 15-min grid.
+        const candidates = staffForServices(this.db.staff, input.serviceIds).filter(
+          (s) => input.staffId === 'any' || s.id === input.staffId,
+        )
+        staffId =
+          candidates.find((s) => this.isWorking(s, startsAt, endsAt) && !this.conflicts(s.id, startsAt, endsAt))?.id ??
+          null
+        if (!staffId) throw new SlotUnavailableError([])
+      } else {
+        const date = localDate(startsAt, businessHours.timeZone)
+        const slots = this.adminSlots({ serviceIds: input.serviceIds, staffId: input.staffId, date })
+        const slot = slots.find((x) => x.startsAt === startsAt)
+        if (!slot?.available || !slot.staffId) throw new SlotUnavailableError(nearestAvailable(slots, startsAt))
+        staffId = slot.staffId
+      }
+
+      const customer = this.resolveCustomer(input.customer, input.source === 'walk_in')
+      const card = this.db.loyalty.find((c) => c.customerId === customer.id)
+      const appt: Appointment = {
+        id: `appt-${randomToken()}`,
+        token: randomToken(),
+        customerId: customer.id,
+        customer: { name: customer.name, phone: customer.phone, email: customer.email },
+        staffId,
+        serviceIds: services.map((x) => x.id),
+        startsAt,
+        endsAt,
+        durationMin,
+        totalPrice: services.reduce((t, x) => t + x.price, 0),
+        status: 'confirmed',
+        notes: input.notes.trim(),
+        createdAt: this.now().toISOString(),
+        loyaltyToken: card?.token ?? null,
+        source: input.source,
+      }
+      this.db.appointments.push(appt)
+      this.save()
+      return clone(appt)
+    })
+  }
+
+  async adminReschedule(id: ID, change: { startsAt: string; staffId: ID }): Promise<Appointment> {
+    await this.delay()
+    return this.exclusive(() => {
+      const a = this.db.appointments.find((x) => x.id === id)
+      if (!a) throw new NotFoundError('esa cita')
+      if (a.status !== 'booked' && a.status !== 'confirmed') throw new InvalidRequestError('Esta cita ya está cerrada.')
+      const date = localDate(change.startsAt, businessHours.timeZone)
+      const slots = this.adminSlots({
+        serviceIds: a.serviceIds,
+        staffId: change.staffId,
+        date,
+        excludeAppointmentId: a.id,
+      })
+      const target = slots.find((x) => x.startsAt === change.startsAt)
+      if (!target?.available || !target.staffId)
+        throw new SlotUnavailableError(nearestAvailable(slots, change.startsAt))
+      a.startsAt = target.startsAt
+      a.endsAt = target.endsAt
+      a.staffId = target.staffId
+      this.save()
+      return clone(a)
+    })
+  }
+
+  async adminUpdateNotes(id: ID, notes: string): Promise<Appointment> {
+    await this.delay()
+    return this.exclusive(() => {
+      const a = this.db.appointments.find((x) => x.id === id)
+      if (!a) throw new NotFoundError('esa cita')
+      a.notes = notes.trim()
+      this.save()
+      return clone(a)
+    })
+  }
+
+  async adminCreateBlock(input: Omit<TimeBlock, 'id'>): Promise<TimeBlock> {
+    await this.delay()
+    return this.exclusive(() => {
+      const reason = input.reason.trim()
+      if (!reason) throw new InvalidRequestError('Escribe el motivo del bloqueo.')
+      if (Date.parse(input.endsAt) <= Date.parse(input.startsAt))
+        throw new InvalidRequestError('La hora de fin debe ser después del inicio.')
+      const clash = this.db.appointments.filter(
+        (a) =>
+          (a.status === 'booked' || a.status === 'confirmed') &&
+          (input.staffId === null || a.staffId === input.staffId) &&
+          a.startsAt < input.endsAt &&
+          input.startsAt < a.endsAt,
+      )
+      if (clash.length)
+        throw new InvalidRequestError(
+          clash.length === 1
+            ? 'Hay 1 cita en ese horario. Reprográmala o cancélala antes de bloquear.'
+            : `Hay ${clash.length} citas en ese horario. Reprográmalas o cancélalas antes de bloquear.`,
+        )
+      const block: TimeBlock = { ...input, reason, id: `block-${randomToken()}` }
+      this.db.blocks.push(block)
+      this.save()
+      return clone(block)
+    })
+  }
+
+  async adminDeleteBlock(id: ID): Promise<void> {
+    await this.delay()
+    return this.exclusive(() => {
+      const i = this.db.blocks.findIndex((b) => b.id === id)
+      if (i < 0) throw new NotFoundError('ese bloqueo')
+      this.db.blocks.splice(i, 1)
+      this.save()
+    })
+  }
+
+  async adminFindCustomers(query: string): Promise<Customer[]> {
+    await this.delay()
+    const q = fold(query.trim())
+    const digits = query.replace(/\D/g, '')
+    if (q.length < 2 && digits.length < 3) return []
+    return clone(
+      this.db.customers
+        .filter((c) => fold(c.name).includes(q) || (digits.length >= 3 && c.phone.includes(digits)))
+        .slice(0, 8),
+    )
+  }
+
+  async adminLoyaltyFor(customerId: ID): Promise<LoyaltyCard | null> {
+    await this.delay()
+    const c = this.db.loyalty.find((x) => x.customerId === customerId)
+    return c ? clone(c) : null
+  }
+
+  /** Whether [start, end) falls inside one of the barber's working ranges that day. */
+  private isWorking(s: Staff, startsAt: string, endsAt: string) {
+    const tz = businessHours.timeZone
+    const date = localDate(startsAt, tz)
+    if (localDate(endsAt, tz) !== date) return false
+    const dayStart = zonedInstant(date, '00:00', tz).getTime()
+    const from = (Date.parse(startsAt) - dayStart) / 60000
+    const to = (Date.parse(endsAt) - dayStart) / 60000
+    return (s.schedule[weekdayOf(date)] ?? []).some((r) => from >= toMinutes(r.start) && to <= toMinutes(r.end))
+  }
+
+  /** Active appointments or blocks overlapping [start, end) for a barber. */
+  private conflicts(staffId: ID, startsAt: string, endsAt: string, excludeId?: ID) {
+    return (
+      this.db.appointments.some(
+        (a) =>
+          a.id !== excludeId &&
+          a.staffId === staffId &&
+          isActiveStatus(a.status) &&
+          a.startsAt < endsAt &&
+          startsAt < a.endsAt,
+      ) ||
+      this.db.blocks.some(
+        (b) => (b.staffId === null || b.staffId === staffId) && b.startsAt < endsAt && startsAt < b.endsAt,
+      )
+    )
+  }
+
+  private resolveCustomer(c: { id: ID } | { name: string; phone: string; email: string }, walkIn: boolean): Customer {
+    if ('id' in c) {
+      const found = this.db.customers.find((x) => x.id === c.id)
+      if (!found) throw new NotFoundError('ese cliente')
+      return found
+    }
+    const name = c.name.trim()
+    if (!name) throw new InvalidRequestError('Escribe el nombre del cliente.')
+    const phone = c.phone.trim() ? normalizeMxPhone(c.phone) : ''
+    if (phone === null) throw new InvalidRequestError('Revisa el teléfono: 10 dígitos.')
+    if (!phone && !walkIn) throw new InvalidRequestError('El teléfono es obligatorio para agendar.')
+    const email = c.email.trim().toLowerCase()
+    const existing = this.db.customers.find((x) => (phone && x.phone === phone) || (email && x.email === email))
+    if (existing) return existing
+    const customer: Customer = { id: `cust-${randomToken()}`, name, phone, email, createdAt: this.now().toISOString() }
+    this.db.customers.push(customer)
+    return customer
   }
 
   async getLoyaltyCardByToken(token: string): Promise<LoyaltyCard | null> {

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { zonedInstant } from '@/lib/time'
 import { BookingLimitError, ChangeWindowClosedError, SlotUnavailableError } from '../errors'
 import { MockBookingRepository } from './MockBookingRepository'
-import { createSeed, DEMO_APPOINTMENT_TOKEN, DEMO_LOYALTY_TOKEN, type MockDb } from './seed'
+import { createSeed, DEMO_APPOINTMENT_TOKEN, DEMO_LOYALTY_TOKEN, MOCK_DB_VERSION, type MockDb } from './seed'
 
 const TZ = 'America/Mexico_City'
 const NOW = zonedInstant('2026-11-01', '09:00', TZ) // Sunday morning
@@ -186,6 +186,30 @@ describe('MockBookingRepository', () => {
     expect(clash.map((a) => a.token)).toEqual([mine.token])
   })
 
+  it('upgrades a demo stored by an older version, keeping real bookings', async () => {
+    const store = new Map<string, string>()
+    const storage = {
+      getItem: (k: string) => store.get(k) ?? null,
+      setItem: (k: string, v: string) => void store.set(k, v),
+      removeItem: (k: string) => void store.delete(k),
+    }
+    const r1 = new MockBookingRepository({ storage, initial: emptyDb(), now: () => NOW })
+    const mine = await r1.createAppointment(booking(iso(MONDAY, '10:00')))
+    const old = JSON.parse(store.get('havana:mock-db')!) as MockDb
+    store.set('havana:mock-db', JSON.stringify({ ...old, version: 1 }))
+
+    const db = new MockBookingRepository({ storage, now: () => NOW }).snapshot()
+    expect(db.version).toBe(MOCK_DB_VERSION)
+    expect(db.appointments.some((a) => a.token === mine.token)).toBe(true)
+    // A version from the future is not trusted: start over.
+    store.set('havana:mock-db', JSON.stringify({ ...old, version: MOCK_DB_VERSION + 1 }))
+    expect(
+      new MockBookingRepository({ storage, now: () => NOW })
+        .snapshot()
+        .appointments.some((a) => a.token === mine.token),
+    ).toBe(false)
+  })
+
   it('refreshes the catalog from the seed but keeps stored bookings', async () => {
     const stale = emptyDb()
     stale.staff = stale.staff.map((s) => ({ ...s, photoUrl: '/old-hash.webp', order: 9 - s.order }))
@@ -202,5 +226,208 @@ describe('MockBookingRepository', () => {
     expect(staff.map((s) => s.name)).toEqual(['Leonardo Gómez', 'Isaac Fuentes'])
     expect(staff.every((s) => s.photoUrl !== '/old-hash.webp')).toBe(true)
     expect(await r2.getAppointmentByToken(a.token)).toBeTruthy()
+  })
+})
+
+describe('MockBookingRepository · staff actions', () => {
+  // Monday 2 Nov: Isaac works 10–14 and 15–20:30.
+  const at = (time: string) => zonedInstant(MONDAY, time, TZ)
+  const repoAt = (time: string, db = emptyDb()) => {
+    let now = at(time)
+    const r = new MockBookingRepository({ storage: null, initial: db, now: () => now })
+    // "HH:mm" on Monday, or a full ISO instant.
+    return { r, setNow: (t: string) => (now = t.includes('T') ? new Date(t) : at(t)) }
+  }
+  const ana = { name: 'Ana Ríos', phone: '442 111 2233', email: '' }
+
+  it('books from the panel on short notice, confirmed and marked as a panel booking', async () => {
+    const { r } = repoAt('09:50')
+    const a = await r.adminCreateAppointment({
+      serviceIds: ['corte-adulto'],
+      staffId: 'isaac',
+      startsAt: iso(MONDAY, '10:00'),
+      customer: ana,
+      notes: ' Llamó por teléfono ',
+      source: 'panel',
+    })
+    expect(a).toMatchObject({ status: 'confirmed', source: 'panel', notes: 'Llamó por teléfono', staffId: 'isaac' })
+    expect(a.customer.phone).toBe('4421112233')
+    // Customers would need 1 h of notice; staff do not, but never double-book.
+    await expect(
+      r.adminCreateAppointment({
+        serviceIds: ['corte-adulto'],
+        staffId: 'isaac',
+        startsAt: iso(MONDAY, '10:15'),
+        customer: { name: 'Otro', phone: '4429990000', email: '' },
+        notes: '',
+        source: 'panel',
+      }),
+    ).rejects.toBeInstanceOf(SlotUnavailableError)
+  })
+
+  it('requires a phone for bookings but not for walk-ins, and reuses known customers', async () => {
+    const { r } = repoAt('11:07')
+    await expect(
+      r.adminCreateAppointment({
+        serviceIds: ['bigote'],
+        staffId: 'isaac',
+        startsAt: iso(MONDAY, '12:00'),
+        customer: { name: 'Sin tel', phone: '', email: '' },
+        notes: '',
+        source: 'panel',
+      }),
+    ).rejects.toThrow('El teléfono es obligatorio')
+
+    // Walk-in right now, off the 15-minute grid, name only.
+    const w = await r.adminCreateAppointment({
+      serviceIds: ['bigote'],
+      staffId: 'any',
+      startsAt: at('11:07').toISOString(),
+      customer: { name: 'Señor de la gorra', phone: '', email: '' },
+      notes: '',
+      source: 'walk_in',
+    })
+    expect(w).toMatchObject({ source: 'walk_in', staffId: 'isaac', durationMin: 15 })
+
+    const first = await r.adminCreateAppointment({
+      serviceIds: ['corte-adulto'],
+      staffId: 'isaac',
+      startsAt: iso(MONDAY, '15:00'),
+      customer: ana,
+      notes: '',
+      source: 'panel',
+    })
+    const again = await r.adminCreateAppointment({
+      serviceIds: ['corte-adulto'],
+      staffId: 'isaac',
+      startsAt: iso(MONDAY, '16:00'),
+      customer: { id: first.customerId },
+      notes: '',
+      source: 'panel',
+    })
+    expect(again.customerId).toBe(first.customerId)
+    expect((await r.adminFindCustomers('ana rios')).map((c) => c.name)).toEqual(['Ana Ríos'])
+    expect((await r.adminFindCustomers('2233')).map((c) => c.id)).toEqual([first.customerId])
+  })
+
+  it('completing adds a loyalty stamp; the tenth unlocks the reward with an expiry', async () => {
+    const { r, setNow } = repoAt('09:00')
+    const a = await r.adminCreateAppointment({
+      serviceIds: ['corte-adulto'],
+      staffId: 'isaac',
+      startsAt: iso(MONDAY, '10:00'),
+      customer: ana,
+      notes: '',
+      source: 'panel',
+    })
+    await expect(r.adminSetStatus(a.id, 'completed')).rejects.toThrow('cuando ya empezó')
+    setNow('10:40')
+    const res = await r.adminSetStatus(a.id, 'completed')
+    expect(res).toMatchObject({ stampAdded: true, loyalty: { stamps: 1, goal: 10, rewardExpiresAt: null } })
+    await expect(r.adminSetStatus(a.id, 'cancelled')).rejects.toThrow('ya está cerrada')
+
+    // Nine more visits: the card fills up and the free cut expires 90 days later.
+    let last = res
+    const visits = ['11:00', '12:00', '13:00', '15:00', '16:00', '17:00', '18:00', '19:00'].map((t) => at(t))
+    visits.push(zonedInstant('2026-11-03', '10:00', TZ)) // Tuesday
+    for (const start of visits.map((d) => d.toISOString())) {
+      setNow('09:00')
+      const b = await r.adminCreateAppointment({
+        serviceIds: ['corte-adulto'],
+        staffId: 'isaac',
+        startsAt: start,
+        customer: { id: a.customerId },
+        notes: '',
+        source: 'panel',
+      })
+      setNow(start)
+      last = await r.adminSetStatus(b.id, 'completed')
+    }
+    expect(last.loyalty).toMatchObject({ stamps: 10 })
+    // Completed on Tuesday 3 Nov: the free cut is valid for 90 days.
+    expect(last.loyalty!.rewardExpiresAt).toBe(zonedInstant('2027-02-01', '23:59', TZ).toISOString())
+  })
+
+  it('services that do not count give no stamp', async () => {
+    const { r, setNow } = repoAt('09:00')
+    const a = await r.adminCreateAppointment({
+      serviceIds: ['bigote'],
+      staffId: 'isaac',
+      startsAt: iso(MONDAY, '10:00'),
+      customer: ana,
+      notes: '',
+      source: 'panel',
+    })
+    setNow('10:20')
+    expect(await r.adminSetStatus(a.id, 'completed')).toMatchObject({ stampAdded: false, loyalty: null })
+  })
+
+  it('no-show only after the tolerance; confirm and cancel before', async () => {
+    const { r, setNow } = repoAt('09:00')
+    const a = await r.adminCreateAppointment({
+      serviceIds: ['corte-adulto'],
+      staffId: 'isaac',
+      startsAt: iso(MONDAY, '10:00'),
+      customer: ana,
+      notes: '',
+      source: 'panel',
+    })
+    await expect(r.adminSetStatus(a.id, 'confirmed')).rejects.toThrow('ya está confirmada')
+    setNow('10:05')
+    await expect(r.adminSetStatus(a.id, 'no_show')).rejects.toThrow('10 minutos de tolerancia')
+    setNow('10:11')
+    expect((await r.adminSetStatus(a.id, 'no_show')).appointment.status).toBe('no_show')
+  })
+
+  it('reschedules to another barber and time, never onto a busy slot', async () => {
+    const db = emptyDb()
+    const { r } = repoAt('09:00', db)
+    const a = await r.adminCreateAppointment({
+      serviceIds: ['corte-adulto'],
+      staffId: 'isaac',
+      startsAt: iso(MONDAY, '10:00'),
+      customer: ana,
+      notes: '',
+      source: 'panel',
+    })
+    const b = await r.adminCreateAppointment({
+      serviceIds: ['corte-adulto'],
+      staffId: 'isaac',
+      startsAt: iso(MONDAY, '11:00'),
+      customer: { name: 'Beto', phone: '4420001111', email: '' },
+      notes: '',
+      source: 'panel',
+    })
+    await expect(r.adminReschedule(a.id, { startsAt: b.startsAt, staffId: 'isaac' })).rejects.toBeInstanceOf(
+      SlotUnavailableError,
+    )
+    // Moving within its own time range is fine (it does not collide with itself).
+    const moved = await r.adminReschedule(a.id, { startsAt: iso(MONDAY, '10:15'), staffId: 'isaac' })
+    expect(moved.startsAt).toBe(iso(MONDAY, '10:15'))
+    // Tuesday with Leonardo.
+    const tue = await r.adminReschedule(a.id, { startsAt: iso('2026-11-03', '12:00'), staffId: 'leonardo' })
+    expect(tue).toMatchObject({ staffId: 'leonardo', startsAt: iso('2026-11-03', '12:00') })
+  })
+
+  it('blocks refuse to cover pending appointments, then free the time when removed', async () => {
+    const { r } = repoAt('09:00')
+    await r.adminCreateAppointment({
+      serviceIds: ['corte-adulto'],
+      staffId: 'isaac',
+      startsAt: iso(MONDAY, '12:00'),
+      customer: ana,
+      notes: '',
+      source: 'panel',
+    })
+    const block = { staffId: 'isaac', startsAt: iso(MONDAY, '11:30'), endsAt: iso(MONDAY, '13:00'), reason: 'Trámite' }
+    await expect(r.adminCreateBlock(block)).rejects.toThrow('Hay 1 cita en ese horario')
+    await expect(r.adminCreateBlock({ ...block, reason: '  ' })).rejects.toThrow('motivo')
+
+    const lunch = await r.adminCreateBlock({ ...block, startsAt: iso(MONDAY, '16:00'), endsAt: iso(MONDAY, '17:00') })
+    const slot = (t: string) =>
+      r.adminSlots({ serviceIds: ['corte-adulto'], staffId: 'isaac', date: MONDAY }).find((s) => s.time === t)
+    expect(slot('16:00')?.available).toBe(false)
+    await r.adminDeleteBlock(lunch.id)
+    expect(slot('16:00')?.available).toBe(true)
   })
 })

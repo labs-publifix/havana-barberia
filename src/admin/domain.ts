@@ -1,4 +1,16 @@
-import type { Appointment, ID, LocalDate, Service, Staff, TimeBlock, TimeRange } from '@/domain/types'
+import type {
+  Appointment,
+  AppointmentSource,
+  ID,
+  Instant,
+  LocalDate,
+  LoyaltyCard,
+  Service,
+  Staff,
+  StaffChoice,
+  TimeBlock,
+  TimeRange,
+} from '@/domain/types'
 
 /**
  * Admin domain. Roles come from the project fundamentals:
@@ -53,4 +65,34 @@ export interface AgendaDay {
   services: Service[]
   appointments: Appointment[]
   blocks: TimeBlock[]
+}
+
+/** Status changes staff can make from the panel. */
+export type StaffStatusChange = 'confirmed' | 'completed' | 'no_show' | 'cancelled'
+
+export interface StatusChangeResult {
+  appointment: Appointment
+  /** Customer's card after the change (a completed appointment can add a stamp). */
+  loyalty: LoyaltyCard | null
+  stampAdded: boolean
+}
+
+/** Customer for a panel booking: an existing one, or new details (phone optional for walk-ins). */
+export type PanelCustomer = { id: ID } | { name: string; phone: string; email: string }
+
+export interface AdminNewAppointment {
+  serviceIds: ID[]
+  staffId: StaffChoice
+  startsAt: Instant
+  customer: PanelCustomer
+  notes: string
+  source: Exclude<AppointmentSource, 'online'>
+}
+
+export interface NewBlock {
+  /** null = whole shop. */
+  staffId: ID | null
+  startsAt: Instant
+  endsAt: Instant
+  reason: string
 }
