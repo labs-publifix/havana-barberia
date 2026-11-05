@@ -11,7 +11,7 @@ import {
   NotFoundError,
   SlotUnavailableError,
 } from '../errors'
-import { createSeed, MOCK_DB_VERSION, type MockDb } from './seed'
+import { createSeed, DEMO_APPOINTMENT_TOKEN, MOCK_DB_VERSION, type MockDb } from './seed'
 
 const STORAGE_KEY = 'havana:mock-db'
 
@@ -55,6 +55,11 @@ export class MockBookingRepository implements BookingRepository {
     this.save()
   }
 
+  /** Read-only copy of everything, for the admin's mock repository (same demo data as the public site). */
+  snapshot(): MockDb {
+    return clone(this.db)
+  }
+
   /** Clear stored demo data and reseed (used by the /__ui gallery). */
   reset() {
     this.db = createSeed(this.now())
@@ -71,7 +76,10 @@ export class MockBookingRepository implements BookingRepository {
       // the current seed: asset URLs are hashed per build, so stored ones go stale.
       // Only bookings, customers, loyalty and blocks are kept from storage.
       const fresh = createSeed(this.now())
-      return { ...data, categories: fresh.categories, services: fresh.services, staff: fresh.staff }
+      if (data.seededOn === fresh.seededOn) {
+        return { ...data, categories: fresh.categories, services: fresh.services, staff: fresh.staff }
+      }
+      return refreshDemo(data, fresh)
     } catch {
       return null
     }
@@ -259,5 +267,27 @@ function safeLocalStorage(): Storage | null {
     return typeof window !== 'undefined' ? window.localStorage : null
   } catch {
     return null
+  }
+}
+
+/**
+ * A new day: reseed the sample agenda (so "today" always has appointments) but keep
+ * what people actually booked in the demo, their customers and loyalty cards.
+ * Seeded appointments that would overlap a kept booking are dropped.
+ */
+function refreshDemo(stored: MockDb, fresh: MockDb): MockDb {
+  const own = stored.appointments.filter((a) => !a.token.startsWith('seed-') && a.token !== DEMO_APPOINTMENT_TOKEN)
+  const overlaps = (a: Appointment) =>
+    own.some(
+      (o) => isActiveStatus(o.status) && o.staffId === a.staffId && a.startsAt < o.endsAt && o.startsAt < a.endsAt,
+    )
+  const ownCustomers = new Set(own.map((a) => a.customerId))
+  const freshIds = new Set(fresh.customers.map((c) => c.id))
+  const freshCards = new Set(fresh.loyalty.map((l) => l.token))
+  return {
+    ...fresh,
+    appointments: [...fresh.appointments.filter((a) => !overlaps(a)), ...own],
+    customers: [...fresh.customers, ...stored.customers.filter((c) => ownCustomers.has(c.id) && !freshIds.has(c.id))],
+    loyalty: [...fresh.loyalty, ...stored.loyalty.filter((l) => !freshCards.has(l.token))],
   }
 }

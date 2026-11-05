@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { routes } from '@/app/routes'
+import { useRepository } from '@/app/RepositoryContext'
 import { AdminAuthProvider } from './auth/AdminAuth'
 import { RequireSession } from './auth/guards'
 import { createAdminRepository, type AdminRepository } from './data'
@@ -15,7 +16,8 @@ import { ToastProvider } from './ui/Toast'
  * does not carry it. Uses its own repository (mock today, Supabase in hito 1C).
  */
 export default function AdminApp({ repository }: { repository?: AdminRepository }) {
-  const [repo] = useState(() => repository ?? createAdminRepository())
+  const booking = useRepository()
+  const [repo] = useState(() => repository ?? createAdminRepository(booking))
   return (
     <AdminAuthProvider repository={repo}>
       <ToastProvider>

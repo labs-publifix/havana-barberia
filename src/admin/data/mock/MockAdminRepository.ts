@@ -1,4 +1,8 @@
-import type { AdminSession, AdminUser } from '../../domain'
+import type { LocalDate } from '@/domain/types'
+import { businessHours } from '@/config/business'
+import { MockBookingRepository } from '@/data/mock/MockBookingRepository'
+import { localDate, weekdayOf } from '@/lib/time'
+import type { AdminSession, AdminUser, AgendaDay } from '../../domain'
 import { InvalidCredentialsError, InvalidMfaCodeError, type AdminRepository } from '../AdminRepository'
 
 /**
@@ -64,16 +68,23 @@ interface Stored {
 export interface MockAdminOptions {
   storage?: Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> | null
   latencyMs?: number
+  /**
+   * Source of the demo agenda. In the app it is the same instance the public site
+   * uses, so a booking made at /reservar shows up in the panel right away.
+   */
+  booking?: MockBookingRepository
 }
 
 /** Demo auth: any listed email with the demo password; any 6-digit code passes the second step. */
 export class MockAdminRepository implements AdminRepository {
   private readonly storage: MockAdminOptions['storage']
   private readonly latencyMs: number
+  private readonly booking: MockBookingRepository
 
   constructor(opts: MockAdminOptions = {}) {
     this.storage = opts.storage === undefined ? defaultStorage() : opts.storage
     this.latencyMs = opts.latencyMs ?? 0
+    this.booking = opts.booking ?? new MockBookingRepository({ storage: null })
   }
 
   async getSession(): Promise<AdminSession | null> {
@@ -111,6 +122,23 @@ export class MockAdminRepository implements AdminRepository {
   async listUsers(): Promise<AdminUser[]> {
     await this.delay()
     return demoUsers.map((u) => ({ ...u }))
+  }
+
+  async getAgendaDay(date: LocalDate): Promise<AgendaDay> {
+    await this.delay()
+    const db = this.booking.snapshot()
+    const tz = businessHours.timeZone
+    return {
+      date,
+      timeZone: tz,
+      hours: businessHours.weekly[weekdayOf(date)] ?? [],
+      staff: db.staff.filter((s) => s.active).sort((a, b) => a.order - b.order),
+      services: db.services,
+      appointments: db.appointments
+        .filter((a) => localDate(a.startsAt, tz) === date)
+        .sort((a, b) => a.startsAt.localeCompare(b.startsAt)),
+      blocks: db.blocks.filter((b) => localDate(b.startsAt, tz) <= date && date <= localDate(b.endsAt, tz)),
+    }
   }
 
   demo = {

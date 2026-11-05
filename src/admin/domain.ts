@@ -1,4 +1,4 @@
-import type { ID } from '@/domain/types'
+import type { Appointment, ID, LocalDate, Service, Staff, TimeBlock, TimeRange } from '@/domain/types'
 
 /**
  * Admin domain. Roles come from the project fundamentals:
@@ -42,3 +42,15 @@ export const roleSummaries: Record<AdminRole, string> = {
 /** A session is usable once the second step is done (or not required). */
 export const isSessionComplete = (s: AdminSession | null | undefined): boolean =>
   !!s && (!s.user.mfaRequired || s.mfaVerified)
+
+/** Everything the admin needs to show one day: who works, what was booked, what is blocked. */
+export interface AgendaDay {
+  date: LocalDate
+  timeZone: string
+  /** Shop opening hours that day (empty when closed). */
+  hours: TimeRange[]
+  staff: Staff[]
+  services: Service[]
+  appointments: Appointment[]
+  blocks: TimeBlock[]
+}

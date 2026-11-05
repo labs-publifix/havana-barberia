@@ -1,4 +1,5 @@
-import type { AdminSession, AdminUser } from '../domain'
+import type { LocalDate } from '@/domain/types'
+import type { AdminSession, AdminUser, AgendaDay } from '../domain'
 
 export class InvalidCredentialsError extends Error {
   constructor() {
@@ -27,6 +28,8 @@ export interface AdminRepository {
   verifyMfa(code: string): Promise<AdminSession>
   signOut(): Promise<void>
   listUsers(): Promise<AdminUser[]>
+  /** One day of the agenda (all barbers; the UI filters by role). */
+  getAgendaDay(date: LocalDate): Promise<AgendaDay>
   /** Demo-only helpers; the Supabase implementation leaves this undefined. */
   demo?: {
     users: AdminUser[]

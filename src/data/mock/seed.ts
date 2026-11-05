@@ -114,6 +114,58 @@ const staff: Staff[] = [
   },
 ]
 
+// Invented, generic names for demo customers (no real people).
+const FIRST_NAMES = [
+  'Carlos',
+  'Jorge',
+  'Miguel',
+  'Andrés',
+  'Ricardo',
+  'Fernando',
+  'Alejandro',
+  'Javier',
+  'Emiliano',
+  'Sergio',
+  'Daniel',
+  'Héctor',
+  'Mateo',
+  'Pablo',
+  'Óscar',
+  'Raúl',
+  'Eduardo',
+  'Tomás',
+  'Gerardo',
+  'Manuel',
+  'Roberto',
+  'Adrián',
+  'Mauricio',
+  'Bruno',
+]
+const LAST_NAMES = [
+  'Mendoza',
+  'Ramírez',
+  'Torres',
+  'Herrera',
+  'Castillo',
+  'Vargas',
+  'Navarro',
+  'Ríos',
+  'Salinas',
+  'Cabrera',
+  'Ortega',
+  'Delgado',
+  'Fuentes',
+  'Rosales',
+  'Aguilar',
+  'Campos',
+  'Valdez',
+  'Ibarra',
+  'Molina',
+  'Peña',
+]
+const demoName = (n: number) =>
+  `${FIRST_NAMES[(n * 7) % FIRST_NAMES.length]} ${LAST_NAMES[(n * 11) % LAST_NAMES.length]}`
+
 /** Small deterministic PRNG so the demo agenda looks the same on every load of a given day. */
 function mulberry32(seed: number) {
   let a = seed
@@ -212,7 +264,7 @@ export function createSeed(now: Date): MockDb {
         const n = customers.length
         const customer: Customer = {
           id: `cust-${n}`,
-          name: `Cliente de ejemplo ${n}`,
+          name: demoName(n),
           phone: `44200000${String(n).padStart(2, '0')}`,
           email: `cliente${n}@ejemplo.com`,
           createdAt,
@@ -232,6 +284,15 @@ export function createSeed(now: Date): MockDb {
       }
     }
   }
+
+  // Today gets a no-show and a cancellation so the admin overview has something to flag.
+  const todays = appointments
+    .filter((a) => localDate(a.startsAt, tz) === today && a.token.startsWith('seed-'))
+    .sort((a, b) => a.startsAt.localeCompare(b.startsAt))
+  const pastToday = todays.filter((a) => a.status === 'completed')
+  if (pastToday.length >= 2) pastToday[1]!.status = 'no_show'
+  const upcoming = todays.filter((a) => a.status === 'booked')
+  if (upcoming.length >= 2) upcoming[upcoming.length - 1]!.status = 'cancelled'
 
   // A block (e.g. training) so the agenda shows it.
   const blockDate = addDays(today, 3)

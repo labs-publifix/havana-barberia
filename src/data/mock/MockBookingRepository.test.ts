@@ -159,6 +159,33 @@ describe('MockBookingRepository', () => {
     expect((await r3.listStaff()).length).toBe(2)
   })
 
+  it('on a new day reseeds the sample agenda and keeps real demo bookings', async () => {
+    const yesterday = new Date(NOW.getTime() - 24 * 3600 * 1000)
+    const store = new Map<string, string>()
+    const storage = {
+      getItem: (k: string) => store.get(k) ?? null,
+      setItem: (k: string, v: string) => void store.set(k, v),
+      removeItem: (k: string) => void store.delete(k),
+    }
+    const r1 = new MockBookingRepository({
+      storage,
+      initial: { ...createSeed(yesterday), appointments: [] },
+      now: () => yesterday,
+    })
+    const mine = await r1.createAppointment(booking(iso(MONDAY, '10:00')))
+
+    const r2 = new MockBookingRepository({ storage, now: () => NOW })
+    const db = r2.snapshot()
+    expect(db.seededOn).toBe(createSeed(NOW).seededOn)
+    expect(db.appointments.find((a) => a.token === mine.token)?.customer.name).toBe(mine.customer.name)
+    expect(db.customers.some((c) => c.id === mine.customerId)).toBe(true)
+    // No sample appointment was left overlapping the kept booking.
+    const clash = db.appointments.filter(
+      (a) => a.staffId === mine.staffId && a.startsAt < mine.endsAt && mine.startsAt < a.endsAt,
+    )
+    expect(clash.map((a) => a.token)).toEqual([mine.token])
+  })
+
   it('refreshes the catalog from the seed but keeps stored bookings', async () => {
     const stale = emptyDb()
     stale.staff = stale.staff.map((s) => ({ ...s, photoUrl: '/old-hash.webp', order: 9 - s.order }))

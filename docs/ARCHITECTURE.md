@@ -87,3 +87,10 @@ Pantallas del panel ──▶ AdminRepository ──▶ MockAdminRepository     
 - **Componentes de trabajo** (`src/admin/ui`): controles densos (40 px en escritorio, 44 px en pantallas táctiles, texto de 16 px), `DataTable` (orden accesible, fila que abre con Tab + Enter), `SidePanel` (Radix Dialog lateral), `Toast`, `Card`, `StatCard`, `EmptyState`. Se revisan en `/admin/componentes` (solo en desarrollo y en la vista previa).
 - **Diseño:** escritorio primero (pantalla grande de la barbería) y responsive: barra lateral fija desde 1024 px y menú lateral desplegable debajo. Columna lateral oscura con el logo blanco; contenido claro; aqua solo para el indicador de sección activa y estados.
 - **Conectar Supabase:** implementar `AdminRepository` (`signIn` → `auth.signInWithPassword`, `verifyMfa` → `auth.mfa.challengeAndVerify`, `listUsers` → tabla de perfiles con RLS) y agregar el `case 'supabase'` en `src/admin/data/index.ts`.
+
+### Vista general (`/admin/inicio`)
+
+- **Datos compartidos con el sitio público:** en modo mock, `MockAdminRepository` lee del mismo `MockBookingRepository` que usa `/reservar` (`snapshot()`), así una reserva hecha en el sitio aparece en el panel. `getAgendaDay(fecha)` devuelve barberos, servicios, citas, bloqueos y horario del día.
+- **Demo siempre al día:** cuando cambia el día, la semilla se regenera (para que «hoy» siempre tenga citas) y se conservan las reservas hechas por personas en la demo, sus clientes y tarjetas de lealtad.
+- **Lógica pura y probada** en `src/admin/overview.ts` (`computeOverview`, `timelineBounds`): totales, citas en curso y siguiente, ocupación (minutos reservados entre minutos de trabajo, descontando bloqueos sin contarlos dos veces), valor del día (sin cancelaciones ni no-shows) y avisos: _sin cerrar_ (ya terminó y nadie la marcó), _por confirmar_ (sin confirmar en las próximas 2 h), no-shows, bloqueos y cancelaciones.
+- **Pantalla:** indicadores arriba (el valor en dinero solo para dueño y gerente), línea de tiempo por barbero a todo lo ancho desde 1280 px (listas por barbero debajo de ese ancho), próximas citas y avisos. Se actualiza cada minuto. El barbero ve solo su día.

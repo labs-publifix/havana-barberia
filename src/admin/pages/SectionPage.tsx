@@ -10,6 +10,7 @@ import { canAccess, isSectionId, sectionLabel, sections, showWorkbench, type Sec
 import { Card, EmptyState, PageHeader } from '../ui/Panel'
 
 const Workbench = lazy(() => import('./Workbench'))
+const Overview = lazy(() => import('./Overview'))
 
 const TOTAL_DELIVERIES = 8
 
@@ -75,6 +76,14 @@ export default function SectionPage() {
           necesitas, pide acceso a la persona dueña.
         </EmptyState>
       </Card>
+    )
+  }
+
+  if (section === 'inicio') {
+    return (
+      <Suspense fallback={null}>
+        <Overview />
+      </Suspense>
     )
   }
 

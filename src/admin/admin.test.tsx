@@ -1,24 +1,29 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { describe, expect, it } from 'vitest'
+import { AppProviders } from '@/app/AppProviders'
+import { MockBookingRepository } from '@/data/mock/MockBookingRepository'
 import AdminApp from './AdminApp'
 import { DEMO_PASSWORD, MockAdminRepository } from './data/mock/MockAdminRepository'
 
-function renderAdmin(path: string, repo = new MockAdminRepository({ storage: null })) {
+const newRepos = () => {
+  const booking = new MockBookingRepository({ storage: null })
+  return { booking, admin: new MockAdminRepository({ storage: null, booking }) }
+}
+
+function renderAdmin(path: string, repos = newRepos()) {
   const user = userEvent.setup()
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   render(
-    <QueryClientProvider client={client}>
+    <AppProviders repository={repos.booking}>
       <MemoryRouter initialEntries={[path]}>
         <Routes>
-          <Route path="/admin/*" element={<AdminApp repository={repo} />} />
+          <Route path="/admin/*" element={<AdminApp repository={repos.admin} />} />
         </Routes>
       </MemoryRouter>
-    </QueryClientProvider>,
+    </AppProviders>,
   )
-  return { user, repo }
+  return { user, repo: repos.admin, booking: repos.booking }
 }
 
 const nav = () => screen.getAllByRole('navigation', { name: 'Secciones del panel' })[0]!
@@ -64,9 +69,10 @@ describe('admin panel shell', () => {
   })
 
   it('a barber sees only their sections and is stopped at finance pages', async () => {
-    const repo = new MockAdminRepository({ storage: null })
+    const repos = newRepos()
+    const repo = repos.admin
     await repo.demo.switchTo('u-leonardo')
-    renderAdmin('/admin/cierre', repo)
+    renderAdmin('/admin/cierre', repos)
 
     expect(await screen.findByText('Esta sección no está disponible para tu rol')).toBeInTheDocument()
     const links = within(nav())
@@ -76,9 +82,10 @@ describe('admin panel shell', () => {
   })
 
   it('switching role from the account menu updates the navigation', async () => {
-    const repo = new MockAdminRepository({ storage: null })
+    const repos = newRepos()
+    const repo = repos.admin
     await repo.demo.switchTo('u-owner')
-    const { user } = renderAdmin('/admin/reportes', repo)
+    const { user } = renderAdmin('/admin/reportes', repos)
 
     await user.click(await screen.findByRole('button', { name: /Cuenta: Dueño/ }))
     await user.click(await screen.findByRole('menuitemradio', { name: /Recepción/ }))
@@ -89,9 +96,10 @@ describe('admin panel shell', () => {
   })
 
   it('signing out returns to the sign-in screen', async () => {
-    const repo = new MockAdminRepository({ storage: null })
+    const repos = newRepos()
+    const repo = repos.admin
     await repo.demo.switchTo('u-reception')
-    const { user } = renderAdmin('/admin/inicio', repo)
+    const { user } = renderAdmin('/admin/inicio', repos)
 
     await user.click(await screen.findByRole('button', { name: /Cuenta: Recepción/ }))
     await user.click(await screen.findByRole('menuitem', { name: 'Cerrar sesión' }))
@@ -100,9 +108,10 @@ describe('admin panel shell', () => {
   })
 
   it('workbench table sorts and opens a row in the side panel', async () => {
-    const repo = new MockAdminRepository({ storage: null })
+    const repos = newRepos()
+    const repo = repos.admin
     await repo.demo.switchTo('u-owner')
-    const { user } = renderAdmin('/admin/componentes', repo)
+    const { user } = renderAdmin('/admin/componentes', repos)
 
     const table = await screen.findByRole('table', { name: /Usuarios del panel/ })
     await waitFor(() => expect(within(table).getAllByRole('row')).toHaveLength(6))
