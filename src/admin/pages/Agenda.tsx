@@ -18,7 +18,9 @@ import { gridBounds, shiftDate, weekOf, type AgendaView } from '../agenda/model'
 import { NewAppointmentPanel, type NewAppointmentDraft } from '../agenda/NewAppointmentPanel'
 import { TimeGrid, type GridColumn } from '../agenda/TimeGrid'
 import { useAdminAuth, useAdminSession } from '../auth/AdminAuth'
-import { Kbd, Segmented, Select } from '../ui/controls'
+import { Kbd, Segmented } from '../ui/controls'
+import { DatePicker } from '../ui/DatePicker'
+import { Select } from '../ui/Select'
 
 const isDate = (s: string | null): s is LocalDate => !!s && /^\d{4}-\d{2}-\d{2}$/.test(s)
 
@@ -100,6 +102,7 @@ export default function Agenda() {
           ),
           date: d.date,
           staffId: s.id,
+          staffName: s.name,
           ranges: s.schedule[weekdayOf(d.date)] ?? [],
           appointments: appts,
           blocks: d.blocks.filter((b) => b.staffId === null || b.staffId === s.id),
@@ -130,6 +133,7 @@ export default function Agenda() {
         ),
         date: d.date,
         staffId: s.id,
+        staffName: s.name,
         ranges: s.schedule[weekdayOf(d.date)] ?? [],
         appointments: appts,
         blocks: d.blocks.filter((b) => b.staffId === null || b.staffId === s.id),
@@ -218,15 +222,13 @@ export default function Agenda() {
         <h2 className="min-w-0 text-lg font-semibold tracking-[-0.01em]" aria-live="polite">
           {title}
         </h2>
-        <label className="sr-only" htmlFor="agenda-date">
-          Ir a fecha
-        </label>
-        <input
-          id="agenda-date"
-          type="date"
+        <DatePicker
+          label="Ir a fecha"
+          hideLabel
           value={date}
-          onChange={(e) => isDate(e.target.value) && set({ fecha: e.target.value === today ? null : e.target.value })}
-          className="h-10 rounded-md border-[1.5px] border-line-strong bg-raised px-2.5 text-base focus:border-fg focus:outline-none focus:ring-4 focus:ring-aqua-500/30 coarse:h-11"
+          today={today}
+          onChange={(d) => set({ fecha: d === today ? null : d })}
+          className="w-[220px]"
         />
 
         <div className="flex flex-wrap items-center gap-2 xl:ml-auto">
@@ -245,7 +247,7 @@ export default function Agenda() {
                 label="Barbero"
                 hideLabel
                 value={view === 'semana' ? (weekStaffId ?? '') : (barberParam ?? '')}
-                onChange={(e) => set({ barbero: e.target.value || null })}
+                onValueChange={(v) => set({ barbero: v || null })}
                 options={[
                   ...(view === 'dia' ? [{ value: '', label: 'Todos los barberos' }] : []),
                   ...staffAll.map((s) => ({ value: s.id, label: s.name })),

@@ -5,6 +5,16 @@ import { cleanup } from '@testing-library/react'
 // jsdom lacks these browser APIs used by the UI.
 window.scrollTo = vi.fn() as unknown as typeof window.scrollTo
 Element.prototype.scrollIntoView = vi.fn()
+// Radix (tooltip, popover, select) measures elements with ResizeObserver.
+globalThis.ResizeObserver ??= class {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+} as unknown as typeof ResizeObserver
+// Radix Select uses pointer capture.
+Element.prototype.hasPointerCapture = vi.fn(() => false)
+Element.prototype.setPointerCapture = vi.fn()
+Element.prototype.releasePointerCapture = vi.fn()
 
 // Recent Node versions ship their own (disabled) Web Storage globals that can shadow
 // jsdom's, leaving localStorage/sessionStorage undefined. Provide an in-memory one.

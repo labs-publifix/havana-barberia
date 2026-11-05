@@ -1,12 +1,5 @@
-import {
-  forwardRef,
-  useId,
-  type InputHTMLAttributes,
-  type KeyboardEvent,
-  type ReactNode,
-  type SelectHTMLAttributes,
-} from 'react'
-import { ChevronDown, Search } from 'lucide-react'
+import { forwardRef, useId, type InputHTMLAttributes, type KeyboardEvent, type ReactNode } from 'react'
+import { Search } from 'lucide-react'
 import { cn } from '@/lib/cn'
 
 /**
@@ -92,52 +85,6 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
             {suffix}
           </span>
         )}
-      </div>
-    </Shell>
-  )
-})
-
-export interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
-  label: string
-  hideLabel?: boolean
-  hint?: ReactNode
-  error?: string
-  options: { value: string; label: string }[]
-}
-
-/** Native select: the most reliable control on every device and screen reader. */
-export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select(
-  { label, hideLabel, hint, error, options, id, className, ...rest },
-  ref,
-) {
-  const auto = useId()
-  const fid = id ?? auto
-  return (
-    <Shell id={fid} label={label} hideLabel={hideLabel} hint={hint} error={error}>
-      <div className="relative">
-        <select
-          ref={ref}
-          id={fid}
-          aria-invalid={error ? true : undefined}
-          aria-describedby={error || hint ? `${fid}-msg` : undefined}
-          className={cn(
-            controlClass,
-            'cursor-pointer appearance-none pr-9',
-            error ? 'border-red-600' : 'border-line-strong',
-            className,
-          )}
-          {...rest}
-        >
-          {options.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </select>
-        <ChevronDown
-          className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-fg-muted"
-          aria-hidden
-        />
       </div>
     </Shell>
   )

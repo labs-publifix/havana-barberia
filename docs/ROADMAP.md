@@ -78,6 +78,9 @@ finanzas solo dueño y gerente; recepción opera agenda, clientes y ventas.
   (`SUPABASE_ACCESS_TOKEN`, `SUPABASE_DB_PASSWORD`, `SUPABASE_PROJECT_REF`).
 - `SupabaseAdminRepository` y `SupabaseBookingRepository`; reserva pública por Edge
   Function con Turnstile y límites.
+- Tiempo real con Supabase Realtime (la UI ya usa `AdminRepository.subscribe`) y avisos
+  push con el panel cerrado (Web Push: service worker + llaves VAPID; la llave privada
+  vive solo en Supabase).
 - Correos con Resend (confirmación, cancelación/reprogramación, aviso al equipo,
   recordatorios 24 h y 2 h con pg_cron).
 

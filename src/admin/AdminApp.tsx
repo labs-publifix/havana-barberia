@@ -10,6 +10,7 @@ import Login from './pages/Login'
 import SectionPage from './pages/SectionPage'
 import Verify from './pages/Verify'
 import { ToastProvider } from './ui/Toast'
+import { TooltipProvider } from './ui/Tooltip'
 
 /**
  * Admin panel, mounted at /admin/*. Loaded as its own chunk so the public site
@@ -21,21 +22,23 @@ export default function AdminApp({ repository }: { repository?: AdminRepository 
   return (
     <AdminAuthProvider repository={repo}>
       <ToastProvider>
-        <Routes>
-          <Route path="entrar" element={<Login />} />
-          <Route path="verificar" element={<Verify />} />
-          <Route
-            element={
-              <RequireSession>
-                <AdminLayout />
-              </RequireSession>
-            }
-          >
-            <Route index element={<Navigate to={routes.adminSection('inicio')} replace />} />
-            <Route path=":section" element={<SectionPage />} />
-          </Route>
-          <Route path="*" element={<Navigate to={routes.adminSection('inicio')} replace />} />
-        </Routes>
+        <TooltipProvider delayDuration={250} skipDelayDuration={150}>
+          <Routes>
+            <Route path="entrar" element={<Login />} />
+            <Route path="verificar" element={<Verify />} />
+            <Route
+              element={
+                <RequireSession>
+                  <AdminLayout />
+                </RequireSession>
+              }
+            >
+              <Route index element={<Navigate to={routes.adminSection('inicio')} replace />} />
+              <Route path=":section" element={<SectionPage />} />
+            </Route>
+            <Route path="*" element={<Navigate to={routes.adminSection('inicio')} replace />} />
+          </Routes>
+        </TooltipProvider>
       </ToastProvider>
     </AdminAuthProvider>
   )

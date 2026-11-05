@@ -9,7 +9,9 @@ import { cn } from '@/lib/cn'
 import { formatMxPhone } from '@/lib/phone'
 import { durationLabel, formatTime12, localDate, localTime, money } from '@/lib/time'
 import { useAdminAuth } from '../auth/AdminAuth'
-import { Input, SearchInput, Segmented, Select } from '../ui/controls'
+import { Input, SearchInput, Segmented } from '../ui/controls'
+import { DatePicker } from '../ui/DatePicker'
+import { Select } from '../ui/Select'
 import { SidePanel } from '../ui/SidePanel'
 import { useToast } from '../ui/Toast'
 import { errorMessage, useAgendaActions } from './useAgendaActions'
@@ -332,8 +334,8 @@ export function NewAppointmentPanel({
         <Select
           label="Barbero"
           value={staffId}
-          onChange={(e) => {
-            setStaffId(e.target.value)
+          onValueChange={(v) => {
+            setStaffId(v)
             setStartsAt('')
           }}
           options={[
@@ -348,21 +350,20 @@ export function NewAppointmentPanel({
           </p>
         ) : (
           <div className="grid gap-3 sm:grid-cols-2">
-            <Input
+            <DatePicker
               label="Fecha"
-              type="date"
               value={date}
+              today={localDate(now, timeZone)}
               min={localDate(now, timeZone)}
-              onChange={(e) => {
-                if (!e.target.value) return
-                setDate(e.target.value)
+              onChange={(d) => {
+                setDate(d)
                 setStartsAt('')
               }}
             />
             <Select
               label="Hora"
               value={startsAt}
-              onChange={(e) => setStartsAt(e.target.value)}
+              onValueChange={setStartsAt}
               disabled={!serviceIds.length || isFetching || free.length === 0}
               hint={
                 !serviceIds.length

@@ -1,6 +1,7 @@
 import type { Appointment, Customer, ID, LocalDate, LoyaltyCard, Slot, TimeBlock } from '@/domain/types'
 import type { SlotQuery } from '@/data'
 import type {
+  AdminChange,
   AdminNewAppointment,
   AdminSession,
   AdminUser,
@@ -52,8 +53,16 @@ export interface AdminRepository {
   deleteBlock(id: ID): Promise<void>
   findCustomers(query: string): Promise<Customer[]>
   getLoyaltyForCustomer(customerId: ID): Promise<LoyaltyCard | null>
+  /**
+   * Live updates: called on every change to appointments or blocks. Supabase:
+   * a Realtime channel on those tables. Returns the unsubscribe function.
+   */
+  subscribe(listener: (change: AdminChange) => void): () => void
+
   /** Demo-only helpers; the Supabase implementation leaves this undefined. */
   demo?: {
+    /** Book like a customer would on the public site (to try notifications with one tab). */
+    simulateOnlineBooking(): Promise<Appointment>
     users: AdminUser[]
     password: string
     /** Jump straight into a user's session (second step already passed). */

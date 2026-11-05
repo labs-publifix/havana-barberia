@@ -6,57 +6,79 @@ import { useOpenStatus } from '@/features/site/useOpenStatus'
 import { cn } from '@/lib/cn'
 import { useAdminSession } from '../auth/AdminAuth'
 import { navFor, sectionLabel, sections, showWorkbench } from '../sections'
+import { Tip } from '../ui/Tooltip'
 
-/** Navigation filtered by role. Dark column: the brand anchors the tool without competing with content. */
-export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
+/**
+ * Navigation filtered by role. Dark column: the brand anchors the tool without
+ * competing with content. Collapsed, it becomes an icon rail; each icon keeps
+ * its name for screen readers and shows it in a tooltip on hover or focus.
+ */
+export function SidebarContent({ onNavigate, collapsed = false }: { onNavigate?: () => void; collapsed?: boolean }) {
   const { user } = useAdminSession()
   const groups = navFor(user.role, { showWorkbench })
   const status = useOpenStatus()
 
   return (
     <div data-theme="dark" className="flex h-full flex-col bg-ink-950 text-white">
-      <div className="flex h-20 shrink-0 items-center px-5">
+      <div className={cn('flex h-20 shrink-0 items-center', collapsed ? 'justify-center px-2' : 'px-5')}>
         <Link
           to={routes.adminSection('inicio')}
           onClick={onNavigate}
           className="rounded focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-aqua-400"
         >
-          <Logo variant="white" priority className="w-[92px]" />
+          <Logo variant="white" priority className={collapsed ? 'w-[52px]' : 'w-[92px]'} />
         </Link>
       </div>
 
-      <nav aria-label="Secciones del panel" className="flex-1 overflow-y-auto px-3 pb-4">
-        {groups.map((g) => (
-          <div key={g.label} className="mt-6 first:mt-1">
-            <p className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-400">{g.label}</p>
+      <nav
+        aria-label="Secciones del panel"
+        className={cn('flex-1 overflow-y-auto overflow-x-hidden pb-4', collapsed ? 'px-2' : 'px-3')}
+      >
+        {groups.map((g, gi) => (
+          <div key={g.label} className={cn(collapsed ? 'mt-3' : 'mt-6', gi === 0 && 'mt-1')}>
+            {collapsed ? (
+              gi > 0 && <hr aria-hidden className="mx-2 mb-3 border-white/10" />
+            ) : (
+              <p className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-400">{g.label}</p>
+            )}
             <ul className="grid gap-0.5">
               {g.items.map((id) => {
                 const Icon = sections[id].icon
+                const label = sectionLabel(id, user.role)
                 return (
                   <li key={id}>
-                    <NavLink
-                      to={routes.adminSection(id)}
-                      onClick={onNavigate}
-                      className={({ isActive }) =>
-                        cn(
-                          'relative flex h-10 items-center gap-3 rounded-md px-3 text-[14.5px] font-medium transition-colors duration-fast coarse:h-11',
-                          'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-aqua-400',
-                          isActive
-                            ? 'bg-white/[0.09] text-white'
-                            : 'text-gray-300 hover:bg-white/[0.05] hover:text-white',
-                        )
-                      }
-                    >
-                      {({ isActive }) => (
-                        <>
-                          {isActive && (
-                            <span aria-hidden className="absolute inset-y-2 left-0 w-[3px] rounded-full bg-aqua-500" />
+                    {/* The tooltip wraps a span: NavLink's className is a function and must not be merged. */}
+                    <Tip content={label} side="right" disabled={!collapsed}>
+                      <span className="block">
+                        <NavLink
+                          to={routes.adminSection(id)}
+                          onClick={onNavigate}
+                          className={({ isActive }) =>
+                            cn(
+                              'relative flex h-10 items-center rounded-md text-[14.5px] font-medium transition-colors duration-fast coarse:h-11',
+                              collapsed ? 'justify-center' : 'gap-3 px-3',
+                              'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-aqua-400',
+                              isActive
+                                ? 'bg-white/[0.09] text-white'
+                                : 'text-gray-300 hover:bg-white/[0.05] hover:text-white',
+                            )
+                          }
+                        >
+                          {({ isActive }) => (
+                            <>
+                              {isActive && (
+                                <span
+                                  aria-hidden
+                                  className="absolute inset-y-2 left-0 w-[3px] rounded-full bg-aqua-500"
+                                />
+                              )}
+                              <Icon className="size-[18px] shrink-0" strokeWidth={1.75} aria-hidden />
+                              <span className={collapsed ? 'sr-only' : 'truncate'}>{label}</span>
+                            </>
                           )}
-                          <Icon className="size-[18px] shrink-0" strokeWidth={1.75} aria-hidden />
-                          <span className="truncate">{sectionLabel(id, user.role)}</span>
-                        </>
-                      )}
-                    </NavLink>
+                        </NavLink>
+                      </span>
+                    </Tip>
                   </li>
                 )
               })}
@@ -65,23 +87,36 @@ export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         ))}
       </nav>
 
-      <div className="grid gap-3 border-t border-white/10 px-5 py-4 text-[13px]">
-        <p className="flex items-center gap-2 text-gray-300">
-          <span
-            aria-hidden
-            className={cn('size-2 shrink-0 rounded-full', status.open ? 'bg-aqua-500' : 'bg-gray-500')}
-          />
-          {status.chip}
-        </p>
-        <a
-          href={`${import.meta.env.BASE_URL}`}
-          target="_blank"
-          rel="noreferrer"
-          className="inline-flex items-center gap-1.5 rounded text-gray-300 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-aqua-400"
-        >
-          Ver sitio público <ExternalLink className="size-3.5" aria-hidden />
-          <span className="sr-only">(se abre en otra pestaña)</span>
-        </a>
+      <div
+        className={cn(
+          'grid gap-3 border-t border-white/10 py-4 text-[13px]',
+          collapsed ? 'justify-items-center px-2' : 'px-5',
+        )}
+      >
+        <Tip content={status.chip} side="right" disabled={!collapsed}>
+          <p className="flex items-center gap-2 text-gray-300" tabIndex={collapsed ? 0 : undefined}>
+            <span
+              aria-hidden
+              className={cn('size-2 shrink-0 rounded-full', status.open ? 'bg-aqua-500' : 'bg-gray-500')}
+            />
+            <span className={collapsed ? 'sr-only' : undefined}>{status.chip}</span>
+          </p>
+        </Tip>
+        <Tip content="Ver sitio público" side="right" disabled={!collapsed}>
+          <a
+            href={`${import.meta.env.BASE_URL}`}
+            target="_blank"
+            rel="noreferrer"
+            className={cn(
+              'inline-flex items-center gap-1.5 rounded text-gray-300 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-aqua-400',
+              collapsed && 'grid size-9 place-items-center',
+            )}
+          >
+            <span className={collapsed ? 'sr-only' : undefined}>Ver sitio público</span>
+            <ExternalLink className={collapsed ? 'size-4' : 'size-3.5'} aria-hidden />
+            <span className="sr-only">(se abre en otra pestaña)</span>
+          </a>
+        </Tip>
       </div>
     </div>
   )

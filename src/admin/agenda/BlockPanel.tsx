@@ -3,7 +3,9 @@ import type { LocalDate, Staff, TimeBlock } from '@/domain/types'
 import { Alert } from '@/components/ui/Alert'
 import { buttonClass } from '@/components/ui/buttonClass'
 import { capitalize, formatDateLong, formatTime12, localDate, localTime, toMinutes, zonedInstant } from '@/lib/time'
-import { Input, Select } from '../ui/controls'
+import { Input } from '../ui/controls'
+import { DatePicker } from '../ui/DatePicker'
+import { Select } from '../ui/Select'
 import { SidePanel } from '../ui/SidePanel'
 import { useToast } from '../ui/Toast'
 import { timeOptions } from './model'
@@ -151,18 +153,18 @@ export function BlockPanel({
         <Select
           label="Para"
           value={who}
-          onChange={(e) => setWho(e.target.value)}
+          onValueChange={setWho}
           options={[{ value: SHOP, label: 'Toda la barbería' }, ...staff.map((s) => ({ value: s.id, label: s.name }))]}
         />
-        <Input label="Fecha" type="date" value={date} onChange={(e) => e.target.value && setDate(e.target.value)} />
+        <DatePicker label="Fecha" value={date} today={localDate(new Date(), timeZone)} onChange={setDate} />
         <div className="grid grid-cols-2 gap-3">
-          <Select label="Desde" value={start} onChange={(e) => setStart(e.target.value)} options={times} />
-          <Select label="Hasta" value={end} onChange={(e) => setEnd(e.target.value)} options={times} />
+          <Select label="Desde" value={start} onValueChange={setStart} options={times} />
+          <Select label="Hasta" value={end} onValueChange={setEnd} options={times} />
         </div>
         <Select
           label="Motivo"
           value={reason}
-          onChange={(e) => setReason(e.target.value)}
+          onValueChange={setReason}
           options={[...REASONS, 'Otro'].map((r) => ({ value: r, label: r }))}
         />
         {reason === 'Otro' && (

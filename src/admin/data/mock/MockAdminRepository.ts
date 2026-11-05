@@ -2,8 +2,9 @@ import type { Appointment, Customer, ID, LocalDate, LoyaltyCard, Slot, TimeBlock
 import type { SlotQuery } from '@/data'
 import { businessHours } from '@/config/business'
 import { MockBookingRepository } from '@/data/mock/MockBookingRepository'
-import { localDate, weekdayOf } from '@/lib/time'
+import { addDays, localDate, weekdayOf } from '@/lib/time'
 import type {
+  AdminChange,
   AdminNewAppointment,
   AdminSession,
   AdminUser,
@@ -67,6 +68,9 @@ export const demoUsers: AdminUser[] = [
 ]
 
 export const DEMO_PASSWORD = 'demo1234'
+
+/** Invented names for simulated online bookings. */
+const DEMO_NAMES = ['Esteban Lara', 'Rubén Solís', 'Iker Montes', 'Gael Cordero', 'Julián Ávila', 'Marco Treviño']
 const STORAGE_KEY = 'havana:admin-session'
 
 interface Stored {
@@ -187,7 +191,39 @@ export class MockAdminRepository implements AdminRepository {
     return this.booking.adminLoyaltyFor(customerId)
   }
 
+  subscribe(listener: (change: AdminChange) => void): () => void {
+    return this.booking.onChange(listener)
+  }
+
   demo = {
+    simulateOnlineBooking: async (): Promise<Appointment> => {
+      const popular = ['corte-adulto', 'corte-barba', 'afeitado-barba', 'corte-nino', 'barba-premium']
+      const serviceId = popular[Math.floor(Math.random() * popular.length)]!
+      const tz = businessHours.timeZone
+      const today = localDate(new Date(), tz)
+      const n = Math.floor(Math.random() * DEMO_NAMES.length)
+      for (let d = 0; d < 14; d++) {
+        const date = addDays(today, d)
+        const slots = await this.booking.getAvailableSlots({ serviceIds: [serviceId], staffId: 'any', date })
+        const free = slots.filter((s) => s.available)
+        if (!free.length) continue
+        // Not always the very first slot, so repeated tries spread out.
+        const slot = free[Math.min(free.length - 1, Math.floor(Math.random() * 4))]!
+        return this.booking.createAppointment({
+          serviceIds: [serviceId],
+          staffId: 'any',
+          startsAt: slot.startsAt,
+          customer: {
+            name: DEMO_NAMES[n]!,
+            phone: `442${String(Math.floor(1000000 + Math.random() * 8999999))}`,
+            email: `demo${Date.now() % 100000}@ejemplo.com`,
+          },
+          notes: '',
+          privacyAccepted: true,
+        })
+      }
+      throw new Error('No hay horarios libres en los próximos días.')
+    },
     users: demoUsers,
     password: DEMO_PASSWORD,
     switchTo: async (userId: string): Promise<AdminSession> => {

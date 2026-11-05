@@ -96,3 +96,12 @@ export interface NewBlock {
   endsAt: Instant
   reason: string
 }
+
+/**
+ * Something changed in the data (from this device, another tab or, with
+ * Supabase, another device). `created` lists new appointments so the panel can
+ * announce them.
+ */
+export interface AdminChange {
+  created: Appointment[]
+}

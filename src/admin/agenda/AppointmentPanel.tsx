@@ -12,7 +12,8 @@ import { formatMxPhone } from '@/lib/phone'
 import { capitalize, durationLabel, formatDateLong, formatTime12, localDate, localTime, money } from '@/lib/time'
 import { useAdminAuth } from '../auth/AdminAuth'
 import type { StaffStatusChange } from '../domain'
-import { Input, Select } from '../ui/controls'
+import { DatePicker } from '../ui/DatePicker'
+import { Select } from '../ui/Select'
 import { SidePanel } from '../ui/SidePanel'
 import { useToast } from '../ui/Toast'
 import { AdminStatusBadge } from '../ui/AdminStatusBadge'
@@ -75,26 +76,26 @@ function Reschedule({
       <Select
         label="Barbero"
         value={staffId}
-        onChange={(e) => {
-          setStaffId(e.target.value)
+        onValueChange={(v) => {
+          setStaffId(v)
           setStartsAt('')
         }}
         options={staff.map((s) => ({ value: s.id, label: s.name }))}
       />
-      <Input
+      <DatePicker
         label="Fecha"
-        type="date"
         value={date}
-        onChange={(e) => {
-          if (!e.target.value) return
-          setDate(e.target.value)
+        today={localDate(new Date(), timeZone)}
+        min={localDate(new Date(), timeZone)}
+        onChange={(d) => {
+          setDate(d)
           setStartsAt('')
         }}
       />
       <Select
         label="Hora"
         value={startsAt}
-        onChange={(e) => setStartsAt(e.target.value)}
+        onValueChange={setStartsAt}
         disabled={isFetching || free.length === 0}
         hint={
           isFetching

@@ -39,6 +39,11 @@ const fold = (s: string) =>
 /** End of a business-local day as an instant (rewards expire at the end of the day). */
 const zonedEndOfDay = (date: string) => zonedInstant(date, '23:59', businessHours.timeZone).toISOString()
 
+/** What a write changed; new appointments are listed so the panel can announce them. */
+export interface MockChange {
+  created: Appointment[]
+}
+
 export interface MockOptions {
   /** Where to persist; null keeps everything in memory. */
   storage?: Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> | null
@@ -110,12 +115,44 @@ export class MockBookingRepository implements BookingRepository {
     }
   }
 
-  private save() {
+  /** Persist and tell listeners (the admin panel) what changed. */
+  private save(created: Appointment[] = []) {
     try {
       this.storage?.setItem(STORAGE_KEY, JSON.stringify(this.db))
     } catch {
       /* storage full or blocked: keep working in memory */
     }
+    this.emit(created)
+  }
+
+  // ── Change notifications ──────────────────────────────────────────────────
+  // Stand-in for Supabase Realtime: listeners hear about every write in this
+  // tab, and about writes from other tabs of the same browser (storage event).
+
+  private listeners = new Set<(change: MockChange) => void>()
+
+  onChange(listener: (change: MockChange) => void): () => void {
+    this.listeners.add(listener)
+    if (this.listeners.size === 1 && typeof window !== 'undefined') window.addEventListener('storage', this.onStorage)
+    return () => {
+      this.listeners.delete(listener)
+      if (this.listeners.size === 0 && typeof window !== 'undefined')
+        window.removeEventListener('storage', this.onStorage)
+    }
+  }
+
+  private emit(created: Appointment[]) {
+    if (!this.listeners) return // during construction
+    for (const l of this.listeners) l({ created: clone(created) })
+  }
+
+  private onStorage = (e: StorageEvent) => {
+    if (e.key !== STORAGE_KEY || !e.newValue || !this.storage) return
+    const before = new Set(this.db.appointments.map((a) => a.id))
+    const next = this.load()
+    if (!next) return
+    this.db = next
+    this.emit(next.appointments.filter((a) => !before.has(a.id)))
   }
 
   private delay() {
@@ -222,9 +259,10 @@ export class MockBookingRepository implements BookingRepository {
         notes: input.notes.trim(),
         createdAt: this.now().toISOString(),
         loyaltyToken: card.token,
+        source: 'online',
       }
       this.db.appointments.push(appt)
-      this.save()
+      this.save([appt])
       return clone(appt)
     })
   }
@@ -386,7 +424,7 @@ export class MockBookingRepository implements BookingRepository {
         source: input.source,
       }
       this.db.appointments.push(appt)
-      this.save()
+      this.save([appt])
       return clone(appt)
     })
   }

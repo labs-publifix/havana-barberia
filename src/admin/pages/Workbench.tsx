@@ -6,7 +6,8 @@ import { buttonClass } from '@/components/ui/buttonClass'
 import type { AppointmentStatus } from '@/domain/types'
 import { useAdminAuth } from '../auth/AdminAuth'
 import { roleLabels, type AdminRole, type AdminUser } from '../domain'
-import { Input, Kbd, SearchInput, Segmented, Select, Switch } from '../ui/controls'
+import { Input, Kbd, SearchInput, Segmented, Switch } from '../ui/controls'
+import { Select } from '../ui/Select'
 import { DataTable, type Column } from '../ui/DataTable'
 import { Card, PageHeader, StatCard } from '../ui/Panel'
 import { SidePanel } from '../ui/SidePanel'
@@ -70,8 +71,8 @@ function UserEditor({ user, onClose }: { user: AdminUser | null; onClose: () => 
           <Select
             label="Rol"
             value={draft.role}
-            onChange={(e) => {
-              const role = e.target.value as AdminRole
+            onValueChange={(v) => {
+              const role = v as AdminRole
               setDraft({ ...draft, role, mfaRequired: role === 'owner' || role === 'manager' || draft.mfaRequired })
             }}
             options={(Object.keys(roleLabels) as AdminRole[]).map((r) => ({ value: r, label: roleLabels[r] }))}

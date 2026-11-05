@@ -67,6 +67,12 @@ async function renderAgenda(userId: string, query = `fecha=${DATE}`) {
   return { user, booking }
 }
 
+/** Open a dropdown by its label and pick an option (Radix Select). */
+async function choose(user: ReturnType<typeof userEvent.setup>, scope: HTMLElement, label: string, option: string) {
+  await user.click(within(scope).getByLabelText(label))
+  await user.click(await screen.findByRole('option', { name: option }))
+}
+
 const column = (name: string) => screen.findByRole('list', { name })
 const openAppointment = async (user: ReturnType<typeof userEvent.setup>, col: string, who: RegExp) => {
   await user.click(within(await column(col)).getByRole('button', { name: who }))
@@ -130,10 +136,9 @@ describe('admin agenda', () => {
     await user.click(screen.getByRole('button', { name: /Nueva cita/ }))
     const panel = await screen.findByRole('dialog', { name: 'Nueva cita' })
     await user.click(within(panel).getByRole('checkbox', { name: /Corte de cabello adulto/ }))
-    await user.selectOptions(within(panel).getByLabelText('Barbero'), 'isaac')
-    const hour = within(panel).getByLabelText('Hora')
-    await waitFor(() => expect(hour).toBeEnabled())
-    await user.selectOptions(hour, within(hour).getByRole('option', { name: '1:15 p. m.' }))
+    await choose(user, panel, 'Barbero', 'Isaac Fuentes')
+    await waitFor(() => expect(within(panel).getByLabelText('Hora')).toBeEnabled())
+    await choose(user, panel, 'Hora', '1:15 p. m.')
     await user.type(within(panel).getByLabelText('Nombre'), 'Tomás Peña')
     await user.type(within(panel).getByLabelText('Teléfono'), '4425550101')
     await user.click(within(panel).getByRole('button', { name: 'Agendar cita' }))
@@ -147,9 +152,9 @@ describe('admin agenda', () => {
     const { user } = await renderAgenda('u-owner')
     await user.click(screen.getByRole('button', { name: 'Bloquear' }))
     const panel = await screen.findByRole('dialog', { name: 'Bloquear horario' })
-    await user.selectOptions(within(panel).getByLabelText('Para'), 'leonardo')
-    await user.selectOptions(within(panel).getByLabelText('Desde'), '13:00')
-    await user.selectOptions(within(panel).getByLabelText('Hasta'), '14:00')
+    await choose(user, panel, 'Para', 'Leonardo Gómez')
+    await choose(user, panel, 'Desde', '1:00 p. m.')
+    await choose(user, panel, 'Hasta', '2:00 p. m.')
     await user.click(within(panel).getByRole('button', { name: 'Bloquear horario' }))
     expect(await within(panel).findByText(/Hay 1 cita en ese horario/)).toBeInTheDocument()
   })

@@ -4,6 +4,8 @@ import { Avatar } from '@/components/booking/Avatar'
 import { cn } from '@/lib/cn'
 import { formatTime12, formatTimeCompact, localTime, toMinutes } from '@/lib/time'
 import { type StaffLoad } from '../../overview'
+import { AppointmentTooltip } from '../../ui/AppointmentTooltip'
+import { Tip } from '../../ui/Tooltip'
 import { isLive, liveStyle, shortName as firstNameAndInitial, statusStyle, statusText } from '../../ui/appointmentStyle'
 
 /**
@@ -112,42 +114,54 @@ export function DayTimeline({
                   const start = minOf(a.startsAt)
                   const end = minOf(a.endsAt)
                   const live = isLive(a, now)
-                  const services = a.serviceIds.map(serviceName).join(', ')
+                  const serviceList = a.serviceIds.map(serviceName).join(', ')
                   const time = formatTime12(localTime(a.startsAt, timeZone))
                   const style: CSSProperties = { left: pos(start), width: `calc(${width(start, end)} - 3px)` }
                   return (
-                    <li
+                    <Tip
                       key={a.id}
-                      className={cn(
-                        'absolute inset-y-1.5 ml-px flex min-w-0 flex-col justify-center overflow-hidden rounded-md leading-tight',
-                        a.durationMin > 30 ? 'px-1.5' : 'px-1',
-                        // One style per state: cn() does not resolve conflicting classes.
-                        live ? liveStyle : statusStyle[a.status],
-                      )}
-                      style={style}
-                      title={`${time} · ${a.customer.name} · ${services}`}
+                      side="bottom"
+                      content={
+                        <AppointmentTooltip
+                          appointment={a}
+                          services={services}
+                          timeZone={timeZone}
+                          now={now}
+                          barber={l.staff.name.split(' ')[0]}
+                        />
+                      }
                     >
-                      {a.durationMin >= 30 && (
-                        <span
-                          className={cn(
-                            'tabular truncate font-semibold',
-                            a.durationMin > 30 ? 'text-xs' : 'text-[11px]',
-                          )}
-                          aria-hidden
-                        >
-                          {formatTimeCompact(localTime(a.startsAt, timeZone))}
+                      <li
+                        className={cn(
+                          'absolute inset-y-1.5 ml-px flex min-w-0 flex-col justify-center overflow-hidden rounded-md leading-tight',
+                          a.durationMin > 30 ? 'px-1.5' : 'px-1',
+                          // One style per state: cn() does not resolve conflicting classes.
+                          live ? liveStyle : statusStyle[a.status],
+                        )}
+                        style={style}
+                      >
+                        {a.durationMin >= 30 && (
+                          <span
+                            className={cn(
+                              'tabular truncate font-semibold',
+                              a.durationMin > 30 ? 'text-xs' : 'text-[11px]',
+                            )}
+                            aria-hidden
+                          >
+                            {formatTimeCompact(localTime(a.startsAt, timeZone))}
+                          </span>
+                        )}
+                        {/* Short appointments only fit the time; the name is in the lists and on hover. */}
+                        {a.durationMin > 30 && (
+                          <span className="truncate text-[13px] font-medium" aria-hidden>
+                            {firstNameAndInitial(a.customer.name)}
+                          </span>
+                        )}
+                        <span className="sr-only">
+                          {time}, {a.customer.name}, {serviceList}, {live ? 'en curso' : statusText[a.status]}
                         </span>
-                      )}
-                      {/* Short appointments only fit the time; the name is in the lists and on hover. */}
-                      {a.durationMin > 30 && (
-                        <span className="truncate text-[13px] font-medium" aria-hidden>
-                          {firstNameAndInitial(a.customer.name)}
-                        </span>
-                      )}
-                      <span className="sr-only">
-                        {time}, {a.customer.name}, {services}, {live ? 'en curso' : statusText[a.status]}
-                      </span>
-                    </li>
+                      </li>
+                    </Tip>
                   )
                 })}
               </ul>

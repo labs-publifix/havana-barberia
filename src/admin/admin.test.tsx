@@ -130,6 +130,6 @@ describe('admin panel shell', () => {
 
     await user.click(within(table).getByRole('button', { name: 'Leonardo Gómez' }))
     const dialog = await screen.findByRole('dialog', { name: 'Leonardo Gómez' })
-    expect(within(dialog).getByLabelText('Rol')).toHaveValue('barber')
+    expect(within(dialog).getByLabelText('Rol')).toHaveTextContent('Barbero')
   })
 })

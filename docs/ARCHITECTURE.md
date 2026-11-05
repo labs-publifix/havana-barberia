@@ -105,3 +105,10 @@ Pantallas del panel ──▶ AdminRepository ──▶ MockAdminRepository     
 - **Permisos:** recepción, gerente y dueño hacen todo; el barbero ve solo su columna y puede confirmar, completar y marcar no-show.
 - **Origen de la cita** (`Appointment.source`): en línea, panel o walk-in.
 - **Datos de demostración (versión 2):** incluyen la semana anterior ya atendida (con algunos no-shows). Al subir `MOCK_DB_VERSION`, las demos guardadas se regeneran conservando las reservas reales.
+
+### Tiempo real, avisos y controles del panel
+
+- **Actualización en vivo:** `AdminRepository.subscribe(listener)` avisa de cada cambio en citas y bloqueos; el panel invalida sus consultas (`['admin', …]`) y la agenda y la vista general se actualizan sin recargar. En mock, `MockBookingRepository.onChange` escucha las escrituras de la pestaña y las de otras pestañas del mismo navegador (evento `storage`). Con Supabase será un canal de Realtime sobre `appointments` y `time_blocks`. Las consultas conservan `refetchInterval` de 60 s como respaldo.
+- **Avisos de citas nuevas** (`src/admin/realtime/Notifications.tsx`): cada reserva en línea muestra una tarjeta flotante en cualquier pantalla del panel (con «Ver cita»), se agrega a la campana con contador de no leídos y, si la persona lo permite, aparece como aviso del navegador cuando el panel está en segundo plano. El barbero solo recibe las suyas. En la demo, la campana ofrece «Simular reserva en línea». Avisos con el panel cerrado (Web Push con service worker y llaves VAPID) requieren backend: hito 1C.
+- **Menú lateral colapsable:** botón en la barra superior o tecla `[`; colapsado queda una columna de iconos con su nombre en tooltip (y para lectores de pantalla). La preferencia se guarda en este navegador.
+- **Controles con el estilo de la plataforma:** `Select` (Radix Select) y `DatePicker` (Radix Popover con calendario propio: semana de lunes a domingo, hoy marcado, flechas, Re Pág/Av Pág, Inicio/Fin) sustituyen los controles del sistema. `Tip` (Radix Tooltip) muestra el detalle de cada cita al pasar el cursor o enfocar con teclado, en la agenda y en la línea de tiempo de la vista general.

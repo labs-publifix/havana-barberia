@@ -4,6 +4,8 @@ import type { Appointment, LocalDate, Service, TimeBlock, TimeRange } from '@/do
 import { cn } from '@/lib/cn'
 import { formatTime12, formatTimeCompact, fromMinutes, localTime, toMinutes } from '@/lib/time'
 import { isLive, liveStyle, shortName, statusStyle, statusText } from '../ui/appointmentStyle'
+import { AppointmentTooltip } from '../ui/AppointmentTooltip'
+import { Tip } from '../ui/Tooltip'
 import { minuteAt } from './model'
 
 /** Pixels per minute: one hour is 84px, enough for two lines in a 30-min appointment. */
@@ -16,6 +18,8 @@ export interface GridColumn {
   label: string
   date: LocalDate
   staffId: string
+  /** Barber's name for the appointment tooltip. */
+  staffName?: string
   ranges: TimeRange[]
   appointments: Appointment[]
   blocks: TimeBlock[]
@@ -164,35 +168,50 @@ export function TimeGrid({
                 const tall = h >= 56
                 return (
                   <li key={a.id} className="absolute inset-x-1" style={{ top: y(s) + 1, height: h - 2 }}>
-                    <button
-                      type="button"
-                      onClick={() => onOpenAppointment(a)}
-                      className={cn(
-                        'pointer-events-auto flex h-full w-full flex-col overflow-hidden rounded-md px-2 text-left leading-tight shadow-sm',
-                        'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus',
-                        tall ? 'justify-start py-1.5' : 'justify-center',
-                        live ? liveStyle : statusStyle[a.status],
-                      )}
+                    <Tip
+                      side="right"
+                      align="start"
+                      content={
+                        <AppointmentTooltip
+                          appointment={a}
+                          services={services}
+                          timeZone={timeZone}
+                          now={now}
+                          barber={c.staffName}
+                        />
+                      }
                     >
-                      {tall ? (
-                        <>
-                          <span className="tabular text-xs font-semibold opacity-80">
-                            {time} – {formatTimeCompact(localTime(a.endsAt, timeZone))}
+                      <button
+                        type="button"
+                        onClick={() => onOpenAppointment(a)}
+                        className={cn(
+                          'pointer-events-auto flex h-full w-full flex-col overflow-hidden rounded-md px-2 text-left leading-tight shadow-sm',
+                          'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus',
+                          tall ? 'justify-start py-1.5' : 'justify-center',
+                          live ? liveStyle : statusStyle[a.status],
+                        )}
+                      >
+                        {tall ? (
+                          <>
+                            <span className="tabular text-xs font-semibold opacity-80">
+                              {time} – {formatTimeCompact(localTime(a.endsAt, timeZone))}
+                            </span>
+                            <span className="mt-0.5 truncate text-[13px] font-semibold">
+                              {compact ? shortName(a.customer.name) : a.customer.name}
+                            </span>
+                            {!compact && <span className="truncate text-xs opacity-80">{serviceNames(a)}</span>}
+                          </>
+                        ) : (
+                          <span className="truncate text-xs">
+                            <span className="tabular font-semibold">{time}</span>{' '}
+                            {h >= 18 && shortName(a.customer.name)}
                           </span>
-                          <span className="mt-0.5 truncate text-[13px] font-semibold">
-                            {compact ? shortName(a.customer.name) : a.customer.name}
-                          </span>
-                          {!compact && <span className="truncate text-xs opacity-80">{serviceNames(a)}</span>}
-                        </>
-                      ) : (
-                        <span className="truncate text-xs">
-                          <span className="tabular font-semibold">{time}</span> {h >= 18 && shortName(a.customer.name)}
+                        )}
+                        <span className="sr-only">
+                          , {a.customer.name}, {serviceNames(a)}, {live ? 'en curso' : statusText[a.status]}
                         </span>
-                      )}
-                      <span className="sr-only">
-                        , {a.customer.name}, {serviceNames(a)}, {live ? 'en curso' : statusText[a.status]}
-                      </span>
-                    </button>
+                      </button>
+                    </Tip>
                   </li>
                 )
               })}
