@@ -131,21 +131,49 @@ describe('admin agenda', () => {
     )
   })
 
-  it('books a new appointment for a new customer from the panel', async () => {
+  it('books from the top bar: date, barber and time first, then service and customer', async () => {
     const { user, booking } = await renderAgenda('u-reception')
-    await user.click(screen.getByRole('button', { name: /Nueva cita/ }))
-    const panel = await screen.findByRole('dialog', { name: 'Nueva cita' })
+    await user.click(screen.getByRole('button', { name: /Agendar cita/ }))
+    const panel = await screen.findByRole('dialog', { name: 'Agendar cita' })
+    // Step 1 comes first and times show before any service is chosen.
+    expect(within(panel).getByLabelText('Fecha')).toHaveTextContent('Mié 4 de nov 2026')
+    await user.click(
+      within(within(panel).getByRole('radiogroup', { name: 'Barbero' })).getByRole('radio', { name: 'Isaac' }),
+    )
+    const hours = within(panel).getByRole('radiogroup', { name: 'Hora' })
+    await user.click(await within(hours).findByRole('radio', { name: '1:15 p. m.' }))
     await user.click(within(panel).getByRole('checkbox', { name: /Corte de cabello adulto/ }))
-    await choose(user, panel, 'Barbero', 'Isaac Fuentes')
-    await waitFor(() => expect(within(panel).getByLabelText('Hora')).toBeEnabled())
-    await choose(user, panel, 'Hora', '1:15 p. m.')
     await user.type(within(panel).getByLabelText('Nombre'), 'Tomás Peña')
     await user.type(within(panel).getByLabelText('Teléfono'), '4425550101')
+    expect(within(panel).getByText(/Mié 4 de nov, 1:15 p\. m\. con Isaac · 45 min · \$280/)).toBeInTheDocument()
     await user.click(within(panel).getByRole('button', { name: 'Agendar cita' }))
 
-    expect(await screen.findByText('Cita agendada: 1:15 p. m. con Isaac')).toBeInTheDocument()
+    expect(await screen.findByText('Cita agendada: Mié 4 de nov, 1:15 p. m. con Isaac')).toBeInTheDocument()
     const made = booking.snapshot().appointments.find((a) => a.customer.name === 'Tomás Peña')
     expect(made).toMatchObject({ staffId: 'isaac', status: 'confirmed', source: 'panel' })
+  })
+
+  it('warns when the chosen time no longer fits the services and clears it', async () => {
+    const { user } = await renderAgenda('u-reception')
+    await user.click(screen.getByRole('button', { name: /Agendar cita/ }))
+    const panel = await screen.findByRole('dialog', { name: 'Agendar cita' })
+    await user.click(
+      within(within(panel).getByRole('radiogroup', { name: 'Barbero' })).getByRole('radio', { name: 'Isaac' }),
+    )
+    // Isaac has Óscar at 4:00 p. m.: 3:30 fits a 15-minute service but not a 60-minute one.
+    const hours = within(panel).getByRole('radiogroup', { name: 'Hora' })
+    await user.click(await within(hours).findByRole('radio', { name: '3:30 p. m.' }))
+    await user.click(within(panel).getByRole('checkbox', { name: /Barba premium/ }))
+    expect(await within(panel).findByText(/ya no cabe a las 3:30 p\. m\./)).toBeInTheDocument()
+    expect(within(panel).queryByRole('radio', { name: '3:30 p. m.', checked: true })).toBeNull()
+  })
+
+  it('"Agendar cita" works from any screen, also with the N key', async () => {
+    const { user } = await renderAgenda('u-owner', '')
+    await user.click(screen.getByRole('link', { name: 'Vista general' }))
+    await screen.findByText('Siguiente cita')
+    await user.keyboard('n')
+    expect(await screen.findByRole('dialog', { name: 'Agendar cita' })).toBeInTheDocument()
   })
 
   it('refuses to block time that has appointments', async () => {
@@ -170,7 +198,7 @@ describe('admin agenda', () => {
     const { user } = await renderAgenda('u-isaac')
     await column('Agenda de Isaac Fuentes')
     expect(screen.queryByRole('list', { name: 'Agenda de Leonardo Gómez' })).toBeNull()
-    expect(screen.queryByRole('button', { name: /Nueva cita/ })).toBeNull()
+    expect(screen.queryByRole('button', { name: /Agendar cita/ })).toBeNull()
     const panel = await openAppointment(user, 'Agenda de Isaac Fuentes', /Pablo Ríos/)
     expect(within(panel).getByRole('button', { name: 'Completar' })).toBeEnabled()
     expect(within(panel).queryByRole('button', { name: 'Cancelar cita' })).toBeNull()

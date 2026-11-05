@@ -1,17 +1,26 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Check, UserRound, X } from 'lucide-react'
-import type { Customer, LocalDate, Service, ServiceCategory, Staff } from '@/domain/types'
+import { Check, Scissors, UserRound, X } from 'lucide-react'
+import type { Customer, LocalDate, Service, ServiceCategory, Slot, Staff } from '@/domain/types'
+import { Avatar } from '@/components/booking/Avatar'
 import { Alert } from '@/components/ui/Alert'
 import { buttonClass } from '@/components/ui/buttonClass'
 import { TextArea } from '@/components/ui/Field'
 import { cn } from '@/lib/cn'
 import { formatMxPhone } from '@/lib/phone'
-import { durationLabel, formatTime12, localDate, localTime, money } from '@/lib/time'
+import {
+  capitalize,
+  durationLabel,
+  formatDay,
+  formatTime12,
+  formatTimeCompact,
+  localDate,
+  localTime,
+  money,
+} from '@/lib/time'
 import { useAdminAuth } from '../auth/AdminAuth'
 import { Input, SearchInput, Segmented } from '../ui/controls'
 import { DatePicker } from '../ui/DatePicker'
-import { Select } from '../ui/Select'
 import { SidePanel } from '../ui/SidePanel'
 import { useToast } from '../ui/Toast'
 import { errorMessage, useAgendaActions } from './useAgendaActions'
@@ -37,7 +46,7 @@ function ServicePicker({
 }) {
   return (
     <fieldset className="grid gap-1.5">
-      <legend className="mb-1.5 text-[13px] font-medium">Servicios</legend>
+      <legend className="sr-only">Servicios</legend>
       <div className="max-h-64 overflow-y-auto rounded-md border border-line">
         {categories.map((c) => {
           const items = services.filter((s) => s.categoryId === c.id)
@@ -189,10 +198,141 @@ function CustomerPicker({
   )
 }
 
+type Period = 'Mañana' | 'Tarde' | 'Noche'
+const periodOf = (time: string): Period => (time < '12:00' ? 'Mañana' : time < '18:00' ? 'Tarde' : 'Noche')
+
+/** Barbers as buttons with their photo (radio group): one tap, no dropdown. */
+function BarberPicker({ staff, value, onChange }: { staff: Staff[]; value: string; onChange: (id: string) => void }) {
+  const options = [{ id: 'any', name: 'Primero disponible', photoUrl: null as string | null }, ...staff]
+  return (
+    <div role="radiogroup" aria-label="Barbero" className="flex flex-wrap gap-2">
+      {options.map((o, i) => {
+        const on = value === o.id
+        return (
+          <button
+            key={o.id}
+            type="button"
+            role="radio"
+            aria-checked={on}
+            tabIndex={on || (!options.some((x) => x.id === value) && i === 0) ? 0 : -1}
+            data-value={o.id}
+            onClick={() => onChange(o.id)}
+            onKeyDown={(e) => {
+              const d =
+                e.key === 'ArrowRight' || e.key === 'ArrowDown'
+                  ? 1
+                  : e.key === 'ArrowLeft' || e.key === 'ArrowUp'
+                    ? -1
+                    : 0
+              if (!d) return
+              e.preventDefault()
+              const next = options[(i + d + options.length) % options.length]!
+              onChange(next.id)
+              ;(
+                e.currentTarget.parentElement?.querySelector(`[data-value="${next.id}"]`) as HTMLElement | null
+              )?.focus()
+            }}
+            className={cn(
+              'inline-flex h-11 items-center gap-2 rounded-full border-[1.5px] pl-1.5 pr-4 text-sm font-medium transition-colors duration-fast',
+              'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus',
+              on ? 'border-ink-950 bg-ink-950 text-white' : 'border-line-strong bg-raised hover:border-fg',
+            )}
+          >
+            {o.id === 'any' ? (
+              <span
+                aria-hidden
+                className={cn('grid size-8 place-items-center rounded-full', on ? 'bg-white/15' : 'bg-fg/[0.06]')}
+              >
+                <Scissors className="size-4" strokeWidth={1.75} />
+              </span>
+            ) : (
+              <Avatar name={o.name} src={o.photoUrl} size={32} />
+            )}
+            {o.id === 'any' ? o.name : o.name.split(' ')[0]}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+/** Free times as buttons grouped by part of the day (radio group). */
+function TimeChips({
+  slots,
+  value,
+  onChange,
+  staff,
+  showBarber,
+}: {
+  slots: Slot[]
+  value: string
+  onChange: (startsAt: string) => void
+  staff: Staff[]
+  showBarber: boolean
+}) {
+  const groups = (['Mañana', 'Tarde', 'Noche'] as Period[])
+    .map((p) => ({ p, items: slots.filter((s) => periodOf(s.time) === p) }))
+    .filter((g) => g.items.length)
+  return (
+    <div role="radiogroup" aria-label="Hora" className="grid gap-3">
+      {groups.map((g) => (
+        <div key={g.p}>
+          <p className="mb-1.5 text-xs font-semibold uppercase tracking-[0.08em] text-fg-muted">{g.p}</p>
+          <div className="grid grid-cols-4 gap-1.5 sm:grid-cols-5">
+            {g.items.map((s) => {
+              const on = s.startsAt === value
+              const who = showBarber ? staff.find((x) => x.id === s.staffId)?.name.split(' ')[0] : undefined
+              return (
+                <button
+                  key={s.startsAt}
+                  type="button"
+                  role="radio"
+                  aria-checked={on}
+                  aria-label={`${formatTime12(s.time)}${who ? ` con ${who}` : ''}`}
+                  onClick={() => onChange(s.startsAt)}
+                  className={cn(
+                    'tabular h-10 rounded-md border text-sm font-semibold transition-colors duration-fast coarse:h-11',
+                    'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-focus',
+                    on ? 'border-ink-950 bg-ink-950 text-white' : 'border-line-strong bg-raised hover:border-fg',
+                  )}
+                >
+                  {formatTimeCompact(s.time)}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function Step({ n, title, children, aside }: { n: number; title: string; children: ReactNode; aside?: ReactNode }) {
+  return (
+    <section className="grid gap-3">
+      <div className="flex items-center justify-between gap-3">
+        <h3 className="flex items-center gap-2 text-sm font-semibold">
+          <span
+            aria-hidden
+            className="tabular grid size-6 place-items-center rounded-full bg-ink-950 text-xs font-semibold text-white"
+          >
+            {n}
+          </span>
+          {title}
+        </h3>
+        {aside}
+      </div>
+      {children}
+    </section>
+  )
+}
+
 /**
- * New appointment (by phone or at the desk) or walk-in (right now). Staff can
- * book on short notice; the slot list only offers free times for the chosen
- * services and barber.
+ * Book from the panel (phone, WhatsApp, front desk) or register a walk-in.
+ * Built around how a request arrives — "¿tienes el jueves a las 5 con Leo?":
+ * date, barber and time first, then services and the customer. Times show
+ * right away (using the shortest service) and re-check when services are added.
+ * Staff can book on short notice; only free times are offered.
  */
 export function NewAppointmentPanel({
   draft,
@@ -214,12 +354,14 @@ export function NewAppointmentPanel({
   const { repo } = useAdminAuth()
   const { create } = useAgendaActions()
   const toast = useToast()
+  const today = localDate(now, timeZone)
   const [kind, setKind] = useState<'cita' | 'walk_in'>('cita')
   const [serviceIds, setServiceIds] = useState<string[]>([])
   const [staffId, setStaffId] = useState<string>('any')
   const [date, setDate] = useState<LocalDate>('')
   const [startsAt, setStartsAt] = useState('')
   const [wantedTime, setWantedTime] = useState<string | undefined>()
+  const [notice, setNotice] = useState<string | null>(null)
   const [customer, setCustomer] = useState<Customer | null>(null)
   const [newCustomer, setNewCustomer] = useState({ name: '', phone: '', email: '' })
   const [notes, setNotes] = useState('')
@@ -233,9 +375,10 @@ export function NewAppointmentPanel({
       setKind(draft.kind)
       setServiceIds([])
       setStaffId(draft.staffId)
-      setDate(draft.date)
+      setDate(draft.date < today ? today : draft.date)
       setStartsAt('')
       setWantedTime(draft.time)
+      setNotice(null)
       setCustomer(null)
       setNewCustomer({ name: '', phone: '', email: '' })
       setNotes('')
@@ -243,33 +386,44 @@ export function NewAppointmentPanel({
     }
   }
 
+  // Before services are chosen, show times that fit the shortest service.
+  const shortest = useMemo(() => [...services].sort((a, b) => a.durationMin - b.durationMin)[0]?.id, [services])
+  const forSlots = serviceIds.length ? serviceIds : shortest ? [shortest] : []
   const { data: slots, isFetching } = useQuery({
-    queryKey: ['admin', 'slots', 'new', serviceIds.join(','), staffId, date],
-    queryFn: () => repo.getAvailableSlots({ serviceIds, staffId, date }),
-    enabled: !!draft && kind === 'cita' && serviceIds.length > 0 && !!date,
+    queryKey: ['admin', 'slots', 'new', forSlots.join(','), staffId, date],
+    queryFn: () => repo.getAvailableSlots({ serviceIds: forSlots, staffId, date }),
+    enabled: !!draft && kind === 'cita' && forSlots.length > 0 && !!date,
   })
   const free = useMemo(() => slots?.filter((s) => s.available) ?? [], [slots])
+  const picked = free.find((s) => s.startsAt === startsAt)
+
   // Preselect the time clicked on the grid once its slot is known to be free.
-  if (wantedTime && free.length) {
+  if (wantedTime && slots && !isFetching) {
     const match = free.find((s) => s.time === wantedTime)
     setWantedTime(undefined)
     if (match) setStartsAt(match.startsAt)
+  }
+  // Adding services can make the chosen time too short: say so and clear it.
+  if (startsAt && slots && !isFetching && !picked) {
+    setNotice(`Con esos servicios ya no cabe a las ${formatTime12(localTime(startsAt, timeZone))}. Elige otra hora.`)
+    setStartsAt('')
   }
 
   const chosen = services.filter((s) => serviceIds.includes(s.id))
   const totalMin = chosen.reduce((m, s) => m + s.durationMin, 0)
   const totalPrice = chosen.reduce((m, s) => m + s.price, 0)
   const walkIn = kind === 'walk_in'
+  const who = picked?.staffId ? staff.find((s) => s.id === picked.staffId)?.name.split(' ')[0] : undefined
 
   const submit = () => {
+    if (!walkIn && !startsAt) return setError('Elige fecha y hora.')
     if (!serviceIds.length) return setError('Elige al menos un servicio.')
-    if (!walkIn && !startsAt) return setError('Elige un horario.')
     if (!customer && !newCustomer.name.trim()) return setError('Elige un cliente o escribe el nombre del nuevo.')
     setError(null)
     create.mutate(
       {
         serviceIds,
-        staffId,
+        staffId: walkIn ? staffId : (picked?.staffId ?? staffId),
         startsAt: walkIn ? now.toISOString() : startsAt,
         customer: customer ? { id: customer.id } : newCustomer,
         notes,
@@ -277,11 +431,11 @@ export function NewAppointmentPanel({
       },
       {
         onSuccess: (a) => {
-          const who = staff.find((s) => s.id === a.staffId)?.name.split(' ')[0] ?? ''
+          const name = staff.find((s) => s.id === a.staffId)?.name.split(' ')[0] ?? ''
           toast(
             walkIn
-              ? `Walk-in registrado con ${who}`
-              : `Cita agendada: ${formatTime12(localTime(a.startsAt, timeZone))} con ${who}`,
+              ? `Walk-in registrado con ${name}`
+              : `Cita agendada: ${capitalize(formatDay(localDate(a.startsAt, timeZone), "EEE d 'de' MMM"))}, ${formatTime12(localTime(a.startsAt, timeZone))} con ${name}`,
           )
           onClose()
         },
@@ -290,16 +444,26 @@ export function NewAppointmentPanel({
     )
   }
 
+  const summary = [
+    !walkIn && picked
+      ? `${capitalize(formatDay(date, "EEE d 'de' MMM"))}, ${formatTime12(picked.time)}${who ? ` con ${who}` : ''}`
+      : null,
+    chosen.length ? `${durationLabel(totalMin)} · ${money(totalPrice)}` : null,
+  ]
+    .filter(Boolean)
+    .join(' · ')
+
   return (
     <SidePanel
       open={!!draft}
       onOpenChange={(o) => !o && onClose()}
-      title={walkIn ? 'Registrar walk-in' : 'Nueva cita'}
-      description={walkIn ? 'Cliente que llegó sin cita; empieza ahora.' : 'Por teléfono o en recepción.'}
+      wide
+      title={walkIn ? 'Registrar walk-in' : 'Agendar cita'}
+      description={walkIn ? 'Cliente que llegó sin cita; empieza ahora.' : 'Por teléfono, WhatsApp o en recepción.'}
       footer={
         <>
-          <span className="tabular text-sm text-fg-muted sm:mr-auto sm:self-center">
-            {chosen.length ? `${durationLabel(totalMin)} · ${money(totalPrice)}` : ''}
+          <span className="tabular min-w-0 text-sm text-fg-muted sm:mr-auto sm:self-center" aria-live="polite">
+            {summary}
           </span>
           <button type="button" onClick={onClose} className={buttonClass({ variant: 'secondary', size: 'sm' })}>
             Cancelar
@@ -311,7 +475,7 @@ export function NewAppointmentPanel({
       }
     >
       <form
-        className="grid gap-5"
+        className="grid gap-7"
         onSubmit={(e) => {
           e.preventDefault()
           submit()
@@ -330,59 +494,79 @@ export function NewAppointmentPanel({
             { value: 'walk_in', label: 'Walk-in (ahora)' },
           ]}
         />
-        <ServicePicker categories={categories} services={services} value={serviceIds} onChange={setServiceIds} />
-        <Select
-          label="Barbero"
-          value={staffId}
-          onValueChange={(v) => {
-            setStaffId(v)
-            setStartsAt('')
-          }}
-          options={[
-            { value: 'any', label: 'Primero disponible' },
-            ...staff.map((s) => ({ value: s.id, label: s.name })),
-          ]}
-        />
-        {walkIn ? (
-          <p className="rounded-md bg-surface px-3 py-2.5 text-sm">
-            Empieza ahora, a las <strong className="tabular">{formatTime12(localTime(now, timeZone))}</strong>, con el
-            barbero libre.
-          </p>
-        ) : (
-          <div className="grid gap-3 sm:grid-cols-2">
+
+        <Step n={1} title={walkIn ? 'Con quién' : 'Cuándo y con quién'}>
+          {!walkIn && (
             <DatePicker
               label="Fecha"
               value={date}
-              today={localDate(now, timeZone)}
-              min={localDate(now, timeZone)}
+              today={today}
+              min={today}
               onChange={(d) => {
                 setDate(d)
                 setStartsAt('')
+                setNotice(null)
               }}
             />
-            <Select
-              label="Hora"
-              value={startsAt}
-              onValueChange={setStartsAt}
-              disabled={!serviceIds.length || isFetching || free.length === 0}
-              hint={
-                !serviceIds.length
-                  ? 'Elige servicios para ver horarios.'
-                  : isFetching
-                    ? 'Buscando horarios…'
-                    : free.length === 0
-                      ? 'Sin horarios libres ese día.'
-                      : undefined
-              }
-              options={[
-                { value: '', label: 'Elige un horario' },
-                ...free.map((s) => ({ value: s.startsAt, label: formatTime12(s.time) })),
-              ]}
+          )}
+          <div className="grid gap-1.5">
+            <p className="text-[13px] font-medium" aria-hidden>
+              Barbero
+            </p>
+            <BarberPicker
+              staff={staff}
+              value={staffId}
+              onChange={(id) => {
+                setStaffId(id)
+                setStartsAt('')
+                setNotice(null)
+              }}
             />
           </div>
-        )}
-        <div className="grid gap-2">
-          <p className="text-[13px] font-medium">Cliente</p>
+          {walkIn ? (
+            <p className="rounded-md bg-surface px-3 py-2.5 text-sm">
+              Empieza ahora, a las <strong className="tabular">{formatTime12(localTime(now, timeZone))}</strong>, con el
+              barbero libre.
+            </p>
+          ) : (
+            <div className="grid gap-1.5">
+              <p className="text-[13px] font-medium" aria-hidden>
+                Hora
+              </p>
+              {notice && <Alert tone="warning" title={notice} />}
+              {isFetching && !slots ? (
+                <p className="text-sm text-fg-muted">Buscando horarios…</p>
+              ) : free.length === 0 ? (
+                <p className="rounded-md border border-dashed border-line px-3 py-4 text-sm text-fg-muted">
+                  Sin horarios libres ese día{staffId !== 'any' ? ' con ese barbero' : ''}. Prueba otro día o «Primero
+                  disponible».
+                </p>
+              ) : (
+                <TimeChips
+                  slots={free}
+                  value={startsAt}
+                  onChange={(v) => {
+                    setStartsAt(v)
+                    setNotice(null)
+                  }}
+                  staff={staff}
+                  showBarber={staffId === 'any'}
+                />
+              )}
+              {!serviceIds.length && free.length > 0 && (
+                <p className="text-[13px] text-fg-muted">
+                  Horarios para el servicio más corto; se ajustan al elegir servicios.
+                </p>
+              )}
+            </div>
+          )}
+        </Step>
+
+        <Step n={2} title="Servicios">
+          <ServicePicker categories={categories} services={services} value={serviceIds} onChange={setServiceIds} />
+        </Step>
+
+        <Step n={3} title="Cliente">
           <CustomerPicker
             value={customer}
             onChange={setCustomer}
@@ -390,8 +574,8 @@ export function NewAppointmentPanel({
             newCustomer={newCustomer}
             onNewCustomer={setNewCustomer}
           />
-        </div>
-        <TextArea label="Notas" optional value={notes} onChange={(e) => setNotes(e.target.value)} />
+          <TextArea label="Notas" optional value={notes} onChange={(e) => setNotes(e.target.value)} />
+        </Step>
       </form>
     </SidePanel>
   )

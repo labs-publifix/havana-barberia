@@ -1,8 +1,7 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useQueries } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
-import { Ban, ChevronLeft, ChevronRight, Footprints, Plus } from 'lucide-react'
-import { useCatalog } from '@/app/queries'
+import { Ban, ChevronLeft, ChevronRight, Footprints } from 'lucide-react'
 import { useNow } from '@/app/useNow'
 import { Avatar } from '@/components/booking/Avatar'
 import { buttonClass } from '@/components/ui/buttonClass'
@@ -15,10 +14,11 @@ import { AgendaList } from '../agenda/AgendaList'
 import { AppointmentPanel } from '../agenda/AppointmentPanel'
 import { BlockPanel, type BlockDraft } from '../agenda/BlockPanel'
 import { gridBounds, shiftDate, weekOf, type AgendaView } from '../agenda/model'
-import { NewAppointmentPanel, type NewAppointmentDraft } from '../agenda/NewAppointmentPanel'
+import { useNewAppointment } from '../agenda/NewAppointmentContext'
+import type { NewAppointmentDraft } from '../agenda/NewAppointmentPanel'
 import { TimeGrid, type GridColumn } from '../agenda/TimeGrid'
 import { useAdminAuth, useAdminSession } from '../auth/AdminAuth'
-import { Kbd, Segmented } from '../ui/controls'
+import { Segmented } from '../ui/controls'
 import { DatePicker } from '../ui/DatePicker'
 import { Select } from '../ui/Select'
 
@@ -66,7 +66,6 @@ export default function Agenda() {
     })),
   })
   const days = results.every((r) => r.data) ? results.map((r) => r.data!) : null
-  const { data: catalog } = useCatalog()
 
   const staffAll = days?.[0]?.staff ?? []
   const ownId = user.role === 'barber' ? user.staffId : null
@@ -152,33 +151,17 @@ export default function Agenda() {
   const allAppointments = days?.flatMap((d) => d.appointments) ?? []
   const opened: Appointment | null = (openId && allAppointments.find((a) => a.id === openId)) || null
 
-  const [newDraft, setNewDraft] = useState<NewAppointmentDraft | null>(null)
   const [blockDraft, setBlockDraft] = useState<BlockDraft | null>(null)
-  const anyPanel = !!opened || !!newDraft || !!blockDraft
+  const booking = useNewAppointment()
 
+  // Same booking panel as the top bar's "Agendar cita", prefilled with what the agenda shows.
   const startNew = (kind: NewAppointmentDraft['kind'], extra: Partial<NewAppointmentDraft> = {}) =>
-    setNewDraft({
+    booking.open({
       kind,
       staffId: view === 'dia' && dayStaff.length === 1 ? dayStaff[0]!.id : 'any',
       date: date < today ? today : date,
       ...extra,
     })
-
-  // "N" opens a new appointment, like the shortcut hinted in the components page.
-  useEffect(() => {
-    if (!canManage) return
-    const onKey = (e: KeyboardEvent) => {
-      const el = e.target as HTMLElement
-      if (anyPanel || e.metaKey || e.ctrlKey || e.altKey || el.closest('input, textarea, select, [contenteditable]'))
-        return
-      if (e.key === 'n' || e.key === 'N') {
-        e.preventDefault()
-        startNew('cita')
-      }
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  })
 
   const week = weekOf(date)
   const title =
@@ -271,17 +254,6 @@ export default function Agenda() {
               >
                 <Footprints className="size-4" strokeWidth={1.75} aria-hidden /> Walk-in
               </button>
-              <button
-                type="button"
-                onClick={() => startNew('cita')}
-                className={buttonClass({ size: 'sm' })}
-                aria-keyshortcuts="N"
-              >
-                <Plus className="size-4" strokeWidth={2} aria-hidden /> Nueva cita
-                <span className="hidden coarse:hidden lg:inline-grid">
-                  <Kbd>N</Kbd>
-                </span>
-              </button>
             </>
           )}
         </div>
@@ -327,15 +299,6 @@ export default function Agenda() {
         now={now}
         canManage={canManage}
         onClose={() => set({ cita: null })}
-      />
-      <NewAppointmentPanel
-        draft={newDraft}
-        staff={staffAll}
-        categories={catalog?.categories ?? []}
-        services={catalog?.services ?? []}
-        timeZone={tz}
-        now={now}
-        onClose={() => setNewDraft(null)}
       />
       <BlockPanel
         draft={blockDraft}
