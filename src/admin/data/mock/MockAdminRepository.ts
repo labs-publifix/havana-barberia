@@ -13,6 +13,7 @@ import type {
   StaffStatusChange,
   StatusChangeResult,
 } from '../../domain'
+import { summarizeCustomers, type CustomerSummary } from '../../customers/model'
 import { InvalidCredentialsError, InvalidMfaCodeError, type AdminRepository } from '../AdminRepository'
 
 /**
@@ -189,6 +190,28 @@ export class MockAdminRepository implements AdminRepository {
 
   getLoyaltyForCustomer(customerId: ID): Promise<LoyaltyCard | null> {
     return this.booking.adminLoyaltyFor(customerId)
+  }
+
+  async listCustomers(): Promise<CustomerSummary[]> {
+    await this.delay()
+    const db = this.booking.snapshot()
+    return summarizeCustomers(db.customers, db.appointments, db.loyalty, new Date())
+  }
+
+  async getCustomer(id: ID): Promise<{ summary: CustomerSummary; appointments: Appointment[] } | null> {
+    await this.delay()
+    const db = this.booking.snapshot()
+    const customer = db.customers.find((c) => c.id === id)
+    if (!customer) return null
+    const appointments = db.appointments
+      .filter((a) => a.customerId === id)
+      .sort((a, b) => b.startsAt.localeCompare(a.startsAt))
+    const [summary] = summarizeCustomers([customer], appointments, db.loyalty, new Date())
+    return { summary: summary!, appointments }
+  }
+
+  updateCustomer(id: ID, patch: { name: string; phone: string; email: string; notes: string }): Promise<Customer> {
+    return this.booking.adminUpdateCustomer(id, patch)
   }
 
   subscribe(listener: (change: AdminChange) => void): () => void {

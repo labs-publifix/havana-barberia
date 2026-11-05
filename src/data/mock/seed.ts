@@ -32,7 +32,7 @@ export interface MockDb {
 }
 
 /** Bump when the demo data changes shape or content; stored demos refresh, keeping real bookings. */
-export const MOCK_DB_VERSION = 2
+export const MOCK_DB_VERSION = 3
 
 const categories: ServiceCategory[] = [
   { id: 'cortes', name: 'Cortes', order: 1 },
@@ -164,8 +164,15 @@ const LAST_NAMES = [
   'Molina',
   'Peña',
 ]
+/** Unique for the first 480 customers: the surname shifts every full round of first names. */
 const demoName = (n: number) =>
-  `${FIRST_NAMES[(n * 7) % FIRST_NAMES.length]} ${LAST_NAMES[(n * 11) % LAST_NAMES.length]}`
+  `${FIRST_NAMES[(n * 7) % FIRST_NAMES.length]} ${LAST_NAMES[(n * 11 + Math.floor(n / FIRST_NAMES.length) * 3) % LAST_NAMES.length]}`
+
+const REGULAR_NOTES = [
+  'Prefiere degradado bajo y tijera arriba.',
+  'Alérgico a la loción con alcohol.',
+  'Llega 10 min antes; ofrecerle café.',
+]
 
 /** Small deterministic PRNG so the demo agenda looks the same on every load of a given day. */
 function mulberry32(seed: number) {
@@ -243,6 +250,44 @@ export function createSeed(now: Date): MockDb {
     })
   }
 
+  // Customers: about half the appointments belong to regulars who come back.
+  // Separate PRNG, so appointment days and times stay the same as before.
+  const people = mulberry32(Number(today.replaceAll('-', '')) + 13)
+  const regulars: Customer[] = []
+  const newCustomer = (): Customer => {
+    const n = customers.length
+    const daysAgo = Math.floor(people() * 420)
+    const c: Customer = {
+      id: `cust-${n}`,
+      name: demoName(n),
+      phone: `442000${String(n).padStart(4, '0')}`,
+      email: `cliente${n}@ejemplo.com`,
+      createdAt: new Date(now.getTime() - daysAgo * 86400000).toISOString(),
+    }
+    customers.push(c)
+    return c
+  }
+  // Realistic reuse: nobody twice on the same day, and at most one pending
+  // future appointment per regular (the policy allows two).
+  const seen = new Set<string>() // `${customerId}|${date}`
+  const pending = new Set<string>()
+  const customerFor = (date: string, future: boolean): Customer => {
+    if (regulars.length >= 6 && people() < 0.55) {
+      const pool = regulars.filter((c) => !seen.has(`${c.id}|${date}`) && !(future && pending.has(c.id)))
+      const c = pool[Math.floor(people() * pool.length)]
+      if (c) {
+        seen.add(`${c.id}|${date}`)
+        if (future) pending.add(c.id)
+        return c
+      }
+    }
+    const c = newCustomer()
+    seen.add(`${c.id}|${date}`)
+    if (future) pending.add(c.id)
+    if (regulars.length < 24 && people() < 0.5) regulars.push(c)
+    return c
+  }
+
   // Demo appointment: the next day Isaac works, at 12:00, so /cita/demo-cita can be cancelled.
   const isaac = staff[0]!
   for (let i = 2; i < 10; i++) {
@@ -262,16 +307,8 @@ export function createSeed(now: Date): MockDb {
         const svc = services[Math.floor(rand() * services.length)]!
         const start = 10 * 60 + Math.floor(rand() * 40) * 15
         if (!fits(s, date, start, svc.durationMin)) continue
-        const n = customers.length
-        const customer: Customer = {
-          id: `cust-${n}`,
-          name: demoName(n),
-          phone: `44200000${String(n).padStart(2, '0')}`,
-          email: `cliente${n}@ejemplo.com`,
-          createdAt,
-        }
-        customers.push(customer)
         const past = Date.parse(iso(date, '00:00')) + (start + svc.durationMin) * 60000 < now.getTime()
+        const customer = customerFor(date, !past)
         add(
           s,
           date,
@@ -297,15 +334,7 @@ export function createSeed(now: Date): MockDb {
         const svc = services[Math.floor(pastRand() * services.length)]!
         const start = 10 * 60 + Math.floor(pastRand() * 40) * 15
         if (!fits(s, date, start, svc.durationMin)) continue
-        const n = customers.length
-        const customer: Customer = {
-          id: `cust-${n}`,
-          name: demoName(n),
-          phone: `44200000${String(n).padStart(2, '0')}`,
-          email: `cliente${n}@ejemplo.com`,
-          createdAt,
-        }
-        customers.push(customer)
+        const customer = customerFor(date, false)
         add(
           s,
           date,
@@ -319,6 +348,32 @@ export function createSeed(now: Date): MockDb {
       }
     }
   }
+
+  // Regulars carry a loyalty card: stamps from earlier visits plus the ones in the
+  // seed; one has a full card with the free cut ready. A few have staff notes.
+  regulars.forEach((c, i) => {
+    const earned = appointments.filter(
+      (a) =>
+        a.customerId === c.id &&
+        a.status === 'completed' &&
+        a.serviceIds.some((id) => services.find((x) => x.id === id)?.loyaltyEligible),
+    ).length
+    const full = i === 1
+    const stamps = full
+      ? bookingPolicy.loyaltyGoal
+      : Math.min(bookingPolicy.loyaltyGoal - 1, earned + Math.floor(people() * 8))
+    const token = `seed-card-${c.id}`
+    loyalty.push({
+      token,
+      customerId: c.id,
+      customerFirstName: c.name.split(' ')[0]!,
+      stamps,
+      goal: bookingPolicy.loyaltyGoal,
+      rewardExpiresAt: full ? iso(addDays(today, 60), '23:59') : null,
+    })
+    for (const a of appointments) if (a.customerId === c.id) a.loyaltyToken = token
+    if (i < REGULAR_NOTES.length) c.notes = REGULAR_NOTES[i]
+  })
 
   // Today gets a no-show and a cancellation so the admin overview has something to flag.
   const todays = appointments

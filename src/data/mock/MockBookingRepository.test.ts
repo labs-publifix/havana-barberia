@@ -431,3 +431,35 @@ describe('MockBookingRepository · staff actions', () => {
     expect(slot('16:00')?.available).toBe(true)
   })
 })
+
+describe('MockBookingRepository · customers', () => {
+  it('edits contact details and notes, refusing a phone that belongs to someone else', async () => {
+    const r = repo()
+    const a = await r.createAppointment(booking(iso(MONDAY, '10:00'), 1))
+    const b = await r.createAppointment(booking(iso(MONDAY, '11:00'), 2))
+    const updated = await r.adminUpdateCustomer(a.customerId, {
+      name: ' Ana Ríos Peña ',
+      phone: '442 333 4455',
+      email: 'ANA.R@EJEMPLO.COM',
+      notes: ' Prefiere tijera ',
+    })
+    expect(updated).toMatchObject({
+      name: 'Ana Ríos Peña',
+      phone: '4423334455',
+      email: 'ana.r@ejemplo.com',
+      notes: 'Prefiere tijera',
+    })
+    // Her appointments show the new details too.
+    expect(r.snapshot().appointments.find((x) => x.id === a.id)?.customer.name).toBe('Ana Ríos Peña')
+
+    await expect(
+      r.adminUpdateCustomer(a.customerId, { name: 'Ana', phone: b.customer.phone, email: '', notes: '' }),
+    ).rejects.toThrow('Ese teléfono ya es de otro cliente (Ana 2)')
+    await expect(
+      r.adminUpdateCustomer(a.customerId, { name: 'Ana', phone: '123', email: '', notes: '' }),
+    ).rejects.toThrow('Revisa el teléfono')
+    await expect(
+      r.adminUpdateCustomer(a.customerId, { name: 'Ana', phone: '', email: 'no-es-correo', notes: '' }),
+    ).rejects.toThrow('Revisa el correo')
+  })
+})

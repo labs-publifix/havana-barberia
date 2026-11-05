@@ -31,6 +31,8 @@ export interface NewAppointmentDraft {
   date: LocalDate
   /** "HH:mm" picked on the grid, if any. */
   time?: string
+  /** Customer already chosen (e.g. "Agendar cita" from their profile). */
+  customer?: Customer
 }
 
 function ServicePicker({
@@ -379,7 +381,7 @@ export function NewAppointmentPanel({
       setStartsAt('')
       setWantedTime(draft.time)
       setNotice(null)
-      setCustomer(null)
+      setCustomer(draft.customer ?? null)
       setNewCustomer({ name: '', phone: '', email: '' })
       setNotes('')
       setError(null)

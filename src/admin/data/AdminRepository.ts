@@ -10,6 +10,7 @@ import type {
   StaffStatusChange,
   StatusChangeResult,
 } from '../domain'
+import type { CustomerSummary } from '../customers/model'
 
 export class InvalidCredentialsError extends Error {
   constructor() {
@@ -53,6 +54,13 @@ export interface AdminRepository {
   deleteBlock(id: ID): Promise<void>
   findCustomers(query: string): Promise<Customer[]>
   getLoyaltyForCustomer(customerId: ID): Promise<LoyaltyCard | null>
+
+  // Customers (Clientes). Supabase: a view with the same summary per customer.
+  listCustomers(): Promise<CustomerSummary[]>
+  /** Summary plus every appointment of one customer (newest first). */
+  getCustomer(id: ID): Promise<{ summary: CustomerSummary; appointments: Appointment[] } | null>
+  /** Contact details and notes. Errors: InvalidRequestError (phone/email taken or invalid). */
+  updateCustomer(id: ID, patch: { name: string; phone: string; email: string; notes: string }): Promise<Customer>
   /**
    * Live updates: called on every change to appointments or blocks. Supabase:
    * a Realtime channel on those tables. Returns the unsubscribe function.

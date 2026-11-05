@@ -513,6 +513,35 @@ export class MockBookingRepository implements BookingRepository {
     )
   }
 
+  /** Edit a customer's contact details and notes; past appointments show the new name/phone too. */
+  async adminUpdateCustomer(
+    id: ID,
+    patch: { name: string; phone: string; email: string; notes: string },
+  ): Promise<Customer> {
+    await this.delay()
+    return this.exclusive(() => {
+      const c = this.db.customers.find((x) => x.id === id)
+      if (!c) throw new NotFoundError('ese cliente')
+      const name = patch.name.trim()
+      if (!name) throw new InvalidRequestError('Escribe el nombre.')
+      const phone = patch.phone.trim() ? normalizeMxPhone(patch.phone) : ''
+      if (phone === null) throw new InvalidRequestError('Revisa el teléfono: 10 dígitos.')
+      const email = patch.email.trim().toLowerCase()
+      if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw new InvalidRequestError('Revisa el correo.')
+      const clash = this.db.customers.find(
+        (x) => x.id !== id && ((phone && x.phone === phone) || (email && x.email === email)),
+      )
+      if (clash)
+        throw new InvalidRequestError(
+          `${phone && clash.phone === phone ? 'Ese teléfono' : 'Ese correo'} ya es de otro cliente (${clash.name}).`,
+        )
+      Object.assign(c, { name, phone, email, notes: patch.notes.trim() })
+      for (const a of this.db.appointments) if (a.customerId === id) a.customer = { name, phone, email }
+      this.save()
+      return clone(c)
+    })
+  }
+
   async adminLoyaltyFor(customerId: ID): Promise<LoyaltyCard | null> {
     await this.delay()
     const c = this.db.loyalty.find((x) => x.customerId === customerId)

@@ -117,3 +117,10 @@ Pantallas del panel ──▶ AdminRepository ──▶ MockAdminRepository     
 
 - Botón **«Agendar cita»** en la barra superior (tecla `N`), para dueño, gerente y recepción. Abre un único panel (`NewAppointmentProvider`) que también usan la agenda (clic en un hueco, walk-in).
 - Orden pensado para llamadas y WhatsApp: **1. Cuándo y con quién** (calendario, barberos como botones con foto, horarios libres como botones por mañana/tarde/noche), **2. Servicios**, **3. Cliente**. Los horarios aparecen antes de elegir servicios (con el servicio más corto) y, si al agregar servicios la hora elegida ya no cabe, el panel lo avisa y la libera. El pie resume fecha, hora, barbero, duración y total.
+
+### Clientes (`/admin/clientes`)
+
+- **Lógica pura** en `src/admin/customers/model.ts`: resumen por cliente (visitas completadas, no-shows y los de los últimos 90 días, cancelaciones, última visita, próxima cita, total gastado, tarjeta de sellos), filtros y búsqueda (nombre o correo sin acentos; teléfono por dígitos). Con Supabase, el mismo resumen puede salir de una vista.
+- **Lista:** indicadores (clientes, nuevos del mes, con cita próxima, cortes gratis por canjear), búsqueda, filtros (con cita, frecuentes con 3+ visitas, con no-shows, corte gratis) y tabla ordenable. La ficha se abre en un panel lateral con `?cliente=id`.
+- **Ficha:** agendar cita con el cliente ya elegido, llamar y WhatsApp; aviso de 3 no-shows en 90 días (la reserva en línea le pide contactar a la barbería); sellos; próximas citas e historial (abren la cita en la agenda); datos y notas editables (teléfono y correo únicos). El total gastado solo lo ven dueño y gerente. El barbero no entra a Clientes.
+- **Datos de demostración (versión 3):** clientes frecuentes con varias visitas, tarjetas de sellos variadas (una con corte gratis listo) y algunas notas; nadie repite día y cada frecuente tiene como máximo una cita pendiente.

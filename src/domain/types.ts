@@ -76,6 +76,8 @@ export interface CustomerContact {
 export interface Customer extends CustomerContact {
   id: ID
   createdAt: Instant
+  /** Staff notes about the person (preferences, allergies…). */
+  notes?: string
 }
 
 export type AppointmentStatus = 'booked' | 'confirmed' | 'completed' | 'cancelled' | 'no_show'

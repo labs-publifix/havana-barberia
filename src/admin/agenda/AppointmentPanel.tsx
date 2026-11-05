@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Mail, Phone } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { Mail, Phone, UserRound } from 'lucide-react'
+import { routes } from '@/app/routes'
 import type { Appointment, LocalDate, Service, Staff } from '@/domain/types'
 import { Avatar } from '@/components/booking/Avatar'
 import { Alert } from '@/components/ui/Alert'
@@ -324,6 +326,14 @@ export function AppointmentPanel({
 
             <Section title="Contacto">
               <div className="grid gap-1.5 text-sm">
+                {canManage && (
+                  <Link
+                    to={`${routes.adminSection('clientes')}?cliente=${a.customerId}`}
+                    className="inline-flex items-center gap-2 font-medium underline decoration-line-strong underline-offset-4 hover:decoration-fg"
+                  >
+                    <UserRound className="size-4 text-fg-muted" aria-hidden /> Ver ficha del cliente
+                  </Link>
+                )}
                 {a.customer.phone ? (
                   <a
                     href={`tel:+52${a.customer.phone}`}
