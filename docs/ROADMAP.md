@@ -26,7 +26,7 @@ aprobada por el cliente; después la conexión a Supabase y Resend sin cambiar p
 | ---------------------------------------------------------------- | ------------------------------------------------ |
 | Hito 1A · Sitio público y flujo de reserva (mock)                | ✅ Aprobado por el cliente                       |
 | Rediseño del sitio público                                       | ✅ Aprobado y publicado                          |
-| Hito 1B · Panel administrativo (UI con datos de prueba)          | 🔨 En curso: entregas 1 a 7 listas para revisión |
+| Hito 1B · Panel administrativo (UI con datos de prueba)          | 🔨 En curso: entregas 1 a 8 listas para revisión |
 | Hito 1C · Backend: Supabase + conexión del panel y de la reserva | Pendiente                                        |
 | Hito 1D · Lanzamiento (dominio, migración de AgendaPro, Google)  | Pendiente                                        |
 | Fase 3 · Crecimiento                                             | Pendiente                                        |
@@ -56,7 +56,9 @@ Entregas, cada una publicada en la vista previa para revisión:
 7. ✅ **Ajustes:** políticas de reserva (anticipación, días hacia adelante, citas por cliente, tiempo entre citas,
    plazo para cambios, tolerancia) y de lealtad (sellos, vigencia, servicios que suman sello), con vista previa de lo
    que lee el cliente; usuarios (invitar, rol, perfil de barbero, quitar acceso) y matriz de qué ve cada rol.
-8. **Adelanto de administración (fase 2, solo UI):** a petición del cliente se adelanta
+8. ✅ **Adelanto de administración (fase 2, solo UI):** Ventas (tickets de la semana y venta de productos en
+   mostrador), Comisiones (por barbero y semana, con detalle por cita), Cierre y nómina (entradas por forma de pago,
+   anticipos y recibo por barbero) y Reportes (ventas por día, desempeño, servicios y canales). Pendiente para la fase 2: a petición del cliente se adelanta
    la parte visual con datos ficticios:
    - **Ventas:** registro manual de ticket (servicios, productos, pagos mixtos, propinas,
      descuentos con autorización); una cita completada puede generar su venta.

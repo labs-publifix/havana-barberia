@@ -19,6 +19,7 @@ const Settings = lazy(() => import('./Settings'))
 const Commissions = lazy(() => import('./Commissions'))
 const Payroll = lazy(() => import('./Payroll'))
 const Sales = lazy(() => import('./Sales'))
+const Reports = lazy(() => import('./Reports'))
 
 const TOTAL_DELIVERIES = 8
 
@@ -139,6 +140,14 @@ export default function SectionPage() {
     return (
       <Suspense fallback={null}>
         <Sales />
+      </Suspense>
+    )
+  }
+
+  if (section === 'reportes') {
+    return (
+      <Suspense fallback={null}>
+        <Reports />
       </Suspense>
     )
   }

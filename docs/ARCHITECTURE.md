@@ -163,3 +163,10 @@ Pantallas del panel ──▶ AdminRepository ──▶ MockAdminRepository     
 - **Usuarios** (`AdminRepository.saveUser`, con pruebas): solo la persona dueña invita, cambia rol o quita acceso; correo único; un barbero se liga a un perfil de Equipo sin usuario; nadie cambia su propio rol ni se quita el acceso; siempre queda una persona dueña activa. Dueño y gerente usan verificación en dos pasos. En la demo los usuarios se guardan en este navegador (`havana:admin-users`) y entran con la contraseña de demostración; con Supabase, invitación por correo (`auth.admin.inviteUserByEmail`).
 - **Permisos:** dueño y gerente editan las políticas; el gerente consulta los usuarios. La matriz «Qué ve cada rol» se arma con las mismas reglas de navegación (`sections.ts`).
 
+### Finanzas (adelanto de la fase 2)
+
+- **Cálculo puro** en `src/admin/finance.ts` (con pruebas): semanas de lunes a domingo, ganancias por barbero (comisión por servicio según su regla de Equipo, comisión de productos vendidos, propinas, anticipos y lo que se le paga) y ventas por día.
+- **Datos** (`AdminRepository.getFinance(from, to)`): citas del periodo, servicios, equipo, reglas de comisión, anticipos (`MockDb.advances`) y ventas de productos (`MockDb.sales`). Un barbero solo recibe lo suyo (con Supabase lo hace RLS).
+- **Pantallas:** Ventas (desk; registrar venta con precios del catálogo), Comisiones (barbero: «Mis comisiones»), Cierre y nómina y Reportes (dueño y gerente). Las comisiones de la demo están vacías: aparecen como «sin capturar» hasta que se capturan en Equipo o en el producto. Los cálculos se validan con la barbería antes de usarse para pagar.
+- **Datos de demostración (versión 7):** cuatro semanas de citas atendidas con pago.
+
