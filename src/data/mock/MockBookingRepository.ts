@@ -14,12 +14,14 @@ import type {
   StaffChoice,
   TimeBlock,
   WeeklySchedule,
+  BookingPolicy,
 } from '@/domain/types'
 import { bookingPolicy, businessHours } from '@/config/business'
 import { computeSlots, isActiveStatus, nearestAvailable, staffForServices, totalDuration } from '@/lib/availability'
 import { addDays, localDate, toMinutes, weekdayOf, zonedInstant } from '@/lib/time'
 import { normalizeMxPhone } from '@/lib/phone'
 import { DAY_NAMES, outsideSchedule, scheduleErrors } from '@/lib/schedule'
+import { policyError } from '@/lib/policy'
 import type { BookingRepository, ServiceCatalog, SlotQuery } from '../BookingRepository'
 import {
   BookingLimitError,
@@ -32,8 +34,6 @@ import { createSeed, DEMO_APPOINTMENT_TOKEN, MOCK_DB_VERSION, type MockDb } from
 
 const STORAGE_KEY = 'havana:mock-db'
 
-/** Staff may book from now on (no 1 h minimum) and up to 90 days ahead. */
-const STAFF_POLICY = { ...bookingPolicy, minNoticeMin: 0, maxAdvanceDays: 90 }
 
 /** Accent-insensitive lowercase, for searching names. */
 const fold = (s: string) =>
@@ -170,7 +170,16 @@ export class MockBookingRepository implements BookingRepository {
     return run
   }
 
-  private slotsFor(q: SlotQuery, policy = bookingPolicy): Slot[] {
+  /** Booking and loyalty rules as edited in Ajustes (config/business has the defaults). */
+  private get policy(): BookingPolicy {
+    return this.db.policy ?? bookingPolicy
+  }
+
+  async getPolicy(): Promise<BookingPolicy> {
+    return clone(this.policy)
+  }
+
+  private slotsFor(q: SlotQuery, policy = this.policy): Slot[] {
     const services = this.db.services.filter((s) => s.active && q.serviceIds.includes(s.id))
     if (services.length !== q.serviceIds.length || services.length === 0) return []
     const candidates = staffForServices(this.db.staff, q.serviceIds)
@@ -191,8 +200,8 @@ export class MockBookingRepository implements BookingRepository {
   private assertChangeAllowed(a: Appointment) {
     if (!isActiveStatus(a.status) || a.status === 'completed')
       throw new InvalidRequestError('Esta cita ya no se puede modificar.')
-    if (Date.parse(a.startsAt) - this.now().getTime() < bookingPolicy.changeCutoffMin * 60000) {
-      throw new ChangeWindowClosedError(bookingPolicy.changeCutoffMin / 60)
+    if (Date.parse(a.startsAt) - this.now().getTime() < this.policy.changeCutoffMin * 60000) {
+      throw new ChangeWindowClosedError(this.policy.changeCutoffMin / 60)
     }
   }
 
@@ -244,8 +253,8 @@ export class MockBookingRepository implements BookingRepository {
           (a.status === 'booked' || a.status === 'confirmed') &&
           Date.parse(a.startsAt) > nowMs,
       )
-      if (upcoming.length >= bookingPolicy.maxActiveAppointmentsPerCustomer)
-        throw new BookingLimitError(bookingPolicy.maxActiveAppointmentsPerCustomer)
+      if (upcoming.length >= this.policy.maxActiveAppointmentsPerCustomer)
+        throw new BookingLimitError(this.policy.maxActiveAppointmentsPerCustomer)
 
       const card = this.cardFor(customer)
       const appt: Appointment = {
@@ -280,7 +289,7 @@ export class MockBookingRepository implements BookingRepository {
         customerId: customer.id,
         customerFirstName: customer.name.split(/\s+/)[0] ?? customer.name,
         stamps: 0,
-        goal: bookingPolicy.loyaltyGoal,
+        goal: this.policy.loyaltyGoal,
         rewardExpiresAt: null,
       }
       this.db.loyalty.push(card)
@@ -327,8 +336,9 @@ export class MockBookingRepository implements BookingRepository {
   // Same rules the Supabase backend will enforce. Staff can book on short notice
   // and further ahead than customers, but never double-book a barber.
 
+  /** Staff may book from now on (no minimum notice) and up to 90 days ahead. */
   adminSlots(q: SlotQuery): Slot[] {
-    return this.slotsFor(q, STAFF_POLICY)
+    return this.slotsFor(q, { ...this.policy, minNoticeMin: 0, maxAdvanceDays: 90 })
   }
 
   /**
@@ -351,8 +361,8 @@ export class MockBookingRepository implements BookingRepository {
         throw new InvalidRequestError('La cita ya está confirmada.')
       if (status === 'completed' && now < start)
         throw new InvalidRequestError('Solo puedes completar una cita cuando ya empezó.')
-      if (status === 'no_show' && now < start + bookingPolicy.toleranceMin * 60000)
-        throw new InvalidRequestError(`Marca no-show después de ${bookingPolicy.toleranceMin} minutos de tolerancia.`)
+      if (status === 'no_show' && now < start + this.policy.toleranceMin * 60000)
+        throw new InvalidRequestError(`Marca no-show después de ${this.policy.toleranceMin} minutos de tolerancia.`)
       if (status === 'completed') {
         const methods: PaymentMethod[] = ['cash', 'card', 'transfer']
         if (!payment || !methods.includes(payment.method)) throw new InvalidRequestError('Elige cómo pagó.')
@@ -382,7 +392,7 @@ export class MockBookingRepository implements BookingRepository {
             card.stamps += 1
             stampAdded = true
             if (card.stamps === card.goal) {
-              const until = addDays(localDate(this.now(), businessHours.timeZone), bookingPolicy.rewardValidityDays)
+              const until = addDays(localDate(this.now(), businessHours.timeZone), this.policy.rewardValidityDays)
               card.rewardExpiresAt = zonedEndOfDay(until)
             }
           }
@@ -698,6 +708,59 @@ export class MockBookingRepository implements BookingRepository {
   }
 
   // ── Team (barbers, schedules, services, commissions) ──────────────────────
+
+  // ── Settings (Ajustes) ────────────────────────────────────────────────────
+
+  adminSettings(): { policy: BookingPolicy; services: Service[] } {
+    const catOrder = new Map(this.db.categories.map((c) => [c.id, c.order]))
+    return clone({
+      policy: this.policy,
+      services: this.db.services
+        .filter((s) => s.active)
+        .sort((a, b) => (catOrder.get(a.categoryId) ?? 99) - (catOrder.get(b.categoryId) ?? 99) || a.order - b.order),
+    })
+  }
+
+  /**
+   * Save the booking and loyalty rules and which services earn a stamp. A new
+   * goal applies to cards in progress; cards that already reach it get their
+   * free cut from today. Cards with a pending reward keep it.
+   */
+  async adminSavePolicy(input: {
+    policy: BookingPolicy
+    loyaltyServiceIds: ID[]
+  }): Promise<{ policy: BookingPolicy; cardsCompleted: number }> {
+    await this.delay()
+    return this.exclusive(() => {
+      const policy: BookingPolicy = { ...this.policy, ...input.policy, slotStepMin: this.policy.slotStepMin }
+      const err = policyError(policy)
+      if (err) throw new InvalidRequestError(err)
+      const eligible = new Set(input.loyaltyServiceIds)
+      if (!this.db.services.some((s) => s.active && eligible.has(s.id)))
+        throw new InvalidRequestError('Elige al menos un servicio que sume sello.')
+
+      let cardsCompleted = 0
+      if (policy.loyaltyGoal !== this.policy.loyaltyGoal) {
+        const until = zonedEndOfDay(
+          addDays(localDate(this.now(), businessHours.timeZone), policy.rewardValidityDays),
+        )
+        for (const card of this.db.loyalty) {
+          if (card.rewardExpiresAt) continue // reward already earned: keep it
+          card.goal = policy.loyaltyGoal
+          if (card.stamps >= card.goal) {
+            card.stamps = card.goal
+            card.rewardExpiresAt = until
+            cardsCompleted++
+          }
+        }
+      }
+      // Hidden services keep their setting (they are not listed in Ajustes).
+      for (const s of this.db.services) if (s.active) s.loyaltyEligible = eligible.has(s.id)
+      this.db.policy = policy
+      this.save()
+      return { policy: clone(policy), cardsCompleted }
+    })
+  }
 
   adminTeam() {
     const now = this.now().toISOString()
@@ -1025,7 +1088,7 @@ function refreshDemo(stored: MockDb, fresh: MockDb): MockDb {
 function keepCatalog(
   stored: MockDb,
   fresh: MockDb,
-): Pick<MockDb, 'categories' | 'services' | 'staff' | 'products' | 'commissions'> {
+): Pick<MockDb, 'categories' | 'services' | 'staff' | 'products' | 'commissions' | 'policy'> {
   return {
     // Products arrived in demo v4; older stored demos start from the seed's.
     products: stored.products ?? fresh.products,
@@ -1040,6 +1103,8 @@ function keepCatalog(
         })
       : fresh.staff,
     commissions: stored.commissions ?? fresh.commissions,
+    // Rules edited in Ajustes (arrived in demo v6; older demos start from the defaults).
+    policy: stored.policy ? { ...fresh.policy, ...stored.policy } : fresh.policy,
   }
 }
 

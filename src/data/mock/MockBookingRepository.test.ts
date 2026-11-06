@@ -747,3 +747,74 @@ describe('MockBookingRepository · team', () => {
     expect((await repo1.listStaff()).some((s) => s.id === 'mario-pena')).toBe(false)
   })
 })
+
+describe('MockBookingRepository · settings', () => {
+  const all = (r: MockBookingRepository) => r.adminSettings().services.map((s) => s.id)
+
+  it('applies the saved rules to bookings and keeps them on reload', async () => {
+    const store = new Map<string, string>()
+    const storage = {
+      getItem: (k: string) => store.get(k) ?? null,
+      setItem: (k: string, v: string) => void store.set(k, v),
+      removeItem: (k: string) => void store.delete(k),
+    }
+    // Monday 9:00; Isaac starts at 10:00.
+    const now = () => zonedInstant(MONDAY, '09:00', TZ)
+    const r = new MockBookingRepository({ storage, initial: emptyDb(), now })
+    const free = async () =>
+      (await r.getAvailableSlots({ serviceIds: ['corte-adulto'], staffId: 'isaac', date: MONDAY }))
+        .filter((s) => s.available)
+        .map((s) => s.time)
+    expect((await free())[0]).toBe('10:00')
+    const policy = { ...(await r.getPolicy()), minNoticeMin: 180, maxActiveAppointmentsPerCustomer: 1 }
+    await r.adminSavePolicy({ policy, loyaltyServiceIds: all(r) })
+    expect((await free())[0]).toBe('12:00')
+    await r.createAppointment(booking(iso(MONDAY, '15:00')))
+    await expect(r.createAppointment(booking(iso(MONDAY, '16:00')))).rejects.toBeInstanceOf(BookingLimitError)
+    // Staff still book with no minimum notice.
+    expect(r.adminSlots({ serviceIds: ['corte-adulto'], staffId: 'isaac', date: MONDAY })[0]).toMatchObject({
+      time: '10:00',
+      available: true,
+    })
+
+    const again = new MockBookingRepository({ storage, now })
+    expect((await again.getPolicy()).minNoticeMin).toBe(180)
+  })
+
+  it('rejects values off the lists and an empty loyalty list', async () => {
+    const r = repo()
+    const policy = await r.getPolicy()
+    await expect(r.adminSavePolicy({ policy: { ...policy, toleranceMin: 7 }, loyaltyServiceIds: all(r) })).rejects.toThrow(
+      'Elige un valor válido para la tolerancia.',
+    )
+    await expect(r.adminSavePolicy({ policy, loyaltyServiceIds: [] })).rejects.toThrow(/al menos un servicio/)
+  })
+
+  it('a lower goal completes cards that reach it; earned rewards are kept', async () => {
+    const db = emptyDb()
+    const base = { customerFirstName: 'Ana', goal: 10, rewardExpiresAt: null }
+    db.loyalty = [
+      { ...base, token: 'a', customerId: 'c-a', stamps: 3 },
+      { ...base, token: 'b', customerId: 'c-b', stamps: 8 },
+      { ...base, token: 'c', customerId: 'c-c', stamps: 10, rewardExpiresAt: iso('2026-12-01', '23:59') },
+    ]
+    const r = repo(db)
+    const policy = { ...(await r.getPolicy()), loyaltyGoal: 6 }
+    const { cardsCompleted } = await r.adminSavePolicy({ policy, loyaltyServiceIds: all(r) })
+    expect(cardsCompleted).toBe(1)
+    const cards = r.snapshot().loyalty
+    expect(cards.map((c) => [c.stamps, c.goal])).toEqual([
+      [3, 6],
+      [6, 6],
+      [10, 10],
+    ])
+    expect(cards[1]!.rewardExpiresAt).toBe(iso('2027-01-30', '23:59'))
+  })
+
+  it('only the chosen services earn a stamp', async () => {
+    const r = repo()
+    const policy = await r.getPolicy()
+    await r.adminSavePolicy({ policy, loyaltyServiceIds: ['barba-premium'] })
+    expect(r.adminSettings().services.filter((s) => s.loyaltyEligible).map((s) => s.id)).toEqual(['barba-premium'])
+  })
+})

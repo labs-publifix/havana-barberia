@@ -154,3 +154,12 @@ Pantallas del panel ──▶ AdminRepository ──▶ MockAdminRepository     
 - **Comisión** (`commissionOn` en `src/admin/team/model.ts`): monto propio del servicio si existe, si no la general; el panel muestra lo que gana por cada servicio. Solo dueño y gerente la ven.
 - **Ausencias:** bloques de días completos por barbero (`createBlock`); la agenda los recorta por día y la disponibilidad pública los respeta. Recepción consulta el equipo y puede registrar ausencias.
 - **Sitio público:** un barbero inactivo deja de aparecer en la portada y en la reserva; el orden del equipo es el del sitio.
+
+### Ajustes (`/admin/ajustes`)
+
+- **Políticas guardadas:** `MockDb.policy` (valores iniciales en `src/config/business.ts`). `MockBookingRepository` las aplica en disponibilidad, límite de citas, plazo de cambios, tolerancia y lealtad; el sitio público las lee con `usePolicy()` (`BookingRepository.getPolicy`), con los valores de `config/business` mientras cargan. Supabase: una fila de `settings`.
+- **Valores permitidos** (`src/lib/policy.ts`, con pruebas): cada regla toma un valor de una lista corta para que los textos públicos se lean bien («hasta 4 horas antes»); la cuadrícula de 15 min es fija. `policySummary` arma la vista previa «Así lo lee el cliente».
+- **Lealtad:** meta de sellos, vigencia y servicios que suman sello (`Service.loyaltyEligible`). Al cambiar la meta, las tarjetas en curso se ajustan; si baja, quien ya la alcanza gana su corte desde hoy; los premios ya ganados se respetan.
+- **Usuarios** (`AdminRepository.saveUser`, con pruebas): solo la persona dueña invita, cambia rol o quita acceso; correo único; un barbero se liga a un perfil de Equipo sin usuario; nadie cambia su propio rol ni se quita el acceso; siempre queda una persona dueña activa. Dueño y gerente usan verificación en dos pasos. En la demo los usuarios se guardan en este navegador (`havana:admin-users`) y entran con la contraseña de demostración; con Supabase, invitación por correo (`auth.admin.inviteUserByEmail`).
+- **Permisos:** dueño y gerente editan las políticas; el gerente consulta los usuarios. La matriz «Qué ve cada rol» se arma con las mismas reglas de navegación (`sections.ts`).
+

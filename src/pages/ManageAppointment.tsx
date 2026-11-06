@@ -20,6 +20,7 @@ import { useAppointment, useCatalog, useStaff, keys } from '@/app/queries'
 import { useRepository } from '@/app/RepositoryContext'
 import { routes } from '@/app/routes'
 import { business } from '@/config/business'
+import { usePolicy } from '@/app/queries'
 import { ChangeWindowClosedError, SlotUnavailableError } from '@/data'
 import { capitalize, formatDateLong, formatTime12, localDate, localTime } from '@/lib/time'
 
@@ -56,7 +57,8 @@ export default function ManageAppointment() {
 
   const a = appt.data
   const tz = business.hours.timeZone
-  const cutoffMs = business.policy.changeCutoffMin * 60_000
+  const policy = usePolicy()
+  const cutoffMs = policy.changeCutoffMin * 60_000
   const startsIn = a ? Date.parse(a.startsAt) - Date.now() : 0
   const isUpcoming = a ? (a.status === 'booked' || a.status === 'confirmed') && startsIn > 0 : false
   const canChange = isUpcoming && startsIn >= cutoffMs
@@ -234,7 +236,7 @@ export default function ManageAppointment() {
                   <CalendarClock className="size-5" strokeWidth={1.75} aria-hidden />
                   Reprogramar
                 </Button>
-                <Button variant="ghost" size="lg" block onClick={() => addToCalendar(a, catalog.data?.services ?? [])}>
+                <Button variant="ghost" size="lg" block onClick={() => addToCalendar(a, catalog.data?.services ?? [], policy.changeCutoffMin)}>
                   <CalendarPlus className="size-5" strokeWidth={1.75} aria-hidden />
                   Agregar al calendario
                 </Button>
@@ -249,13 +251,13 @@ export default function ManageAppointment() {
                   Cancelar cita
                 </Button>
                 <p className="text-center text-sm text-fg-muted">
-                  Puedes hacer cambios hasta {business.policy.changeCutoffMin / 60} horas antes de tu cita.
+                  Puedes hacer cambios hasta {policy.changeCutoffMin / 60} horas antes de tu cita.
                 </p>
               </div>
             ) : (
               <Alert
                 tone="warning"
-                title={`Faltan menos de ${business.policy.changeCutoffMin / 60} horas para tu cita.`}
+                title={`Faltan menos de ${policy.changeCutoffMin / 60} horas para tu cita.`}
                 action={
                   <a href={business.phoneHref} className={buttonClass({ variant: 'secondary', size: 'sm' })}>
                     <Phone className="size-4" strokeWidth={1.75} aria-hidden />

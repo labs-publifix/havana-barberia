@@ -15,6 +15,7 @@ const Agenda = lazy(() => import('./Agenda'))
 const Customers = lazy(() => import('./Customers'))
 const Catalog = lazy(() => import('./Catalog'))
 const Team = lazy(() => import('./Team'))
+const Settings = lazy(() => import('./Settings'))
 
 const TOTAL_DELIVERIES = 8
 
@@ -119,6 +120,14 @@ export default function SectionPage() {
     return (
       <Suspense fallback={null}>
         <Team />
+      </Suspense>
+    )
+  }
+
+  if (section === 'ajustes') {
+    return (
+      <Suspense fallback={null}>
+        <Settings />
       </Suspense>
     )
   }

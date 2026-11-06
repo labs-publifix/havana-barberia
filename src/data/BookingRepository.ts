@@ -1,5 +1,6 @@
 import type {
   Appointment,
+  BookingPolicy,
   ID,
   LocalDate,
   LoyaltyCard,
@@ -37,4 +38,6 @@ export interface BookingRepository {
   cancelAppointment(token: string): Promise<void>
   rescheduleAppointment(token: string, slot: Pick<Slot, 'startsAt'>): Promise<Appointment>
   getLoyaltyCardByToken(token: string): Promise<LoyaltyCard | null>
+  /** Booking and loyalty rules (edited by the shop in the admin's Ajustes). */
+  getPolicy(): Promise<BookingPolicy>
 }

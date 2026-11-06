@@ -1,4 +1,5 @@
 import type {
+  BookingPolicy,
   Appointment,
   Customer,
   LoyaltyCard,
@@ -33,6 +34,8 @@ export interface MockDb {
   loyalty: LoyaltyCard[]
   products: Product[]
   commissions: StaffCommission[]
+  /** Booking and loyalty rules, edited in Ajustes (defaults from config/business). */
+  policy: BookingPolicy
 }
 
 /** Bump when the demo data changes shape or content; stored demos refresh, keeping real bookings. */
@@ -441,5 +444,6 @@ export function createSeed(now: Date): MockDb {
     products: products.map((p) => ({ ...p, createdAt })),
     // Commissions are captured by the owner in the admin; nothing real lives in this repo.
     commissions: staff.map((st) => ({ staffId: st.id, mode: 'percent', value: null, overrides: {} })),
+    policy: { ...bookingPolicy },
   }
 }

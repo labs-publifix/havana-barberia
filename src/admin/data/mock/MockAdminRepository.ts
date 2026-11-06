@@ -1,5 +1,6 @@
 import type {
   Appointment,
+  BookingPolicy,
   Customer,
   ID,
   LocalDate,
@@ -17,6 +18,7 @@ import { MockBookingRepository } from '@/data/mock/MockBookingRepository'
 import { addDays, localDate, weekdayOf, zonedInstant } from '@/lib/time'
 import type {
   AdminCatalog,
+  AdminSettings,
   AdminTeam,
   AdminChange,
   AdminNewAppointment,
@@ -25,13 +27,16 @@ import type {
   AgendaDay,
   NewBlock,
   PaymentInput,
+  PolicyInput,
   ProductInput,
   ServiceInput,
   StaffInput,
   StaffStatusChange,
   StatusChangeResult,
+  UserInput,
 } from '../../domain'
 import { summarizeCustomers, type CustomerSummary } from '../../customers/model'
+import { InvalidRequestError } from '@/data/errors'
 import { InvalidCredentialsError, InvalidMfaCodeError, type AdminRepository } from '../AdminRepository'
 
 /**
@@ -91,6 +96,7 @@ export const DEMO_PASSWORD = 'demo1234'
 /** Invented names for simulated online bookings. */
 const DEMO_NAMES = ['Esteban Lara', 'Rubén Solís', 'Iker Montes', 'Gael Cordero', 'Julián Ávila', 'Marco Treviño']
 const STORAGE_KEY = 'havana:admin-session'
+const USERS_KEY = 'havana:admin-users'
 
 interface Stored {
   userId: string
@@ -121,13 +127,13 @@ export class MockAdminRepository implements AdminRepository {
 
   async getSession(): Promise<AdminSession | null> {
     const s = this.read()
-    const user = s && demoUsers.find((u) => u.id === s.userId && u.active)
+    const user = s && this.users().find((u) => u.id === s.userId && u.active)
     return user ? { user, mfaVerified: s.mfaVerified } : null
   }
 
   async signIn(email: string, password: string): Promise<AdminSession> {
     await this.delay()
-    const user = demoUsers.find((u) => u.email === email.trim().toLowerCase() && u.active)
+    const user = this.users().find((u) => u.email === email.trim().toLowerCase() && u.active)
     if (!user || password !== DEMO_PASSWORD) throw new InvalidCredentialsError()
     this.write({ userId: user.id, mfaVerified: false })
     return { user, mfaVerified: false }
@@ -153,7 +159,58 @@ export class MockAdminRepository implements AdminRepository {
 
   async listUsers(): Promise<AdminUser[]> {
     await this.delay()
-    return demoUsers.map((u) => ({ ...u }))
+    return this.users()
+  }
+
+  async saveUser(input: UserInput): Promise<AdminUser> {
+    await this.delay()
+    const actor = (await this.getSession())?.user
+    if (actor?.role !== 'owner') throw new InvalidRequestError('Solo la persona dueña administra usuarios.')
+    const users = this.users()
+    const name = input.name.trim().replace(/\s+/g, ' ')
+    const email = input.email.trim().toLowerCase()
+    if (!name) throw new InvalidRequestError('Escribe el nombre.')
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new InvalidRequestError('Revisa el correo.')
+    if (users.some((u) => u.id !== input.id && u.email === email))
+      throw new InvalidRequestError('Ya hay un usuario con ese correo.')
+    const existing = input.id ? users.find((u) => u.id === input.id) : undefined
+    if (input.id && !existing) throw new InvalidRequestError('Ese usuario ya no existe.')
+    if (existing?.id === actor.id && (input.role !== actor.role || !input.active))
+      throw new InvalidRequestError('No puedes cambiar tu propio rol ni desactivarte.')
+
+    let staffId: string | null = null
+    if (input.role === 'barber') {
+      const staff = this.booking.snapshot().staff
+      if (!input.staffId || !staff.some((s) => s.id === input.staffId))
+        throw new InvalidRequestError('Elige el perfil del barbero en Equipo.')
+      if (users.some((u) => u.id !== input.id && u.staffId === input.staffId && u.role === 'barber'))
+        throw new InvalidRequestError('Ese barbero ya tiene un usuario.')
+      staffId = input.staffId
+    }
+
+    const user: AdminUser = {
+      id: existing?.id ?? `u-${Date.now().toString(36)}${Math.floor(Math.random() * 1e4)}`,
+      name,
+      email,
+      role: input.role,
+      staffId,
+      mfaRequired: input.role === 'owner' || input.role === 'manager',
+      active: input.active,
+    }
+    const next = existing ? users.map((u) => (u.id === user.id ? user : u)) : [...users, user]
+    if (!next.some((u) => u.role === 'owner' && u.active))
+      throw new InvalidRequestError('Debe quedar al menos una persona dueña activa.')
+    this.writeUsers(next)
+    return { ...user }
+  }
+
+  async getSettings(): Promise<AdminSettings> {
+    await this.delay()
+    return this.booking.adminSettings()
+  }
+
+  savePolicy(input: PolicyInput): Promise<{ policy: BookingPolicy; cardsCompleted: number }> {
+    return this.booking.adminSavePolicy(input)
   }
 
   async getAgendaDay(date: LocalDate): Promise<AgendaDay> {
@@ -319,7 +376,7 @@ export class MockAdminRepository implements AdminRepository {
     return this.booking.onChange(listener)
   }
 
-  demo = {
+  demo = ((repo: MockAdminRepository) => ({
     simulateOnlineBooking: async (): Promise<Appointment> => {
       const popular = ['corte-adulto', 'corte-barba', 'afeitado-barba', 'corte-nino', 'barba-premium']
       const serviceId = popular[Math.floor(Math.random() * popular.length)]!
@@ -348,15 +405,44 @@ export class MockAdminRepository implements AdminRepository {
       }
       throw new Error('No hay horarios libres en los próximos días.')
     },
-    users: demoUsers,
+    /** Active users (including ones invited in Ajustes), for the role switcher. */
+    get users(): AdminUser[] {
+      return repo.users().filter((u) => u.active)
+    },
     password: DEMO_PASSWORD,
     switchTo: async (userId: string): Promise<AdminSession> => {
-      const user = demoUsers.find((u) => u.id === userId)
+      const user = this.users().find((u) => u.id === userId && u.active)
       if (!user) throw new InvalidCredentialsError()
       this.write({ userId, mfaVerified: true })
       return { user, mfaVerified: true }
     },
+  }))(this)
+
+  /** Panel users: the demo accounts plus any invited or edited in Ajustes (kept in this browser). */
+  private users(): AdminUser[] {
+    if (this.usersMemory) return this.usersMemory.map((u) => ({ ...u }))
+    try {
+      const raw = this.storage?.getItem(USERS_KEY)
+      if (raw) {
+        const stored = JSON.parse(raw) as AdminUser[]
+        if (Array.isArray(stored) && stored.length) return stored
+      }
+    } catch {
+      /* storage blocked or unreadable: demo users */
+    }
+    return demoUsers.map((u) => ({ ...u }))
   }
+
+  private writeUsers(users: AdminUser[]) {
+    try {
+      this.storage?.setItem(USERS_KEY, JSON.stringify(users))
+      if (!this.storage) this.usersMemory = users
+    } catch {
+      this.usersMemory = users
+    }
+  }
+
+  private usersMemory: AdminUser[] | null = null
 
   private read(): Stored | null {
     if (!this.storage) return this.memory

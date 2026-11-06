@@ -9,13 +9,13 @@ import { buttonClass } from '@/components/ui/buttonClass'
 import { LoadingRegion, Skeleton } from '@/components/ui/Skeleton'
 import { useLoyalty } from '@/app/queries'
 import { routes } from '@/app/routes'
-import { business } from '@/config/business'
+import { usePolicy } from '@/app/queries'
 
 export default function Loyalty() {
   const { token } = useParams()
   useDocumentTitle('Tarjeta de lealtad', { noindex: true })
   const { data: card, isPending } = useLoyalty(token)
-  const { loyaltyGoal, rewardValidityDays } = business.policy
+  const { loyaltyGoal, rewardValidityDays } = usePolicy()
 
   return (
     <div className="min-h-dvh bg-page">

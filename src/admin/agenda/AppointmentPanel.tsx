@@ -9,7 +9,7 @@ import { Alert } from '@/components/ui/Alert'
 import { buttonClass } from '@/components/ui/buttonClass'
 import { Dialog } from '@/components/ui/Dialog'
 import { TextArea } from '@/components/ui/Field'
-import { bookingPolicy } from '@/config/business'
+import { usePolicy } from '@/app/queries'
 import { formatMxPhone } from '@/lib/phone'
 import { capitalize, durationLabel, formatDateLong, formatTime12, localDate, localTime, money } from '@/lib/time'
 import { useAdminAuth } from '../auth/AdminAuth'
@@ -164,6 +164,7 @@ export function AppointmentPanel({
     setError(null)
   }
 
+  const { toleranceMin } = usePolicy()
   const { data: card } = useQuery({
     queryKey: ['admin', 'day', 'loyalty', a?.customerId],
     queryFn: () => repo.getLoyaltyForCustomer(a!.customerId),
@@ -178,7 +179,7 @@ export function AppointmentPanel({
   const range = `${formatTime12(localTime(a.startsAt, timeZone))} – ${formatTime12(localTime(a.endsAt, timeZone))}`
   const open = isOpen(a)
   const completeOk = canComplete(a, now)
-  const noShowOk = canMarkNoShow(a, now, bookingPolicy.toleranceMin)
+  const noShowOk = canMarkNoShow(a, now, toleranceMin)
 
   const change = (status: StaffStatusChange) => {
     setError(null)
@@ -304,12 +305,12 @@ export function AppointmentPanel({
               )}
               {open && !completeOk && (
                 <p className="text-[13px] text-fg-muted">
-                  Podrás completarla cuando empiece y marcar no-show {bookingPolicy.toleranceMin} min después.
+                  Podrás completarla cuando empiece y marcar no-show {toleranceMin} min después.
                 </p>
               )}
               {open && completeOk && !noShowOk && (
                 <p className="text-[13px] text-fg-muted">
-                  No-show disponible tras {bookingPolicy.toleranceMin} min de tolerancia.
+                  No-show disponible tras {toleranceMin} min de tolerancia.
                 </p>
               )}
             </div>

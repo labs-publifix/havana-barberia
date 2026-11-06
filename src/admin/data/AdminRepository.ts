@@ -1,5 +1,6 @@
 import type {
   Appointment,
+  BookingPolicy,
   Customer,
   ID,
   LocalDate,
@@ -14,6 +15,7 @@ import type {
 import type { SlotQuery } from '@/data'
 import type {
   AdminCatalog,
+  AdminSettings,
   AdminTeam,
   AdminChange,
   AdminNewAppointment,
@@ -22,11 +24,13 @@ import type {
   AgendaDay,
   NewBlock,
   PaymentInput,
+  PolicyInput,
   ProductInput,
   ServiceInput,
   StaffInput,
   StaffStatusChange,
   StatusChangeResult,
+  UserInput,
 } from '../domain'
 import type { CustomerSummary } from '../customers/model'
 
@@ -100,6 +104,17 @@ export interface AdminRepository {
   moveStaff(id: ID, dir: -1 | 1): Promise<void>
   /** Store a barber photo (already resized) and return its URL. */
   uploadStaffPhoto(image: Blob): Promise<string>
+
+  // Settings (Ajustes). Owner and manager. Supabase: a settings row and the profiles table.
+  getSettings(): Promise<AdminSettings>
+  /** Errors: InvalidRequestError. Returns how many loyalty cards a lower goal completed. */
+  savePolicy(input: PolicyInput): Promise<{ policy: BookingPolicy; cardsCompleted: number }>
+  /**
+   * Owner only. Invite (no id) or update a user. Rules: unique email, a barber is
+   * linked to one profile, nobody demotes or deactivates themselves, and there is
+   * always an active owner. Supabase: auth.admin.inviteUserByEmail + profiles.
+   */
+  saveUser(input: UserInput): Promise<AdminUser>
 
   // Products (sold at the shop). Cost, commission and margin are for owner and manager only.
   listProducts(): Promise<Product[]>

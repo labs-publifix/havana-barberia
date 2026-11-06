@@ -1,5 +1,6 @@
 import type {
   Appointment,
+  BookingPolicy,
   AppointmentSource,
   ID,
   Instant,
@@ -155,6 +156,30 @@ export interface ProductInput {
   cost: number | null
   commission: number | null
   imageUrl: string | null
+  active: boolean
+}
+
+/** Ajustes: the rules plus the services that can earn a loyalty stamp. */
+export interface AdminSettings {
+  policy: BookingPolicy
+  /** Visible services, in site order (each with loyaltyEligible). */
+  services: Service[]
+}
+
+export interface PolicyInput {
+  policy: BookingPolicy
+  /** Services that add a stamp when completed. */
+  loyaltyServiceIds: ID[]
+}
+
+/** Create (no id) or update a panel user. Owner and manager always need two-step verification. */
+export interface UserInput {
+  id?: ID
+  name: string
+  email: string
+  role: AdminRole
+  /** Required for barbers: their profile in Equipo. */
+  staffId: ID | null
   active: boolean
 }
 

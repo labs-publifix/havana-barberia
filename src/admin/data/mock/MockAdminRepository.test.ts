@@ -89,3 +89,54 @@ describe('MockAdminRepository · agenda day', () => {
     expect((await repo.getAgendaDay('2026-11-06')).blocks).toEqual([])
   })
 })
+
+describe('MockAdminRepository · users', () => {
+  const ownerRepo = async () => {
+    const repo = new MockAdminRepository({ storage: memoryStorage() })
+    await repo.demo.switchTo('u-owner')
+    return repo
+  }
+
+  it('the owner invites a user who can then sign in; email must be unique', async () => {
+    const repo = await ownerRepo()
+    const u = await repo.saveUser({
+      name: ' Sofía  Ruiz ',
+      email: 'Sofia@Havana.test',
+      role: 'manager',
+      staffId: null,
+      active: true,
+    })
+    expect(u).toMatchObject({ name: 'Sofía Ruiz', email: 'sofia@havana.test', mfaRequired: true })
+    expect((await repo.signIn('sofia@havana.test', DEMO_PASSWORD)).user.role).toBe('manager')
+    await repo.demo.switchTo('u-owner')
+    await expect(
+      repo.saveUser({ name: 'Otra', email: 'sofia@havana.test', role: 'reception', staffId: null, active: true }),
+    ).rejects.toThrow('Ya hay un usuario con ese correo.')
+  })
+
+  it('a barber needs a profile of their own', async () => {
+    const repo = await ownerRepo()
+    const base = { name: 'Isaac 2', email: 'isaac2@havana.test', role: 'barber' as const, active: true }
+    await expect(repo.saveUser({ ...base, staffId: null })).rejects.toThrow(/perfil del barbero/)
+    await expect(repo.saveUser({ ...base, staffId: 'isaac' })).rejects.toThrow('Ese barbero ya tiene un usuario.')
+  })
+
+  it('nobody demotes or deactivates themselves; deactivated users lose access', async () => {
+    const repo = await ownerRepo()
+    const me = (await repo.listUsers()).find((u) => u.id === 'u-owner')!
+    await expect(repo.saveUser({ ...me, role: 'manager' })).rejects.toThrow(/propio rol/)
+    await expect(repo.saveUser({ ...me, active: false })).rejects.toThrow(/propio rol/)
+    const reception = (await repo.listUsers()).find((u) => u.id === 'u-reception')!
+    await repo.saveUser({ ...reception, active: false })
+    await expect(repo.signIn('recepcion@havana.test', DEMO_PASSWORD)).rejects.toBeInstanceOf(InvalidCredentialsError)
+    expect(repo.demo.users.map((u) => u.id)).not.toContain('u-reception')
+  })
+
+  it('only the owner manages users', async () => {
+    const repo = new MockAdminRepository({ storage: null })
+    await repo.demo.switchTo('u-manager')
+    await expect(
+      repo.saveUser({ name: 'X', email: 'x@havana.test', role: 'reception', staffId: null, active: true }),
+    ).rejects.toThrow(/Solo la persona dueña/)
+  })
+})

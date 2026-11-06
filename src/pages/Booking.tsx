@@ -23,6 +23,7 @@ import { useCatalog, useStaff, keys } from '@/app/queries'
 import { useRepository } from '@/app/RepositoryContext'
 import { routes } from '@/app/routes'
 import { business } from '@/config/business'
+import { usePolicy } from '@/app/queries'
 import { BookingLimitError, SlotUnavailableError } from '@/data'
 import { formatMxPhone, normalizeMxPhone } from '@/lib/phone'
 import { capitalize, durationLabel, formatDateLong, formatTime12, localTime, money } from '@/lib/time'
@@ -452,6 +453,7 @@ function Review({
   error: string | null
 }) {
   const time = localTime(slotStartsAt, business.hours.timeZone)
+  const policy = usePolicy()
   const phone = normalizeMxPhone(contact.phone)
   const Edit = ({ to, what }: { to: Step; what: string }) => (
     <button
@@ -516,8 +518,8 @@ function Review({
         </div>
       </div>
       <Alert tone="info" title="Antes de confirmar.">
-        Puedes cancelar o reprogramar hasta {business.policy.changeCutoffMin / 60} horas antes. Te esperamos con{' '}
-        {business.policy.toleranceMin} minutos de tolerancia.
+        Puedes cancelar o reprogramar hasta {policy.changeCutoffMin / 60} horas antes. Te esperamos con{' '}
+        {policy.toleranceMin} minutos de tolerancia.
       </Alert>
     </div>
   )
