@@ -26,7 +26,7 @@ aprobada por el cliente; después la conexión a Supabase y Resend sin cambiar p
 | ---------------------------------------------------------------- | ------------------------------------------------ |
 | Hito 1A · Sitio público y flujo de reserva (mock)                | ✅ Aprobado por el cliente                       |
 | Rediseño del sitio público                                       | ✅ Aprobado y publicado                          |
-| Hito 1B · Panel administrativo (UI con datos de prueba)          | 🔨 En curso: entregas 1 a 5 listas para revisión |
+| Hito 1B · Panel administrativo (UI con datos de prueba)          | 🔨 En curso: entregas 1 a 6 listas para revisión |
 | Hito 1C · Backend: Supabase + conexión del panel y de la reserva | Pendiente                                        |
 | Hito 1D · Lanzamiento (dominio, migración de AgendaPro, Google)  | Pendiente                                        |
 | Fase 3 · Crecimiento                                             | Pendiente                                        |
@@ -50,7 +50,9 @@ Entregas, cada una publicada en la vista previa para revisión:
 4. ✅ **Clientes:** búsqueda, ficha con historial, no-shows y sellos.
 5. ✅ **Catálogo** (incluye **productos** con foto, costo, precio y comisión): servicios, categorías, duración, precio, orden, activo y qué barbero
    realiza cada servicio.
-6. **Equipo y horarios:** barberos, horario semanal, vacaciones, comidas, festivos.
+6. ✅ **Equipo y horarios:** barberos, horario semanal por turnos (comida entre turnos), servicios que da cada uno
+   (un interruptor por servicio), comisión individual (porcentaje o monto fijo, con monto propio por servicio) y ausencias.
+   Los festivos de toda la barbería se bloquean desde la Agenda.
 7. **Ajustes:** políticas de reserva y de lealtad, usuarios y roles.
 8. **Adelanto de administración (fase 2, solo UI):** a petición del cliente se adelanta
    la parte visual con datos ficticios:

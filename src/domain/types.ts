@@ -77,6 +77,21 @@ export interface Staff {
   /** Services this person performs; "all" for every active service. */
   serviceIds: ID[] | 'all'
   schedule: WeeklySchedule
+  /** Short title shown with the name (e.g. "Barbero senior"); optional. */
+  title?: string
+}
+
+/**
+ * How a barber earns on services. Financial: owner and manager only, stored
+ * apart from the public staff profile so it never reaches the site. `value`
+ * null = not captured yet. Overrides set a different amount for specific
+ * services, in the same mode (percent or fixed MXN).
+ */
+export interface StaffCommission {
+  staffId: ID
+  mode: 'percent' | 'fixed'
+  value: number | null
+  overrides: Record<ID, number>
 }
 
 /** Time the shop or a barber is not bookable (lunch, vacation, holiday, walk-in). */

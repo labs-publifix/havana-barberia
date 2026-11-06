@@ -213,7 +213,7 @@ describe('MockBookingRepository', () => {
     ).toBe(false)
   })
 
-  it('refreshes the catalog from the seed but keeps stored bookings', async () => {
+  it('keeps the stored team and bookings, refreshing seed photos', async () => {
     const stale = emptyDb()
     stale.staff = stale.staff.map((s) => ({ ...s, photoUrl: '/old-hash.webp', order: 9 - s.order }))
     const r1 = new MockBookingRepository({ storage: null, initial: stale, now: () => NOW })
@@ -226,7 +226,8 @@ describe('MockBookingRepository', () => {
     }
     const r2 = new MockBookingRepository({ storage, now: () => NOW })
     const staff = await r2.listStaff()
-    expect(staff.map((s) => s.name)).toEqual(['Leonardo Gómez', 'Isaac Fuentes'])
+    // The order is business data edited in the admin (kept); seed photos are refreshed.
+    expect(staff.map((s) => s.name)).toEqual(['Isaac Fuentes', 'Leonardo Gómez'])
     expect(staff.every((s) => s.photoUrl !== '/old-hash.webp')).toBe(true)
     expect(await r2.getAppointmentByToken(a.token)).toBeTruthy()
   })
@@ -656,5 +657,93 @@ describe('MockBookingRepository · payment on completion', () => {
     const a = await r.createAppointment(booking(iso(MONDAY, '10:00')))
     const moved = await r.rescheduleAppointment(a.token, { startsAt: iso(MONDAY, '12:00') })
     expect(moved.status).toBe('confirmed')
+  })
+})
+
+describe('MockBookingRepository · team', () => {
+  const r = (start: string, end: string) => ({ start, end })
+  const week = (ranges: { start: string; end: string }[], off: number[] = [0]) =>
+    Array.from({ length: 7 }, (_, d) => (off.includes(d) ? [] : d === 6 ? [r('10:00', '18:00')] : ranges))
+  const leo = (repo: MockBookingRepository) => repo.adminTeam().staff.find((s) => s.id === 'leonardo')!
+
+  it('saves schedule, services and commission; availability follows', async () => {
+    const repo1 = repo()
+    const res = await repo1.adminSaveStaff({
+      id: 'isaac',
+      name: 'Isaac Fuentes',
+      title: 'Barbero senior',
+      photoUrl: null,
+      active: true,
+      schedule: week([r('12:00', '20:30')]),
+      serviceIds: ['corte-adulto', 'corte-barba'],
+      commission: { mode: 'percent', value: 40, overrides: { 'corte-barba': 45 } },
+    })
+    expect(res.staff).toMatchObject({ title: 'Barbero senior', serviceIds: ['corte-adulto', 'corte-barba'] })
+    expect(repo1.adminTeam().commissions.find((c) => c.staffId === 'isaac')).toEqual({
+      staffId: 'isaac',
+      mode: 'percent',
+      value: 40,
+      overrides: { 'corte-barba': 45 },
+    })
+    const slots = await repo1.getAvailableSlots({ serviceIds: ['corte-adulto'], staffId: 'isaac', date: MONDAY })
+    expect(slots.find((s) => s.time === '10:00')?.available).toBe(false)
+    expect(slots.find((s) => s.time === '12:00')?.available).toBe(true)
+    // A service he no longer offers has nothing with him.
+    const tinte = await repo1.getAvailableSlots({ serviceIds: ['tinte-cabello'], staffId: 'isaac', date: MONDAY })
+    expect(tinte.every((s) => !s.available)).toBe(true)
+  })
+
+  it('validates schedule, services and commission bounds', async () => {
+    const repo1 = repo()
+    const base = { ...leo(repo1), title: '', serviceIds: ['corte-adulto'] }
+    await expect(repo1.adminSaveStaff({ ...base, schedule: week([r('09:00', '14:00')]) })).rejects.toThrow(
+      'Lunes: Debe quedar dentro del horario de la barbería',
+    )
+    await expect(repo1.adminSaveStaff({ ...base, serviceIds: [] })).rejects.toThrow('al menos un servicio')
+    await expect(
+      repo1.adminSaveStaff({ ...base, commission: { mode: 'percent', value: 120, overrides: {} } }),
+    ).rejects.toThrow('porcentaje de 0 a 100')
+    await expect(repo1.adminSaveStaff({ ...base, name: 'isaac FUENTES' })).rejects.toThrow('Ya hay un barbero')
+  })
+
+  it('reports upcoming appointments left outside the new shifts, without touching them', async () => {
+    const repo1 = repo()
+    const a = await repo1.createAppointment(booking(iso(MONDAY, '10:00')))
+    const isaac = repo1.adminTeam().staff.find((s) => s.id === 'isaac')!
+    const { outside } = await repo1.adminSaveStaff({
+      ...isaac,
+      title: '',
+      serviceIds: ['corte-adulto'],
+      schedule: week([r('15:00', '20:30')]),
+    })
+    expect(outside.map((x) => x.id)).toEqual([a.id])
+    expect(repo1.snapshot().appointments.find((x) => x.id === a.id)?.status).toBe('confirmed')
+  })
+
+  it('reception edits keep the commission; new barbers get an id and go last', async () => {
+    const repo1 = repo()
+    const isaac = repo1.adminTeam().staff.find((s) => s.id === 'isaac')!
+    await repo1.adminSaveStaff({
+      ...isaac,
+      title: '',
+      serviceIds: ['corte-adulto'],
+      commission: { mode: 'fixed', value: 120, overrides: {} },
+    })
+    await repo1.adminSaveStaff({ ...isaac, title: 'Barbero', serviceIds: ['corte-adulto'] })
+    expect(repo1.adminTeam().commissions.find((c) => c.staffId === 'isaac')?.value).toBe(120)
+
+    const { staff } = await repo1.adminSaveStaff({
+      name: 'Mario Peña',
+      title: '',
+      photoUrl: null,
+      active: false,
+      schedule: week([r('10:00', '18:00')]),
+      serviceIds: [],
+    })
+    expect(staff).toMatchObject({ id: 'mario-pena', order: 3, active: false })
+    await repo1.adminMoveStaff('mario-pena', -1)
+    expect(repo1.adminTeam().staff.map((s) => s.id)).toEqual(['leonardo', 'mario-pena', 'isaac'])
+    // Inactive barbers never show in booking.
+    expect((await repo1.listStaff()).some((s) => s.id === 'mario-pena')).toBe(false)
   })
 })

@@ -8,11 +8,13 @@ import type {
   Service,
   ServiceCategory,
   Slot,
+  Staff,
   TimeBlock,
 } from '@/domain/types'
 import type { SlotQuery } from '@/data'
 import type {
   AdminCatalog,
+  AdminTeam,
   AdminChange,
   AdminNewAppointment,
   AdminSession,
@@ -22,6 +24,7 @@ import type {
   PaymentInput,
   ProductInput,
   ServiceInput,
+  StaffInput,
   StaffStatusChange,
   StatusChangeResult,
 } from '../domain'
@@ -89,6 +92,14 @@ export interface AdminRepository {
   moveCategory(id: ID, dir: -1 | 1): Promise<void>
   /** Only empty categories. */
   deleteCategory(id: ID): Promise<void>
+
+  // Team (Equipo y horarios).
+  getTeam(): Promise<AdminTeam>
+  /** Create or update a barber; returns upcoming appointments the change leaves outside their shifts or services. */
+  saveStaff(input: StaffInput): Promise<{ staff: Staff; outside: Appointment[] }>
+  moveStaff(id: ID, dir: -1 | 1): Promise<void>
+  /** Store a barber photo (already resized) and return its URL. */
+  uploadStaffPhoto(image: Blob): Promise<string>
 
   // Products (sold at the shop). Cost, commission and margin are for owner and manager only.
   listProducts(): Promise<Product[]>

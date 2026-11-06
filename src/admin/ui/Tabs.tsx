@@ -36,7 +36,7 @@ export function Tabs<T extends string>({
     document.getElementById(`${idBase}-tab-${tabs[next]!.value}`)?.focus()
   }
   return (
-    <div role="tablist" aria-label={label} className="flex gap-1 border-b border-line">
+    <div role="tablist" aria-label={label} className="flex gap-1 overflow-x-auto border-b border-line [scrollbar-width:none]">
       {tabs.map((t, i) => {
         const on = t.value === value
         return (
@@ -51,7 +51,7 @@ export function Tabs<T extends string>({
             onClick={() => onChange(t.value)}
             onKeyDown={(e) => onKey(e, i)}
             className={cn(
-              '-mb-px inline-flex h-11 items-center gap-2 border-b-2 px-3 text-[15px] font-semibold transition-colors duration-fast',
+              '-mb-px inline-flex h-11 shrink-0 items-center gap-2 whitespace-nowrap border-b-2 px-3 text-[15px] font-semibold transition-colors duration-fast',
               'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-focus',
               on ? 'border-ink-950 text-fg' : 'border-transparent text-fg-muted hover:text-fg',
             )}

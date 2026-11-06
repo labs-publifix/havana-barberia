@@ -146,3 +146,11 @@ Pantallas del panel ──▶ AdminRepository ──▶ MockAdminRepository     
 - **Completar = cobrar:** `AdminRepository.completeAppointment(id, { method, tip, tipMethod })` exige el método de pago (efectivo, tarjeta o transferencia) y registra la propina y cómo se pagó (la propina con tarjeta lleva la comisión de la terminal). Se guarda en `Appointment.payment` (`amount` = precio de la cita, `paidAt`). Completar sigue sumando el sello de lealtad.
 - **Corte de caja:** `cashSummary` (`src/admin/cash.ts`, con pruebas) suma por método los servicios y las propinas: lo que debe haber en caja, terminal y banco. La vista general muestra «Caja de hoy» a dueño, gerente y recepción (el valor esperado del día solo a dueño y gerente); el barbero ve sus propinas del día. Las ventas de productos se sumarán en la fase de finanzas.
 - **Datos de demostración (versión 5):** citas futuras confirmadas y citas atendidas con pago (mezcla de métodos y propinas ocasionales).
+
+### Equipo y horarios (`/admin/equipo`)
+
+- **Modelo:** `Staff` (nombre, título opcional, foto, activo, `schedule` semanal con uno o más turnos por día, `serviceIds`) y `StaffCommission` (`mode` `percent` | `fixed`, `value` general y `overrides` por servicio). La demo crea las comisiones **vacías** («Sin capturar»): las cifras reales viven solo en la base de datos, nunca en este repositorio público.
+- **Reglas** (`adminSaveStaff`, con pruebas): nombre sin repetir; turnos cada 15 min, dentro del horario de la barbería y sin encimarse (`scheduleErrors` en `src/lib/schedule.ts`); un barbero activo da al menos un servicio; porcentaje 0–100 y montos en pesos enteros. Al guardar devuelve las citas futuras que quedan fuera del nuevo horario o servicios (o todas si se desactiva) para reasignarlas desde la Agenda; no se mueven solas.
+- **Comisión** (`commissionOn` en `src/admin/team/model.ts`): monto propio del servicio si existe, si no la general; el panel muestra lo que gana por cada servicio. Solo dueño y gerente la ven.
+- **Ausencias:** bloques de días completos por barbero (`createBlock`); la agenda los recorta por día y la disponibilidad pública los respeta. Recepción consulta el equipo y puede registrar ausencias.
+- **Sitio público:** un barbero inactivo deja de aparecer en la portada y en la reserva; el orden del equipo es el del sitio.

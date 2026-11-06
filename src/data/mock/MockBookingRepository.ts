@@ -13,11 +13,13 @@ import type {
   Staff,
   StaffChoice,
   TimeBlock,
+  WeeklySchedule,
 } from '@/domain/types'
 import { bookingPolicy, businessHours } from '@/config/business'
 import { computeSlots, isActiveStatus, nearestAvailable, staffForServices, totalDuration } from '@/lib/availability'
 import { addDays, localDate, toMinutes, weekdayOf, zonedInstant } from '@/lib/time'
 import { normalizeMxPhone } from '@/lib/phone'
+import { DAY_NAMES, outsideSchedule, scheduleErrors } from '@/lib/schedule'
 import type { BookingRepository, ServiceCatalog, SlotQuery } from '../BookingRepository'
 import {
   BookingLimitError,
@@ -695,6 +697,118 @@ export class MockBookingRepository implements BookingRepository {
     })
   }
 
+  // ── Team (barbers, schedules, services, commissions) ──────────────────────
+
+  adminTeam() {
+    const now = this.now().toISOString()
+    return clone({
+      staff: [...this.db.staff].sort((a, b) => a.order - b.order),
+      commissions: this.db.commissions,
+      blocks: this.db.blocks.filter((b) => b.endsAt > now).sort((a, b) => a.startsAt.localeCompare(b.startsAt)),
+    })
+  }
+
+  /**
+   * Create or update a barber. `commission` undefined leaves it untouched (reception
+   * never sends it). Returns upcoming appointments the change leaves outside the
+   * barber's shifts or services, so the shop can move them.
+   */
+  async adminSaveStaff(input: {
+    id?: ID
+    name: string
+    title: string
+    photoUrl: string | null
+    active: boolean
+    schedule: WeeklySchedule
+    serviceIds: ID[]
+    commission?: { mode: 'percent' | 'fixed'; value: number | null; overrides: Record<ID, number> }
+  }): Promise<{ staff: Staff; outside: Appointment[] }> {
+    await this.delay()
+    return this.exclusive(() => {
+      const name = input.name.trim().replace(/\s+/g, ' ')
+      if (!name) throw new InvalidRequestError('Escribe el nombre del barbero.')
+      if (this.db.staff.some((x) => x.id !== input.id && fold(x.name) === fold(name)))
+        throw new InvalidRequestError('Ya hay un barbero con ese nombre.')
+      const problems = scheduleErrors(input.schedule, businessHours.weekly)
+      const day = Object.keys(problems)[0]
+      if (day !== undefined) throw new InvalidRequestError(`${DAY_NAMES[Number(day)]}: ${problems[Number(day)]}`)
+      const known = new Set(this.db.services.map((x) => x.id))
+      const serviceIds = input.serviceIds.filter((id) => known.has(id))
+      if (input.active && serviceIds.length === 0)
+        throw new InvalidRequestError('Un barbero activo necesita al menos un servicio.')
+
+      const existing = input.id ? this.db.staff.find((x) => x.id === input.id) : undefined
+      if (input.id && !existing) throw new NotFoundError('ese barbero')
+      const fields = {
+        name,
+        title: input.title.trim(),
+        photoUrl: input.photoUrl,
+        active: input.active,
+        schedule: input.schedule.map((d) => [...(d ?? [])].sort((a, b) => a.start.localeCompare(b.start))),
+        serviceIds: serviceIds.length === known.size ? ('all' as const) : serviceIds,
+      }
+      let staff: Staff
+      if (existing) staff = Object.assign(existing, fields)
+      else {
+        staff = {
+          id: this.uniqueId(name, this.db.staff),
+          role: 'barber',
+          order: Math.max(0, ...this.db.staff.map((x) => x.order)) + 1,
+          ...fields,
+        }
+        this.db.staff.push(staff)
+      }
+
+      if (input.commission) {
+        const c = input.commission
+        const max = c.mode === 'percent' ? 100 : 100000
+        const ok = (v: number) => Number.isInteger(v) && v >= 0 && v <= max
+        const what = c.mode === 'percent' ? 'un porcentaje de 0 a 100' : 'un monto en pesos, sin centavos'
+        if (c.value !== null && !ok(c.value)) throw new InvalidRequestError(`La comisión debe ser ${what}.`)
+        const overrides: Record<ID, number> = {}
+        for (const [id, v] of Object.entries(c.overrides)) {
+          if (!known.has(id)) continue
+          if (!ok(v)) throw new InvalidRequestError(`Cada comisión personalizada debe ser ${what}.`)
+          overrides[id] = v
+        }
+        this.db.commissions = [
+          ...this.db.commissions.filter((x) => x.staffId !== staff.id),
+          { staffId: staff.id, mode: c.mode, value: c.value, overrides },
+        ]
+      } else if (!this.db.commissions.some((x) => x.staffId === staff.id)) {
+        this.db.commissions.push({ staffId: staff.id, mode: 'percent', value: null, overrides: {} })
+      }
+
+      const now = this.now()
+      const offered = (a: Appointment) =>
+        staff.serviceIds === 'all' || a.serviceIds.every((id) => staff.serviceIds.includes(id))
+      const upcoming = this.db.appointments.filter(
+        (a) =>
+          a.staffId === staff.id &&
+          (a.status === 'booked' || a.status === 'confirmed') &&
+          Date.parse(a.startsAt) > now.getTime(),
+      )
+      const outsideShifts = new Set(outsideSchedule(upcoming, staff.id, staff.schedule, businessHours.timeZone, now))
+      const outside = upcoming
+        .filter((a) => !staff.active || outsideShifts.has(a) || !offered(a))
+        .sort((a, b) => a.startsAt.localeCompare(b.startsAt))
+      this.save()
+      return { staff: clone(staff), outside: clone(outside) }
+    })
+  }
+
+  /** Move a barber up or down (order on the site and in booking). */
+  async adminMoveStaff(id: ID, dir: -1 | 1): Promise<void> {
+    await this.delay()
+    return this.exclusive(() => {
+      const list = [...this.db.staff].sort((a, b) => a.order - b.order)
+      const i = list.findIndex((x) => x.id === id)
+      if (i < 0) throw new NotFoundError('ese barbero')
+      swapOrder(list, i, dir)
+      this.save()
+    })
+  }
+
   // ── Products ──────────────────────────────────────────────────────────────
 
   adminProducts(): Product[] {
@@ -908,16 +1022,24 @@ function refreshDemo(stored: MockDb, fresh: MockDb): MockDb {
  * in the admin, so it is kept from storage. Staff profiles still come from the
  * seed: their photo URLs are hashed per build and go stale.
  */
-function keepCatalog(stored: MockDb, fresh: MockDb): Pick<MockDb, 'categories' | 'services' | 'staff' | 'products'> {
+function keepCatalog(
+  stored: MockDb,
+  fresh: MockDb,
+): Pick<MockDb, 'categories' | 'services' | 'staff' | 'products' | 'commissions'> {
   return {
     // Products arrived in demo v4; older stored demos start from the seed's.
     products: stored.products ?? fresh.products,
     categories: stored.categories?.length ? stored.categories : fresh.categories,
     services: stored.services?.length ? stored.services : fresh.services,
-    staff: fresh.staff.map((s) => ({
-      ...s,
-      serviceIds: stored.staff?.find((x) => x.id === s.id)?.serviceIds ?? s.serviceIds,
-    })),
+    // Profiles, schedules and services are edited in the admin: keep them. Seed photos
+    // are refreshed (hashed per build); photos uploaded in the admin (data URLs) are kept.
+    staff: stored.staff?.length
+      ? stored.staff.map((s) => {
+          const seeded = fresh.staff.find((x) => x.id === s.id)
+          return seeded && !s.photoUrl?.startsWith('data:') ? { ...s, photoUrl: seeded.photoUrl } : s
+        })
+      : fresh.staff,
+    commissions: stored.commissions ?? fresh.commissions,
   }
 }
 

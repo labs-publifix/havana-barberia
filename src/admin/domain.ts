@@ -10,8 +10,10 @@ import type {
   ServiceCategory,
   Staff,
   StaffChoice,
+  StaffCommission,
   TimeBlock,
   TimeRange,
+  WeeklySchedule,
 } from '@/domain/types'
 
 /**
@@ -154,4 +156,27 @@ export interface ProductInput {
   commission: number | null
   imageUrl: string | null
   active: boolean
+}
+
+export interface AdminTeam {
+  /** Every barber (active or not), in site order. */
+  staff: Staff[]
+  /** Owner and manager only (Supabase: a separate table under RLS). */
+  commissions: StaffCommission[]
+  /** Upcoming time off (per barber and shop-wide). */
+  blocks: TimeBlock[]
+}
+
+export interface StaffInput {
+  /** Missing for a new barber. */
+  id?: ID
+  name: string
+  title: string
+  photoUrl: string | null
+  /** Shows in booking and on the site. */
+  active: boolean
+  schedule: WeeklySchedule
+  serviceIds: ID[]
+  /** Owner and manager only; undefined leaves it as it was. */
+  commission?: Omit<StaffCommission, 'staffId'>
 }

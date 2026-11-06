@@ -59,3 +59,33 @@ describe('MockAdminRepository', () => {
     expect((await repo.getSession())?.user.staffId).toBe('isaac')
   })
 })
+
+describe('MockAdminRepository · agenda day', () => {
+  it('clips multi-day time off to each day', async () => {
+    const { MockBookingRepository } = await import('@/data/mock/MockBookingRepository')
+    const { createSeed } = await import('@/data/mock/seed')
+    const { zonedInstant } = await import('@/lib/time')
+    const tz = 'America/Mexico_City'
+    const now = zonedInstant('2026-11-02', '08:00', tz)
+    const booking = new MockBookingRepository({
+      storage: null,
+      initial: { ...createSeed(now), appointments: [], blocks: [] },
+      now: () => now,
+    })
+    await booking.adminCreateBlock({
+      staffId: 'isaac',
+      startsAt: zonedInstant('2026-11-03', '00:00', tz).toISOString(),
+      endsAt: zonedInstant('2026-11-06', '00:00', tz).toISOString(),
+      reason: 'Vacaciones',
+    })
+    const repo = new MockAdminRepository({ storage: null, booking })
+    const mid = await repo.getAgendaDay('2026-11-04')
+    expect(mid.blocks).toEqual([
+      expect.objectContaining({
+        startsAt: zonedInstant('2026-11-04', '00:00', tz).toISOString(),
+        endsAt: zonedInstant('2026-11-04', '23:59', tz).toISOString(),
+      }),
+    ])
+    expect((await repo.getAgendaDay('2026-11-06')).blocks).toEqual([])
+  })
+})

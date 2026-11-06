@@ -8,14 +8,16 @@ import type {
   Service,
   ServiceCategory,
   Slot,
+  Staff,
   TimeBlock,
 } from '@/domain/types'
 import type { SlotQuery } from '@/data'
 import { businessHours } from '@/config/business'
 import { MockBookingRepository } from '@/data/mock/MockBookingRepository'
-import { addDays, localDate, weekdayOf } from '@/lib/time'
+import { addDays, localDate, weekdayOf, zonedInstant } from '@/lib/time'
 import type {
   AdminCatalog,
+  AdminTeam,
   AdminChange,
   AdminNewAppointment,
   AdminSession,
@@ -25,6 +27,7 @@ import type {
   PaymentInput,
   ProductInput,
   ServiceInput,
+  StaffInput,
   StaffStatusChange,
   StatusChangeResult,
 } from '../../domain'
@@ -157,6 +160,8 @@ export class MockAdminRepository implements AdminRepository {
     await this.delay()
     const db = this.booking.snapshot()
     const tz = businessHours.timeZone
+    const dayStart = zonedInstant(date, '00:00', tz).toISOString()
+    const dayEnd = zonedInstant(date, '23:59', tz).toISOString()
     return {
       date,
       timeZone: tz,
@@ -166,7 +171,15 @@ export class MockAdminRepository implements AdminRepository {
       appointments: db.appointments
         .filter((a) => localDate(a.startsAt, tz) === date)
         .sort((a, b) => a.startsAt.localeCompare(b.startsAt)),
-      blocks: db.blocks.filter((b) => localDate(b.startsAt, tz) <= date && date <= localDate(b.endsAt, tz)),
+      // Multi-day time off (vacations) is clipped to this day, so every screen can treat
+      // blocks as same-day ranges.
+      blocks: db.blocks
+        .filter((b) => b.startsAt < dayEnd && b.endsAt > dayStart)
+        .map((b) => ({
+          ...b,
+          startsAt: b.startsAt < dayStart ? dayStart : b.startsAt,
+          endsAt: b.endsAt > dayEnd ? dayEnd : b.endsAt,
+        })),
     }
   }
 
@@ -260,6 +273,23 @@ export class MockAdminRepository implements AdminRepository {
 
   deleteCategory(id: ID): Promise<void> {
     return this.booking.adminDeleteCategory(id)
+  }
+
+  async getTeam(): Promise<AdminTeam> {
+    await this.delay()
+    return this.booking.adminTeam()
+  }
+
+  saveStaff(input: StaffInput): Promise<{ staff: Staff; outside: Appointment[] }> {
+    return this.booking.adminSaveStaff(input)
+  }
+
+  moveStaff(id: ID, dir: -1 | 1): Promise<void> {
+    return this.booking.adminMoveStaff(id, dir)
+  }
+
+  uploadStaffPhoto(image: Blob): Promise<string> {
+    return this.uploadProductImage(image)
   }
 
   async listProducts(): Promise<Product[]> {

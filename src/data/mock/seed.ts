@@ -6,6 +6,7 @@ import type {
   Service,
   ServiceCategory,
   Staff,
+  StaffCommission,
   TimeBlock,
   WeeklySchedule,
 } from '@/domain/types'
@@ -31,10 +32,11 @@ export interface MockDb {
   appointments: Appointment[]
   loyalty: LoyaltyCard[]
   products: Product[]
+  commissions: StaffCommission[]
 }
 
 /** Bump when the demo data changes shape or content; stored demos refresh, keeping real bookings. */
-export const MOCK_DB_VERSION = 5
+export const MOCK_DB_VERSION = 6
 
 const categories: ServiceCategory[] = [
   { id: 'cortes', name: 'Cortes', order: 1 },
@@ -437,5 +439,7 @@ export function createSeed(now: Date): MockDb {
     appointments,
     loyalty,
     products: products.map((p) => ({ ...p, createdAt })),
+    // Commissions are captured by the owner in the admin; nothing real lives in this repo.
+    commissions: staff.map((st) => ({ staffId: st.id, mode: 'percent', value: null, overrides: {} })),
   }
 }
