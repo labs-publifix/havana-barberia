@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { ArrowRight, CalendarCheck2, CalendarOff, Gauge, HandCoins, Hourglass } from 'lucide-react'
+import { ArrowRight, CalendarCheck2, CalendarOff, Gauge, HandCoins, Hourglass, Wallet } from 'lucide-react'
 import { routes } from '@/app/routes'
 import { useNow } from '@/app/useNow'
 import { Skeleton } from '@/components/ui/Skeleton'
@@ -11,6 +11,7 @@ import { capitalize, formatDateLong, formatTime12, localDate, localTime, money }
 import { useAdminAuth, useAdminSession } from '../auth/AdminAuth'
 import { DayTimeline, TimelineLegend } from '../features/overview/DayTimeline'
 import { AlertsList, BarberDayList, UpcomingList } from '../features/overview/lists'
+import { cashSummary } from '../cash'
 import { computeOverview, timelineBounds } from '../overview'
 import { Card, EmptyState, StatCard } from '../ui/Panel'
 
@@ -91,7 +92,7 @@ export default function Overview() {
 
   const next = ov.next
   const nextBarber = next && day.staff.find((s) => s.id === next.staffId)
-  const pendingConfirm = ov.upcoming.filter((a) => a.status === 'booked').length
+  const cash = cashSummary(ov.appointments)
   const live = ov.inProgress
 
   return (
@@ -143,19 +144,30 @@ export default function Overview() {
           <p className="mt-2 text-[13px] text-fg-muted">Tiempo reservado del disponible</p>
         </div>
 
-        {seesMoney ? (
+        {isBarber ? (
           <StatCard
-            label="Valor de las citas"
-            value={money(ov.value)}
+            label="Tus propinas de hoy"
+            value={money(cash.tipsTotal)}
             icon={HandCoins}
-            detail="A precio de lista; no es venta registrada"
+            detail={`${cash.paidCount} ${cash.paidCount === 1 ? 'cita cobrada' : 'citas cobradas'}`}
           />
         ) : (
           <StatCard
-            label="Por confirmar"
-            value={pendingConfirm}
-            icon={CalendarCheck2}
-            detail={pendingConfirm ? 'Citas de hoy aún sin confirmar' : 'Todas las de hoy están confirmadas'}
+            label="Caja de hoy"
+            value={money(cash.total)}
+            icon={Wallet}
+            detail={
+              <>
+                <span className="tabular block">
+                  Efectivo {money(cash.inByMethod.cash)} · Tarjeta {money(cash.inByMethod.card)} · Transf.{' '}
+                  {money(cash.inByMethod.transfer)}
+                </span>
+                <span className="tabular block">
+                  Incluye {money(cash.tipsTotal)} de propinas
+                  {seesMoney ? ` · ${money(ov.value)} esperado en citas` : ''}
+                </span>
+              </>
+            }
           />
         )}
       </div>

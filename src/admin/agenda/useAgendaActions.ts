@@ -24,6 +24,10 @@ export function useAgendaActions() {
       mutationFn: (v: Parameters<typeof repo.setAppointmentStatus>) => repo.setAppointmentStatus(...v),
       ...opts,
     }),
+    complete: useMutation({
+      mutationFn: (v: Parameters<typeof repo.completeAppointment>) => repo.completeAppointment(...v),
+      ...opts,
+    }),
     create: useMutation({ mutationFn: repo.createAppointment.bind(repo), ...opts }),
     reschedule: useMutation({
       mutationFn: (v: Parameters<typeof repo.rescheduleAppointment>) => repo.rescheduleAppointment(...v),

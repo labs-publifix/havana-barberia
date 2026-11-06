@@ -13,7 +13,9 @@ import { bookingPolicy } from '@/config/business'
 import { formatMxPhone } from '@/lib/phone'
 import { capitalize, durationLabel, formatDateLong, formatTime12, localDate, localTime, money } from '@/lib/time'
 import { useAdminAuth } from '../auth/AdminAuth'
-import type { StaffStatusChange } from '../domain'
+import type { PaymentInput, StaffStatusChange } from '../domain'
+import { methodLabels, methodPhrases } from '../cash'
+import { CompleteDialog } from './CompleteDialog'
 import { DatePicker } from '../ui/DatePicker'
 import { Select } from '../ui/Select'
 import { SidePanel } from '../ui/SidePanel'
@@ -146,10 +148,12 @@ export function AppointmentPanel({
   onClose: () => void
 }) {
   const { repo } = useAdminAuth()
-  const { setStatus, notes: saveNotes } = useAgendaActions()
+  const { setStatus, complete, notes: saveNotes } = useAgendaActions()
   const toast = useToast()
   const [mode, setMode] = useState<'detail' | 'reschedule'>('detail')
   const [confirm, setConfirm] = useState<null | 'cancelled' | 'no_show'>(null)
+  const [charging, setCharging] = useState(false)
+  const [chargeError, setChargeError] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [notes, setNotes] = useState(a?.notes ?? '')
   const [shownFor, setShownFor] = useState(a?.id)
@@ -179,20 +183,9 @@ export function AppointmentPanel({
   const change = (status: StaffStatusChange) => {
     setError(null)
     setStatus.mutate([a.id, status], {
-      onSuccess: (r) => {
+      onSuccess: () => {
         setConfirm(null)
-        if (status === 'completed') {
-          const l = r.loyalty
-          toast(
-            r.stampAdded && l
-              ? l.stamps >= l.goal
-                ? 'Cita completada · ¡tarjeta llena, corte gratis disponible!'
-                : `Cita completada · sello ${l.stamps} de ${l.goal}`
-              : 'Cita completada',
-          )
-        } else {
-          toast({ confirmed: 'Cita confirmada', no_show: 'Marcada como no-show', cancelled: 'Cita cancelada' }[status])
-        }
+        toast({ confirmed: 'Cita confirmada', no_show: 'Marcada como no-show', cancelled: 'Cita cancelada' }[status])
       },
       onError: (e) => {
         setConfirm(null)
@@ -201,8 +194,29 @@ export function AppointmentPanel({
     })
   }
 
+  const finish = (payment: PaymentInput) => {
+    setChargeError(null)
+    complete.mutate([a.id, payment], {
+      onSuccess: (r) => {
+        setCharging(false)
+        const p = r.appointment.payment
+        const paid = p ? ` · ${money(p.amount + p.tip)} ${methodPhrases[p.method]}` : ''
+        const l = r.loyalty
+        toast(
+          `Cita completada${paid}` +
+            (r.stampAdded && l
+              ? l.stamps >= l.goal
+                ? ' · ¡corte gratis desbloqueado!'
+                : ` · sello ${l.stamps} de ${l.goal}`
+              : ''),
+        )
+      },
+      onError: (e) => setChargeError(errorMessage(e)),
+    })
+  }
+
   const notesChanged = notes.trim() !== a.notes
-  const busy = setStatus.isPending
+  const busy = setStatus.isPending || complete.isPending
 
   return (
     <>
@@ -270,10 +284,13 @@ export function AppointmentPanel({
                   <button
                     type="button"
                     disabled={busy || !completeOk}
-                    onClick={() => change('completed')}
+                    onClick={() => {
+                      setChargeError(null)
+                      setCharging(true)
+                    }}
                     className={buttonClass({ size: 'sm' })}
                   >
-                    Completar
+                    Completar y cobrar
                   </button>
                   <button
                     type="button"
@@ -296,6 +313,27 @@ export function AppointmentPanel({
                 </p>
               )}
             </div>
+
+            {a.payment && (
+              <Section title="Pago">
+                <dl className="grid gap-1 rounded-md border border-line px-3 py-2.5 text-sm">
+                  <div className="flex justify-between gap-3">
+                    <dt className="text-fg-muted">Servicios · {methodLabels[a.payment.method]}</dt>
+                    <dd className="tabular">{money(a.payment.amount)}</dd>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <dt className="text-fg-muted">
+                      Propina{a.payment.tip > 0 ? ` · ${methodLabels[a.payment.tipMethod]}` : ''}
+                    </dt>
+                    <dd className="tabular">{a.payment.tip > 0 ? money(a.payment.tip) : 'Sin propina'}</dd>
+                  </div>
+                  <div className="flex justify-between gap-3 border-t border-line pt-1.5 font-semibold">
+                    <dt>Total cobrado · {formatTime12(localTime(a.payment.paidAt, timeZone))}</dt>
+                    <dd className="tabular">{money(a.payment.amount + a.payment.tip)}</dd>
+                  </div>
+                </dl>
+              </Section>
+            )}
 
             <Section title="Servicios">
               <ul className="divide-y divide-line rounded-md border border-line">
@@ -438,6 +476,14 @@ export function AppointmentPanel({
             </button>
           </>
         }
+      />
+      <CompleteDialog
+        appointment={a}
+        open={charging}
+        busy={complete.isPending}
+        error={chargeError}
+        onCancel={() => setCharging(false)}
+        onConfirm={finish}
       />
     </>
   )

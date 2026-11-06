@@ -22,6 +22,7 @@ import type {
   AdminUser,
   AgendaDay,
   NewBlock,
+  PaymentInput,
   ProductInput,
   ServiceInput,
   StaffStatusChange,
@@ -172,6 +173,10 @@ export class MockAdminRepository implements AdminRepository {
   async getAvailableSlots(query: SlotQuery): Promise<Slot[]> {
     await this.delay()
     return this.booking.adminSlots(query)
+  }
+
+  completeAppointment(id: ID, payment: PaymentInput): Promise<StatusChangeResult> {
+    return this.booking.adminSetStatus(id, 'completed', payment)
   }
 
   setAppointmentStatus(id: ID, status: StaffStatusChange): Promise<StatusChangeResult> {

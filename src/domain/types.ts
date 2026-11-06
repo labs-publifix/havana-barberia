@@ -124,6 +124,21 @@ export interface Appointment {
   loyaltyToken: string | null
   /** Where it came from: the public site, the panel (phone, front desk) or a walk-in. */
   source?: AppointmentSource
+  /** Recorded when the appointment is completed (feeds the daily cash count and finance). */
+  payment?: AppointmentPayment
+}
+
+export type PaymentMethod = 'cash' | 'card' | 'transfer'
+
+export interface AppointmentPayment {
+  method: PaymentMethod
+  /** Charged for the services (MXN, whole pesos). */
+  amount: number
+  /** Tip left for the barber; 0 when none. */
+  tip: number
+  /** How the tip was paid (card tips carry the terminal fee). */
+  tipMethod: PaymentMethod
+  paidAt: Instant
 }
 
 export type AppointmentSource = 'online' | 'panel' | 'walk_in'

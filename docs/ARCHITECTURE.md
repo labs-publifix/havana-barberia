@@ -139,3 +139,10 @@ Pantallas del panel ──▶ AdminRepository ──▶ MockAdminRepository     
 - **Permisos:** costo, comisión y margen solo los ven dueño y gerente (no se muestran ni se envían en la interfaz de recepción); recepción consulta nombre, foto y precio. El barbero no entra al catálogo.
 - **Margen** (`src/admin/catalog/products.ts`, con pruebas): precio − costo − comisión, en pesos y porcentaje; marca «estimado» si falta un dato y avisa si se vende por debajo del costo.
 - **Fotos:** `ImageUploader` valida (JPG, PNG o WebP hasta 10 MB), reduce en el navegador a 800 px (WebP, o JPEG si el navegador no codifica WebP) y llama a `AdminRepository.uploadProductImage`. En la demo la foto se guarda como data URL dentro de los datos del navegador (el almacenamiento local tiene ~5 MB: suficiente para probar, no para todo el inventario). Con Supabase: un bucket de Storage y su URL pública.
+
+### Citas confirmadas y cobro al completar
+
+- **Reservas en línea confirmadas:** `createAppointment` y la reprogramación desde el enlace del cliente guardan la cita como `confirmed`; la barbería no confirma a mano. El estado `booked` («Sin confirmar») se conserva en el modelo para datos importados.
+- **Completar = cobrar:** `AdminRepository.completeAppointment(id, { method, tip, tipMethod })` exige el método de pago (efectivo, tarjeta o transferencia) y registra la propina y cómo se pagó (la propina con tarjeta lleva la comisión de la terminal). Se guarda en `Appointment.payment` (`amount` = precio de la cita, `paidAt`). Completar sigue sumando el sello de lealtad.
+- **Corte de caja:** `cashSummary` (`src/admin/cash.ts`, con pruebas) suma por método los servicios y las propinas: lo que debe haber en caja, terminal y banco. La vista general muestra «Caja de hoy» a dueño, gerente y recepción (el valor esperado del día solo a dueño y gerente); el barbero ve sus propinas del día. Las ventas de productos se sumarán en la fase de finanzas.
+- **Datos de demostración (versión 5):** citas futuras confirmadas y citas atendidas con pago (mezcla de métodos y propinas ocasionales).

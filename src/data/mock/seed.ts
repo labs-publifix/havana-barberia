@@ -34,7 +34,7 @@ export interface MockDb {
 }
 
 /** Bump when the demo data changes shape or content; stored demos refresh, keeping real bookings. */
-export const MOCK_DB_VERSION = 4
+export const MOCK_DB_VERSION = 5
 
 const categories: ServiceCategory[] = [
   { id: 'cortes', name: 'Cortes', order: 1 },
@@ -333,15 +333,10 @@ export function createSeed(now: Date): MockDb {
         if (!fits(s, date, start, svc.durationMin)) continue
         const past = Date.parse(iso(date, '00:00')) + (start + svc.durationMin) * 60000 < now.getTime()
         const customer = customerFor(date, !past)
-        add(
-          s,
-          date,
-          start,
-          [svc],
-          customer,
-          `seed-${date}-${s.id}-${start}`,
-          past ? 'completed' : rand() < 0.5 ? 'booked' : 'confirmed',
-        )
+        // Online bookings arrive confirmed. The old booked/confirmed draw is still
+        // consumed so the PRNG sequence, and every appointment after this one, stays the same.
+        if (!past) rand()
+        add(s, date, start, [svc], customer, `seed-${date}-${s.id}-${start}`, past ? 'completed' : 'confirmed')
         made++
       }
     }
@@ -405,8 +400,19 @@ export function createSeed(now: Date): MockDb {
     .sort((a, b) => a.startsAt.localeCompare(b.startsAt))
   const pastToday = todays.filter((a) => a.status === 'completed')
   if (pastToday.length >= 2) pastToday[1]!.status = 'no_show'
-  const upcoming = todays.filter((a) => a.status === 'booked')
+  const upcoming = todays.filter((a) => a.status === 'confirmed' && a.token.startsWith('seed-'))
   if (upcoming.length >= 2) upcoming[upcoming.length - 1]!.status = 'cancelled'
+
+  // Served appointments carry their payment (cash, card or transfer; sometimes a
+  // tip), so the daily cash count has data. Separate PRNG: nothing else moves.
+  const payRand = mulberry32(Number(today.replaceAll('-', '')) + 29)
+  const methods = ['cash', 'cash', 'card', 'card', 'transfer'] as const
+  for (const a of appointments) {
+    if (a.status !== 'completed') continue
+    const method = methods[Math.floor(payRand() * methods.length)]!
+    const tip = payRand() < 0.35 ? [20, 30, 50, 50, 100][Math.floor(payRand() * 5)]! : 0
+    a.payment = { method, amount: a.totalPrice, tip, tipMethod: method, paidAt: a.endsAt }
+  }
 
   // A block (e.g. training) so the agenda shows it.
   const blockDate = addDays(today, 3)

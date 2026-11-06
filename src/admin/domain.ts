@@ -5,6 +5,7 @@ import type {
   Instant,
   LocalDate,
   LoyaltyCard,
+  PaymentMethod,
   Service,
   ServiceCategory,
   Staff,
@@ -69,7 +70,15 @@ export interface AgendaDay {
 }
 
 /** Status changes staff can make from the panel. */
-export type StaffStatusChange = 'confirmed' | 'completed' | 'no_show' | 'cancelled'
+export type StaffStatusChange = 'confirmed' | 'no_show' | 'cancelled'
+
+/** Payment captured when completing an appointment (amount = the appointment's price). */
+export interface PaymentInput {
+  method: PaymentMethod
+  /** 0 when no tip. */
+  tip: number
+  tipMethod: PaymentMethod
+}
 
 export interface StatusChangeResult {
   appointment: Appointment

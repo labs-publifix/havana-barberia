@@ -17,6 +17,8 @@ function emptyDb(): MockDb {
 
 const repo = (initial = emptyDb(), now = () => NOW) => new MockBookingRepository({ storage: null, initial, now })
 
+const CASH = { method: 'cash' as const, tip: 0, tipMethod: 'cash' as const }
+
 const contact = (n = 1) => ({
   name: `Ana ${n}`,
   phone: `44211122${String(n).padStart(2, '0')}`,
@@ -64,7 +66,8 @@ describe('MockBookingRepository', () => {
     expect(a.durationMin).toBe(60)
     expect(a.totalPrice).toBe(430)
     expect(a.endsAt).toBe(iso(MONDAY, '11:00'))
-    expect(a.status).toBe('booked')
+    // Online bookings are confirmed automatically.
+    expect(a.status).toBe('confirmed')
   })
 
   it('assigns a barber for "first available"', async () => {
@@ -320,9 +323,9 @@ describe('MockBookingRepository · staff actions', () => {
       notes: '',
       source: 'panel',
     })
-    await expect(r.adminSetStatus(a.id, 'completed')).rejects.toThrow('cuando ya empezó')
+    await expect(r.adminSetStatus(a.id, 'completed', CASH)).rejects.toThrow('cuando ya empezó')
     setNow('10:40')
-    const res = await r.adminSetStatus(a.id, 'completed')
+    const res = await r.adminSetStatus(a.id, 'completed', CASH)
     expect(res).toMatchObject({ stampAdded: true, loyalty: { stamps: 1, goal: 10, rewardExpiresAt: null } })
     await expect(r.adminSetStatus(a.id, 'cancelled')).rejects.toThrow('ya está cerrada')
 
@@ -341,7 +344,7 @@ describe('MockBookingRepository · staff actions', () => {
         source: 'panel',
       })
       setNow(start)
-      last = await r.adminSetStatus(b.id, 'completed')
+      last = await r.adminSetStatus(b.id, 'completed', CASH)
     }
     expect(last.loyalty).toMatchObject({ stamps: 10 })
     // Completed on Tuesday 3 Nov: the free cut is valid for 90 days.
@@ -359,7 +362,7 @@ describe('MockBookingRepository · staff actions', () => {
       source: 'panel',
     })
     setNow('10:20')
-    expect(await r.adminSetStatus(a.id, 'completed')).toMatchObject({ stampAdded: false, loyalty: null })
+    expect(await r.adminSetStatus(a.id, 'completed', CASH)).toMatchObject({ stampAdded: false, loyalty: null })
   })
 
   it('no-show only after the tolerance; confirm and cancel before', async () => {
@@ -610,5 +613,48 @@ describe('MockBookingRepository · products', () => {
       new MockBookingRepository({ storage, now: () => now }).adminProducts().some((p) => p.name === base.name)
     expect(has(NOW)).toBe(true)
     expect(has(nextDay)).toBe(true)
+  })
+})
+
+describe('MockBookingRepository · payment on completion', () => {
+  const at = (time: string) => zonedInstant(MONDAY, time, TZ)
+
+  it('requires the payment and records method, amount, tip and time', async () => {
+    let now = at('09:00')
+    const r = new MockBookingRepository({ storage: null, initial: emptyDb(), now: () => now })
+    const a = await r.createAppointment(booking(iso(MONDAY, '10:00'), 1, 'isaac', ['corte-adulto', 'bigote']))
+    now = at('11:05')
+    await expect(r.adminSetStatus(a.id, 'completed')).rejects.toThrow('Elige cómo pagó')
+    await expect(r.adminSetStatus(a.id, 'completed', { method: 'card', tip: 20.5, tipMethod: 'card' })).rejects.toThrow(
+      'propina en pesos',
+    )
+    const { appointment } = await r.adminSetStatus(a.id, 'completed', { method: 'card', tip: 50, tipMethod: 'cash' })
+    expect(appointment.payment).toEqual({
+      method: 'card',
+      amount: 430,
+      tip: 50,
+      tipMethod: 'cash',
+      paidAt: at('11:05').toISOString(),
+    })
+  })
+
+  it('without a tip, the tip method follows the payment method', async () => {
+    let now = at('09:00')
+    const r = new MockBookingRepository({ storage: null, initial: emptyDb(), now: () => now })
+    const a = await r.createAppointment(booking(iso(MONDAY, '10:00')))
+    now = at('10:50')
+    const { appointment } = await r.adminSetStatus(a.id, 'completed', {
+      method: 'transfer',
+      tip: 0,
+      tipMethod: 'cash',
+    })
+    expect(appointment.payment).toMatchObject({ method: 'transfer', tip: 0, tipMethod: 'transfer' })
+  })
+
+  it('a customer reschedule keeps the appointment confirmed', async () => {
+    const r = repo()
+    const a = await r.createAppointment(booking(iso(MONDAY, '10:00')))
+    const moved = await r.rescheduleAppointment(a.token, { startsAt: iso(MONDAY, '12:00') })
+    expect(moved.status).toBe('confirmed')
   })
 })

@@ -80,8 +80,11 @@ describe('admin overview', () => {
     expect(within(count).getByText('5')).toBeInTheDocument()
     expect(within(count).getByText('1 completada · 3 por atender')).toBeInTheDocument()
     expect(screen.getByRole('meter', { name: 'Ocupación del día' })).toBeInTheDocument()
-    // 4 appointments count (no-show excluded) at $280.
-    expect(screen.getByText('Valor de las citas').parentElement!.parentElement).toHaveTextContent('$1,120')
+    // Today's cash: the completed one here has no recorded payment yet; the owner also sees the day's expected value
+    // (4 appointments that count, the no-show excluded, at $280).
+    const cash = screen.getByText('Caja de hoy').parentElement!.parentElement!
+    expect(cash).toHaveTextContent('Efectivo $0 · Tarjeta $0 · Transf. $0')
+    expect(cash).toHaveTextContent('$1,120 esperado en citas')
   })
 
   it('lists upcoming appointments and what needs attention', async () => {
@@ -101,9 +104,9 @@ describe('admin overview', () => {
     expect(alerts).toHaveTextContent('Tel. 442 123 4567')
     expect(alerts).toHaveTextContent('No se presentó: Raúl Ortega, 11:00 a. m. con Leonardo')
 
-    // Reception does not see money.
-    expect(screen.queryByText('Valor de las citas')).not.toBeInTheDocument()
-    expect(screen.getByText('Por confirmar')).toBeInTheDocument()
+    // Reception sees today's cash (it does the count) but not the expected value.
+    const cash = screen.getByText('Caja de hoy').parentElement!.parentElement!
+    expect(cash).not.toHaveTextContent('esperado')
   })
 
   it('draws each barber on the timeline with accessible descriptions', async () => {
@@ -121,7 +124,8 @@ describe('admin overview', () => {
     expect(screen.getByRole('heading', { name: 'Tu día' })).toBeInTheDocument()
     expect(screen.queryByRole('list', { name: 'Citas de Leonardo Gómez' })).not.toBeInTheDocument()
     expect(screen.queryByText(/Mateo Campos/)).not.toBeInTheDocument()
-    expect(screen.queryByText('Valor de las citas')).not.toBeInTheDocument()
+    expect(screen.queryByText('Caja de hoy')).not.toBeInTheDocument()
+    expect(screen.getByText('Tus propinas de hoy')).toBeInTheDocument()
     const next = screen.getByText('Siguiente cita').closest('div')!.parentElement!
     expect(within(next).getByText('4:00 p. m.')).toBeInTheDocument()
   })

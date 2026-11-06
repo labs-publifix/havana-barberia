@@ -19,6 +19,7 @@ import type {
   AdminUser,
   AgendaDay,
   NewBlock,
+  PaymentInput,
   ProductInput,
   ServiceInput,
   StaffStatusChange,
@@ -61,6 +62,8 @@ export interface AdminRepository {
   getAvailableSlots(query: SlotQuery): Promise<Slot[]>
   /** Confirm, complete (may add a loyalty stamp), mark no-show or cancel. */
   setAppointmentStatus(id: ID, status: StaffStatusChange): Promise<StatusChangeResult>
+  /** Complete with its payment (method, tip); may add a loyalty stamp. Only once it started. */
+  completeAppointment(id: ID, payment: PaymentInput): Promise<StatusChangeResult>
   createAppointment(input: AdminNewAppointment): Promise<Appointment>
   rescheduleAppointment(id: ID, change: { startsAt: string; staffId: ID }): Promise<Appointment>
   updateAppointmentNotes(id: ID, notes: string): Promise<Appointment>

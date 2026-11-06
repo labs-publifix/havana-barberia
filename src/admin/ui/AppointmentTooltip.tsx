@@ -1,6 +1,7 @@
 import type { Appointment, Service } from '@/domain/types'
 import { formatMxPhone } from '@/lib/phone'
 import { durationLabel, formatTime12, localTime, money } from '@/lib/time'
+import { methodPhrases } from '../cash'
 import { isLive, sourceLabel } from './appointmentStyle'
 
 const statusLabel: Record<Appointment['status'], string> = {
@@ -45,6 +46,12 @@ export function AppointmentTooltip({
         </span>
         <span>· {sourceLabel[a.source ?? 'online']}</span>
       </p>
+      {a.payment && (
+        <p className="tabular text-white/80">
+          Pagó {methodPhrases[a.payment.method]}
+          {a.payment.tip > 0 ? ` · propina ${money(a.payment.tip)}` : ''}
+        </p>
+      )}
       {a.customer.phone && <p className="tabular text-white/80">Tel. {formatMxPhone(a.customer.phone)}</p>}
       {a.notes && <p className="border-t border-white/15 pt-1 italic text-white/80">“{a.notes}”</p>}
     </div>

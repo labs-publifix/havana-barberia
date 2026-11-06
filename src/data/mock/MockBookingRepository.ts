@@ -5,6 +5,7 @@ import type {
   ID,
   LoyaltyCard,
   NewAppointment,
+  PaymentMethod,
   Product,
   Service,
   ServiceCategory,
@@ -256,7 +257,8 @@ export class MockBookingRepository implements BookingRepository {
         endsAt: slot.endsAt,
         durationMin: totalDuration(services),
         totalPrice: services.reduce((t, s) => t + s.price, 0),
-        status: 'booked',
+        // Online bookings are confirmed right away: the shop does not confirm by hand.
+        status: 'confirmed',
         notes: input.notes.trim(),
         createdAt: this.now().toISOString(),
         loyaltyToken: card.token,
@@ -313,7 +315,7 @@ export class MockBookingRepository implements BookingRepository {
       if (!target?.available) throw new SlotUnavailableError(nearestAvailable(slots, slot.startsAt))
       a.startsAt = target.startsAt
       a.endsAt = target.endsAt
-      a.status = 'booked'
+      a.status = 'confirmed'
       this.save()
       return clone(a)
     })
@@ -327,9 +329,14 @@ export class MockBookingRepository implements BookingRepository {
     return this.slotsFor(q, STAFF_POLICY)
   }
 
+  /**
+   * Confirm, mark no-show, cancel, or complete. Completing requires the payment
+   * (method and tip): it feeds the daily cash count and, later, finance.
+   */
   async adminSetStatus(
     id: ID,
     status: 'confirmed' | 'completed' | 'no_show' | 'cancelled',
+    payment?: { method: PaymentMethod; tip: number; tipMethod: PaymentMethod },
   ): Promise<{ appointment: Appointment; loyalty: LoyaltyCard | null; stampAdded: boolean }> {
     await this.delay()
     return this.exclusive(() => {
@@ -344,6 +351,21 @@ export class MockBookingRepository implements BookingRepository {
         throw new InvalidRequestError('Solo puedes completar una cita cuando ya empezó.')
       if (status === 'no_show' && now < start + bookingPolicy.toleranceMin * 60000)
         throw new InvalidRequestError(`Marca no-show después de ${bookingPolicy.toleranceMin} minutos de tolerancia.`)
+      if (status === 'completed') {
+        const methods: PaymentMethod[] = ['cash', 'card', 'transfer']
+        if (!payment || !methods.includes(payment.method)) throw new InvalidRequestError('Elige cómo pagó.')
+        if (!Number.isInteger(payment.tip) || payment.tip < 0 || payment.tip > 100000)
+          throw new InvalidRequestError('Escribe la propina en pesos, sin centavos.')
+        if (payment.tip > 0 && !methods.includes(payment.tipMethod))
+          throw new InvalidRequestError('Elige cómo dejó la propina.')
+        a.payment = {
+          method: payment.method,
+          amount: a.totalPrice,
+          tip: payment.tip,
+          tipMethod: payment.tip > 0 ? payment.tipMethod : payment.method,
+          paidAt: this.now().toISOString(),
+        }
+      }
       a.status = status
 
       // The stamp is earned when the appointment is completed, if a service counts.

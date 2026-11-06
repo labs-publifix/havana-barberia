@@ -99,19 +99,42 @@ describe('admin agenda', () => {
   it('confirms an upcoming appointment; completing waits until it starts', async () => {
     const { user } = await renderAgenda('u-reception')
     const panel = await openAppointment(user, 'Agenda de Leonardo Gómez', /Mateo Campos/)
-    expect(within(panel).getByRole('button', { name: 'Completar' })).toBeDisabled()
+    expect(within(panel).getByRole('button', { name: 'Completar y cobrar' })).toBeDisabled()
     expect(within(panel).getByRole('button', { name: 'No se presentó' })).toBeDisabled()
     await user.click(within(panel).getByRole('button', { name: 'Confirmar' }))
     expect(await screen.findByText('Cita confirmada')).toBeInTheDocument()
     await waitFor(() => expect(within(panel).getByText('Confirmada')).toBeInTheDocument())
   })
 
-  it('completing an appointment in progress adds a loyalty stamp', async () => {
-    const { user } = await renderAgenda('u-owner')
+  it('completing asks how they paid and the tip, records it and adds a loyalty stamp', async () => {
+    const { user, booking } = await renderAgenda('u-owner')
     const panel = await openAppointment(user, 'Agenda de Isaac Fuentes', /Pablo Ríos/)
-    await user.click(within(panel).getByRole('button', { name: 'Completar' }))
-    expect(await screen.findByText('Cita completada · sello 1 de 10')).toBeInTheDocument()
+    await user.click(within(panel).getByRole('button', { name: 'Completar y cobrar' }))
+    const charge = await screen.findByRole('dialog', { name: 'Completar y cobrar' })
+    // Payment method is required.
+    await user.click(within(charge).getByRole('button', { name: /Completar · \$280/ }))
+    expect(within(charge).getByText('Elige cómo pagó.')).toBeInTheDocument()
+
+    await user.click(within(charge).getByRole('radio', { name: /Tarjeta/ }))
+    await user.click(within(charge).getByRole('switch', { name: 'Dejó propina' }))
+    await user.click(within(charge).getByRole('button', { name: '$50' }))
+    await user.click(
+      within(within(charge).getByRole('radiogroup', { name: 'La propina se pagó con' })).getByRole('radio', {
+        name: 'Efectivo',
+      }),
+    )
+    expect(charge).toHaveTextContent('Total cobrado$330')
+    await user.click(within(charge).getByRole('button', { name: 'Completar · $330' }))
+
+    expect(await screen.findByText('Cita completada · $330 con tarjeta · sello 1 de 10')).toBeInTheDocument()
     await waitFor(() => expect(within(panel).getByRole('img', { name: '1 de 10 sellos' })).toBeInTheDocument())
+    expect(panel).toHaveTextContent('Servicios · Tarjeta$280')
+    expect(panel).toHaveTextContent('Propina · Efectivo$50')
+    const saved = booking.snapshot().appointments.find((x) => x.customer.name === 'Pablo Ríos')!
+    expect(saved).toMatchObject({
+      status: 'completed',
+      payment: { method: 'card', amount: 280, tip: 50, tipMethod: 'cash' },
+    })
   })
 
   it('cancels after confirming in a dialog and frees the slot', async () => {
@@ -200,7 +223,7 @@ describe('admin agenda', () => {
     expect(screen.queryByRole('list', { name: 'Agenda de Leonardo Gómez' })).toBeNull()
     expect(screen.queryByRole('button', { name: /Agendar cita/ })).toBeNull()
     const panel = await openAppointment(user, 'Agenda de Isaac Fuentes', /Pablo Ríos/)
-    expect(within(panel).getByRole('button', { name: 'Completar' })).toBeEnabled()
+    expect(within(panel).getByRole('button', { name: 'Completar y cobrar' })).toBeEnabled()
     expect(within(panel).queryByRole('button', { name: 'Cancelar cita' })).toBeNull()
   })
 })

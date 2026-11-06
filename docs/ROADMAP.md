@@ -90,6 +90,10 @@ Dominio `reservas.havanabarberia.com` (quitar la base `/havana-barberia/`), migr
 clientes y sellos desde AgendaPro, aviso de privacidad, periodo en paralelo, cambio del
 enlace en Google y apagado de AgendaPro.
 
+## Ya disponible para finanzas
+
+- Cada cita completada guarda su pago (método, monto, propina y cómo se pagó la propina) y la vista general muestra la caja del día. La fase 2 lo usará para el cierre diario/semanal, la comisión de terminal sobre propinas y las comisiones por barbero.
+
 ## Fase 2 · Administración (lógica real)
 
 Ventas, comisiones y bonos, cierre semanal, anticipos, recibos de nómina y reportes
