@@ -5,6 +5,7 @@ import type {
   ID,
   LocalDate,
   LoyaltyCard,
+  PaymentMethod,
   Product,
   Service,
   ServiceCategory,
@@ -34,7 +35,7 @@ import type {
   UserInput,
 } from '../domain'
 import type { CustomerSummary } from '../customers/model'
-import type { Advance } from '../finance'
+import type { Advance, ProductSale } from '../finance'
 
 export class InvalidCredentialsError extends Error {
   constructor() {
@@ -111,6 +112,12 @@ export interface AdminRepository {
   getFinance(from: LocalDate, to: LocalDate): Promise<AdminFinance>
   addAdvance(input: { staffId: ID; date: LocalDate; amount: number; note: string }): Promise<Advance>
   deleteAdvance(id: ID): Promise<void>
+  /** Counter sale of products (prices and commissions from the catalog). */
+  createSale(input: {
+    items: { productId: ID; qty: number }[]
+    staffId: ID | null
+    method: PaymentMethod
+  }): Promise<ProductSale>
 
   // Settings (Ajustes). Owner and manager. Supabase: a settings row and the profiles table.
   getSettings(): Promise<AdminSettings>

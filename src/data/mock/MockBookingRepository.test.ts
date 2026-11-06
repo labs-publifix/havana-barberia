@@ -833,3 +833,14 @@ describe('MockBookingRepository · finance', () => {
     expect(r.adminFinance(MONDAY, MONDAY).advances).toHaveLength(0)
   })
 })
+
+describe('MockBookingRepository · product sales', () => {
+  it('sells active products at catalog price and rejects empty sales', async () => {
+    const r = repo()
+    const [p] = r.snapshot().products.filter((x) => x.active)
+    await expect(r.adminCreateSale({ items: [], staffId: null, method: 'cash' })).rejects.toThrow(/al menos un producto/)
+    const sale = await r.adminCreateSale({ items: [{ productId: p!.id, qty: 2 }], staffId: 'isaac', method: 'card' })
+    expect(sale).toMatchObject({ total: p!.price * 2, staffId: 'isaac', method: 'card' })
+    expect(r.adminFinance('2026-11-01', '2026-11-01').sales).toHaveLength(1)
+  })
+})

@@ -22,7 +22,7 @@ import { addDays, localDate, toMinutes, weekdayOf, zonedInstant } from '@/lib/ti
 import { normalizeMxPhone } from '@/lib/phone'
 import { DAY_NAMES, outsideSchedule, scheduleErrors } from '@/lib/schedule'
 import { policyError } from '@/lib/policy'
-import type { Advance } from '@/admin/finance'
+import type { Advance, ProductSale } from '@/admin/finance'
 import type { BookingRepository, ServiceCatalog, SlotQuery } from '../BookingRepository'
 import {
   BookingLimitError,
@@ -34,7 +34,6 @@ import {
 import { createSeed, DEMO_APPOINTMENT_TOKEN, MOCK_DB_VERSION, type MockDb } from './seed'
 
 const STORAGE_KEY = 'havana:mock-db'
-
 
 /** Accent-insensitive lowercase, for searching names. */
 const fold = (s: string) =>
@@ -724,6 +723,10 @@ export class MockBookingRepository implements BookingRepository {
       staff: [...this.db.staff].sort((a, b) => a.order - b.order),
       commissions: this.db.commissions,
       advances: (this.db.advances ?? []).filter((x) => x.date >= from && x.date <= to),
+      sales: (this.db.sales ?? []).filter((x) => {
+        const d = localDate(x.at, tz)
+        return d >= from && d <= to
+      }),
     })
   }
 
@@ -737,6 +740,39 @@ export class MockBookingRepository implements BookingRepository {
       ;(this.db.advances ??= []).push(advance)
       this.save()
       return clone(advance)
+    })
+  }
+
+  /** Register a counter sale of products. Prices and commissions come from the catalog. */
+  async adminCreateSale(input: {
+    items: { productId: ID; qty: number }[]
+    staffId: ID | null
+    method: PaymentMethod
+  }): Promise<ProductSale> {
+    await this.delay()
+    return this.exclusive(() => {
+      const items = input.items
+        .filter((i) => i.qty > 0)
+        .map((i) => {
+          const p = this.db.products.find((x) => x.id === i.productId && x.active)
+          if (!p) throw new InvalidRequestError('Alguno de los productos ya no está a la venta.')
+          if (!Number.isInteger(i.qty) || i.qty > 99) throw new InvalidRequestError('Revisa las cantidades.')
+          return { productId: p.id, name: p.name, qty: i.qty, price: p.price, commission: p.commission }
+        })
+      if (!items.length) throw new InvalidRequestError('Agrega al menos un producto.')
+      if (!['cash', 'card', 'transfer'].includes(input.method)) throw new InvalidRequestError('Elige cómo pagó.')
+      if (input.staffId && !this.db.staff.some((s) => s.id === input.staffId)) throw new NotFoundError('ese barbero')
+      const sale: ProductSale = {
+        id: `sale-${randomToken()}`,
+        at: this.now().toISOString(),
+        items,
+        staffId: input.staffId,
+        method: input.method,
+        total: items.reduce((t, i) => t + i.price * i.qty, 0),
+      }
+      ;(this.db.sales ??= []).push(sale)
+      this.save()
+      return clone(sale)
     })
   }
 
@@ -780,9 +816,7 @@ export class MockBookingRepository implements BookingRepository {
 
       let cardsCompleted = 0
       if (policy.loyaltyGoal !== this.policy.loyaltyGoal) {
-        const until = zonedEndOfDay(
-          addDays(localDate(this.now(), businessHours.timeZone), policy.rewardValidityDays),
-        )
+        const until = zonedEndOfDay(addDays(localDate(this.now(), businessHours.timeZone), policy.rewardValidityDays))
         for (const card of this.db.loyalty) {
           if (card.rewardExpiresAt) continue // reward already earned: keep it
           card.goal = policy.loyaltyGoal
@@ -1127,7 +1161,7 @@ function refreshDemo(stored: MockDb, fresh: MockDb): MockDb {
 function keepCatalog(
   stored: MockDb,
   fresh: MockDb,
-): Pick<MockDb, 'categories' | 'services' | 'staff' | 'products' | 'commissions' | 'policy' | 'advances'> {
+): Pick<MockDb, 'categories' | 'services' | 'staff' | 'products' | 'commissions' | 'policy' | 'advances' | 'sales'> {
   return {
     // Products arrived in demo v4; older stored demos start from the seed's.
     products: stored.products ?? fresh.products,
@@ -1145,6 +1179,7 @@ function keepCatalog(
     // Rules edited in Ajustes (arrived in demo v6; older demos start from the defaults).
     policy: stored.policy ? { ...fresh.policy, ...stored.policy } : fresh.policy,
     advances: stored.advances ?? [],
+    sales: stored.sales ?? [],
   }
 }
 

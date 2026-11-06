@@ -65,6 +65,9 @@ export default function Payroll() {
   }
 
   const cash = cashSummary(data.appointments)
+  const prod: Record<PaymentMethod, number> = { cash: 0, card: 0, transfer: 0 }
+  for (const x of data.sales) prod[x.method] += x.total
+  const prodTotal = prod.cash + prod.card + prod.transfer
   const rows = earnings({ ...data, from, to, timeZone: tz }).filter(
     (r) => r.services > 0 || r.advances > 0 || data.staff.find((s) => s.id === r.staffId)?.active,
   )
@@ -86,8 +89,8 @@ export default function Payroll() {
         actions={<WeekPicker value={from} onChange={setFrom} current={current} />}
       />
       <Alert tone="info" title="Adelanto de la fase 2">
-        Los cálculos se validan con la barbería antes de usarse para pagar. Las ventas de productos se suman cuando se
-        registren en Ventas.
+        Los cálculos se validan con la barbería antes de usarse para pagar. Incluye las ventas de productos registradas
+        en Ventas.
       </Alert>
 
       <Card
@@ -96,7 +99,7 @@ export default function Payroll() {
         className="min-w-0"
         bodyClassName="relative overflow-x-auto"
       >
-        <table className="w-full min-w-[480px] text-sm">
+        <table className="w-full min-w-[560px] text-sm">
           <caption className="sr-only">Entradas por forma de pago</caption>
           <thead>
             <tr className="text-left">
@@ -105,6 +108,9 @@ export default function Payroll() {
               </th>
               <th scope="col" className={`${th} text-right`}>
                 Servicios
+              </th>
+              <th scope="col" className={`${th} text-right`}>
+                Productos
               </th>
               <th scope="col" className={`${th} text-right`}>
                 Propinas
@@ -121,8 +127,9 @@ export default function Payroll() {
                   {methodLabels[m]}
                 </th>
                 <td className="tabular px-3 py-2.5 text-right">{money(cash.services[m])}</td>
+                <td className="tabular px-3 py-2.5 text-right">{money(prod[m])}</td>
                 <td className="tabular px-3 py-2.5 text-right">{money(cash.tips[m])}</td>
-                <td className="tabular px-5 py-2.5 text-right font-semibold">{money(cash.inByMethod[m])}</td>
+                <td className="tabular px-5 py-2.5 text-right font-semibold">{money(cash.inByMethod[m] + prod[m])}</td>
               </tr>
             ))}
             <tr className="bg-surface">
@@ -130,8 +137,11 @@ export default function Payroll() {
                 Total
               </th>
               <td className="tabular px-3 py-2.5 text-right font-semibold">{money(cash.servicesTotal)}</td>
+              <td className="tabular px-3 py-2.5 text-right font-semibold">{money(prodTotal)}</td>
               <td className="tabular px-3 py-2.5 text-right font-semibold">{money(cash.tipsTotal)}</td>
-              <td className="tabular px-5 py-2.5 text-right text-base font-semibold">{money(cash.total)}</td>
+              <td className="tabular px-5 py-2.5 text-right text-base font-semibold">
+                {money(cash.total + prodTotal)}
+              </td>
             </tr>
           </tbody>
         </table>

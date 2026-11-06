@@ -12,7 +12,7 @@ import type {
   WeeklySchedule,
 } from '@/domain/types'
 import { bookingPolicy, businessHours } from '@/config/business'
-import type { Advance } from '@/admin/finance'
+import type { Advance, ProductSale } from '@/admin/finance'
 import { addDays, localDate, toMinutes, weekdayOf, zonedInstant } from '@/lib/time'
 // Head-and-shoulders crops (120px): the tighter face crops cut the faces at small sizes.
 import avatarIsaac from '@/assets/team/isaac-fuentes-card-120.webp'
@@ -39,6 +39,8 @@ export interface MockDb {
   policy: BookingPolicy
   /** Advances (anticipos) given to barbers, discounted in the weekly payroll. */
   advances: Advance[]
+  /** Product sales at the counter. */
+  sales: ProductSale[]
 }
 
 /** Bump when the demo data changes shape or content; stored demos refresh, keeping real bookings. */
@@ -449,5 +451,6 @@ export function createSeed(now: Date): MockDb {
     commissions: staff.map((st) => ({ staffId: st.id, mode: 'percent', value: null, overrides: {} })),
     policy: { ...bookingPolicy },
     advances: [],
+    sales: [],
   }
 }

@@ -16,7 +16,7 @@ import type {
   TimeRange,
   WeeklySchedule,
 } from '@/domain/types'
-import type { Advance } from './finance'
+import type { Advance, ProductSale } from './finance'
 
 /**
  * Admin domain. Roles come from the project fundamentals:
@@ -192,6 +192,7 @@ export interface AdminFinance {
   /** Owner and manager only (a barber gets their own). */
   commissions: StaffCommission[]
   advances: Advance[]
+  sales: ProductSale[]
 }
 
 export interface AdminTeam {

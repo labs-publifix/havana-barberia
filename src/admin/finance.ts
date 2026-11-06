@@ -19,6 +19,17 @@ export function weekLabel(from: LocalDate) {
     : `${formatDay(from, "d 'de' MMM")} – ${formatDay(to, "d 'de' MMM")}`
 }
 
+/** A product sale at the counter (phase-2 preview). */
+export interface ProductSale {
+  id: ID
+  at: string
+  items: { productId: ID; name: string; qty: number; price: number; commission: number | null }[]
+  /** Barber who sold it (earns the product commission), or null. */
+  staffId: ID | null
+  method: 'cash' | 'card' | 'transfer'
+  total: number
+}
+
 export interface EarningLine {
   appointmentId: ID
   date: LocalDate
@@ -34,8 +45,10 @@ export interface BarberEarnings {
   lines: EarningLine[]
   services: number
   sales: number
-  /** Sum of the commissions that are captured. */
+  /** Sum of the commissions that are captured (services and products sold). */
   commission: number
+  /** Product units sold. */
+  products: number
   /** Services done with no commission captured (rule empty for them). */
   missing: number
   tips: number
@@ -60,6 +73,7 @@ export function earnings(input: {
   staff: Staff[]
   commissions: StaffCommission[]
   advances?: Advance[]
+  sales?: ProductSale[]
   from: LocalDate
   to: LocalDate
   timeZone: string
@@ -89,6 +103,10 @@ export function earnings(input: {
     const all = lines.flatMap((l) => l.services)
     const commission = all.reduce((t, x) => t + (x.commission ?? 0), 0)
     const tips = lines.reduce((t, l) => t + l.tip, 0)
+    const sold = (input.sales ?? [])
+      .filter((x) => x.staffId === s.id && inRange(localDate(x.at, timeZone)))
+      .flatMap((x) => x.items)
+    const productCommission = sold.reduce((t, i) => t + (i.commission ?? 0) * i.qty, 0)
     const advances = (input.advances ?? [])
       .filter((x) => x.staffId === s.id && inRange(x.date))
       .reduce((t, x) => t + x.amount, 0)
@@ -98,11 +116,12 @@ export function earnings(input: {
       lines,
       services: all.length,
       sales: lines.reduce((t, l) => t + l.price, 0),
-      commission,
+      commission: commission + productCommission,
+      products: sold.reduce((t, i) => t + i.qty, 0),
       missing: all.filter((x) => x.commission === null).length,
       tips,
       advances,
-      pay: commission + tips - advances,
+      pay: commission + productCommission + tips - advances,
     }
   })
 }

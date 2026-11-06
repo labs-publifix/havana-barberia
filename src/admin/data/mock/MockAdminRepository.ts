@@ -5,6 +5,7 @@ import type {
   ID,
   LocalDate,
   LoyaltyCard,
+  PaymentMethod,
   Product,
   Service,
   ServiceCategory,
@@ -37,7 +38,7 @@ import type {
   UserInput,
 } from '../../domain'
 import { summarizeCustomers, type CustomerSummary } from '../../customers/model'
-import type { Advance } from '../../finance'
+import type { Advance, ProductSale } from '../../finance'
 import { InvalidRequestError } from '@/data/errors'
 import { InvalidCredentialsError, InvalidMfaCodeError, type AdminRepository } from '../AdminRepository'
 
@@ -218,6 +219,7 @@ export class MockAdminRepository implements AdminRepository {
         staff: data.staff.filter((s) => s.id === me.staffId),
         commissions: data.commissions.filter((c) => c.staffId === me.staffId),
         advances: data.advances.filter((x) => x.staffId === me.staffId),
+        sales: data.sales.filter((x) => x.staffId === me.staffId),
       }
     }
     return data
@@ -225,6 +227,14 @@ export class MockAdminRepository implements AdminRepository {
 
   addAdvance(input: { staffId: ID; date: LocalDate; amount: number; note: string }): Promise<Advance> {
     return this.booking.adminAddAdvance(input)
+  }
+
+  createSale(input: {
+    items: { productId: ID; qty: number }[]
+    staffId: ID | null
+    method: PaymentMethod
+  }): Promise<ProductSale> {
+    return this.booking.adminCreateSale(input)
   }
 
   deleteAdvance(id: ID): Promise<void> {
