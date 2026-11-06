@@ -48,7 +48,7 @@ Entregas, cada una publicada en la vista previa para revisión:
 3. ✅ **Agenda:** día y semana por barbero; detalle de cita; completar (otorga sello),
    no-show, cancelar, reprogramar; crear cita o walk-in; bloquear horario.
 4. ✅ **Clientes:** búsqueda, ficha con historial, no-shows y sellos.
-5. ✅ **Catálogo:** servicios, categorías, duración, precio, orden, activo y qué barbero
+5. ✅ **Catálogo** (incluye **productos** con foto, costo, precio y comisión): servicios, categorías, duración, precio, orden, activo y qué barbero
    realiza cada servicio.
 6. **Equipo y horarios:** barberos, horario semanal, vacaciones, comidas, festivos.
 7. **Ajustes:** políticas de reserva y de lealtad, usuarios y roles.

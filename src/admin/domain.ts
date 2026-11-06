@@ -133,3 +133,16 @@ export interface ServiceInput {
   active: boolean
   staffIds: ID[]
 }
+
+export interface ProductInput {
+  /** Missing for a new product. */
+  id?: ID
+  name: string
+  brand: string
+  price: number
+  /** null = not captured yet. */
+  cost: number | null
+  commission: number | null
+  imageUrl: string | null
+  active: boolean
+}

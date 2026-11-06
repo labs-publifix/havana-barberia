@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react'
+import { useId, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { ArrowDown, ArrowUp, ChevronRight, FolderPlus, Pencil, Plus, Trash2 } from 'lucide-react'
 import { Avatar } from '@/components/booking/Avatar'
@@ -12,6 +13,8 @@ import { useAdminAuth, useAdminSession } from '../auth/AdminAuth'
 import { CategoryDialog, type CategoryDraft } from '../catalog/CategoryDialog'
 import { ServicePanel, type ServiceDraft } from '../catalog/ServicePanel'
 import { useCatalogActions } from '../catalog/useCatalogActions'
+import { ProductsView } from '../catalog/ProductsView'
+import { TabPanel, Tabs } from '../ui/Tabs'
 import { fold } from '../customers/model'
 import { errorMessage } from '../agenda/useAgendaActions'
 import { SearchInput, Segmented } from '../ui/controls'
@@ -31,7 +34,7 @@ const iconBtn = cn(
  * comes from here. Services grouped by category in the order customers see
  * them; owner and manager can create, edit, hide and reorder; reception reads.
  */
-export default function Catalog() {
+function ServicesView() {
   const { repo } = useAdminAuth()
   const { user } = useAdminSession()
   const canEdit = user.role === 'owner' || user.role === 'manager'
@@ -296,6 +299,45 @@ export default function Catalog() {
 
       <ServicePanel draft={serviceDraft} catalog={catalog} canEdit={canEdit} onClose={() => setServiceDraft(null)} />
       <CategoryDialog draft={categoryDraft} onClose={() => setCategoryDraft(null)} />
+    </div>
+  )
+}
+
+type CatalogTab = 'servicios' | 'productos'
+
+/**
+ * Servicios y precios, in two tabs: services (what the site and booking offer)
+ * and products sold at the shop. The tab lives in the URL (?vista=productos).
+ */
+export default function Catalog() {
+  const [params, setParams] = useSearchParams()
+  const tab: CatalogTab = params.get('vista') === 'productos' ? 'productos' : 'servicios'
+  const idBase = useId().replace(/:/g, '')
+  return (
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-6">
+      <Tabs<CatalogTab>
+        label="Catálogo"
+        idBase={idBase}
+        value={tab}
+        onChange={(v) =>
+          setParams(
+            (p) => {
+              const next = new URLSearchParams(p)
+              if (v === 'productos') next.set('vista', v)
+              else next.delete('vista')
+              return next
+            },
+            { replace: true },
+          )
+        }
+        tabs={[
+          { value: 'servicios', label: 'Servicios' },
+          { value: 'productos', label: 'Productos' },
+        ]}
+      />
+      <TabPanel idBase={idBase} value={tab}>
+        {tab === 'servicios' ? <ServicesView /> : <ProductsView />}
+      </TabPanel>
     </div>
   )
 }

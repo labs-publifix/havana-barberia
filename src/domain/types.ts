@@ -44,6 +44,29 @@ export interface Service {
   loyaltyEligible: boolean
 }
 
+/**
+ * Product sold at the shop (shampoo, wax…). Cost and commission are captured
+ * by the owner in the admin and only owner and manager see them; null means
+ * "not captured yet". All amounts in whole MXN pesos.
+ */
+export interface Product {
+  id: ID
+  name: string
+  /** Optional brand, shown under the name. */
+  brand: string
+  /** Public price. */
+  price: number
+  /** Production / purchase cost. */
+  cost: number | null
+  /** Fixed amount the barber earns per unit sold. */
+  commission: number | null
+  /** Photo (Supabase Storage URL; data URL in the demo). */
+  imageUrl: string | null
+  /** Available for sale. */
+  active: boolean
+  createdAt: Instant
+}
+
 export interface Staff {
   id: ID
   name: string

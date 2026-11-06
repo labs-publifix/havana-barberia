@@ -132,3 +132,10 @@ Pantallas del panel ──▶ AdminRepository ──▶ MockAdminRepository     
 - **Quién lo realiza:** se guarda en `Staff.serviceIds`; un barbero con `'all'` pasa a lista explícita cuando se le quita un servicio. La disponibilidad del sitio y del panel lo respeta.
 - **Pantalla:** servicios por categoría en el orden del sitio, búsqueda y filtro visibles/ocultos; subir/bajar servicios y categorías; panel lateral con vista previa de la tarjeta pública (`ServiceCard`). Dueño y gerente editan; recepción solo consulta.
 - **Sitio público:** los cambios se ven al momento (se invalidan `catalog`, `staff` y `slots`). Si un servicio destacado en la portada se oculta, la portada lo omite.
+
+### Productos (`/admin/catalogo?vista=productos`)
+
+- **Modelo** (`Product` en `src/domain/types.ts`): nombre, marca opcional, precio público, costo, comisión fija para el barbero (pesos enteros), foto y disponibilidad. Costo y comisión pueden quedar vacíos (`null`, «Sin capturar») hasta que el dueño los capture. Los productos de demostración son genéricos y **sin costo ni comisión**: las cifras reales solo viven en la base de datos, nunca en este repositorio público.
+- **Permisos:** costo, comisión y margen solo los ven dueño y gerente (no se muestran ni se envían en la interfaz de recepción); recepción consulta nombre, foto y precio. El barbero no entra al catálogo.
+- **Margen** (`src/admin/catalog/products.ts`, con pruebas): precio − costo − comisión, en pesos y porcentaje; marca «estimado» si falta un dato y avisa si se vende por debajo del costo.
+- **Fotos:** `ImageUploader` valida (JPG, PNG o WebP hasta 10 MB), reduce en el navegador a 800 px (WebP, o JPEG si el navegador no codifica WebP) y llama a `AdminRepository.uploadProductImage`. En la demo la foto se guarda como data URL dentro de los datos del navegador (el almacenamiento local tiene ~5 MB: suficiente para probar, no para todo el inventario). Con Supabase: un bucket de Storage y su URL pública.

@@ -4,6 +4,7 @@ import type {
   ID,
   LocalDate,
   LoyaltyCard,
+  Product,
   Service,
   ServiceCategory,
   Slot,
@@ -18,6 +19,7 @@ import type {
   AdminUser,
   AgendaDay,
   NewBlock,
+  ProductInput,
   ServiceInput,
   StaffStatusChange,
   StatusChangeResult,
@@ -84,6 +86,16 @@ export interface AdminRepository {
   moveCategory(id: ID, dir: -1 | 1): Promise<void>
   /** Only empty categories. */
   deleteCategory(id: ID): Promise<void>
+
+  // Products (sold at the shop). Cost, commission and margin are for owner and manager only.
+  listProducts(): Promise<Product[]>
+  saveProduct(input: ProductInput): Promise<Product>
+  deleteProduct(id: ID): Promise<void>
+  /**
+   * Store a product photo (already resized by the browser) and return its URL.
+   * Supabase: upload to a Storage bucket and return the public URL.
+   */
+  uploadProductImage(image: Blob): Promise<string>
 
   /**
    * Live updates: called on every change to appointments or blocks. Supabase:

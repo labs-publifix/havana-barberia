@@ -5,6 +5,7 @@ import type {
   ID,
   LoyaltyCard,
   NewAppointment,
+  Product,
   Service,
   ServiceCategory,
   Slot,
@@ -672,6 +673,71 @@ export class MockBookingRepository implements BookingRepository {
     })
   }
 
+  // ── Products ──────────────────────────────────────────────────────────────
+
+  adminProducts(): Product[] {
+    return clone([...this.db.products].sort((a, b) => a.name.localeCompare(b.name, 'es')))
+  }
+
+  async adminSaveProduct(input: {
+    id?: ID
+    name: string
+    brand: string
+    price: number
+    cost: number | null
+    commission: number | null
+    imageUrl: string | null
+    active: boolean
+  }): Promise<Product> {
+    await this.delay()
+    return this.exclusive(() => {
+      const name = input.name.trim().replace(/\s+/g, ' ')
+      if (!name) throw new InvalidRequestError('Escribe el nombre del producto.')
+      if (this.db.products.some((x) => x.id !== input.id && fold(x.name) === fold(name)))
+        throw new InvalidRequestError('Ya existe un producto con ese nombre.')
+      const money = (v: number | null, label: string, required: boolean) => {
+        if (v === null) {
+          if (required) throw new InvalidRequestError(`Escribe el ${label} en pesos, sin centavos.`)
+          return null
+        }
+        if (!Number.isInteger(v) || v < 0 || v > 100000)
+          throw new InvalidRequestError(`Escribe el ${label} en pesos, sin centavos.`)
+        return v
+      }
+      const values = {
+        name,
+        brand: input.brand.trim(),
+        price: money(input.price, 'precio público', true)!,
+        cost: money(input.cost, 'costo', false),
+        commission: money(input.commission, 'monto de comisión', false),
+        imageUrl: input.imageUrl,
+        active: input.active,
+      }
+      let product = input.id ? this.db.products.find((x) => x.id === input.id) : undefined
+      if (input.id && !product) throw new NotFoundError('ese producto')
+      if (!product) {
+        product = {
+          id: this.uniqueId(name, this.db.products),
+          ...values,
+          createdAt: this.now().toISOString(),
+        }
+        this.db.products.push(product)
+      } else Object.assign(product, values)
+      this.save()
+      return clone(product)
+    })
+  }
+
+  async adminDeleteProduct(id: ID): Promise<void> {
+    await this.delay()
+    return this.exclusive(() => {
+      const i = this.db.products.findIndex((x) => x.id === id)
+      if (i < 0) throw new NotFoundError('ese producto')
+      this.db.products.splice(i, 1)
+      this.save()
+    })
+  }
+
   /** Who performs a service: keeps "all" for barbers who do everything, otherwise explicit lists. */
   private assignStaff(serviceId: ID, staffIds: ID[]) {
     for (const st of this.db.staff) {
@@ -820,8 +886,10 @@ function refreshDemo(stored: MockDb, fresh: MockDb): MockDb {
  * in the admin, so it is kept from storage. Staff profiles still come from the
  * seed: their photo URLs are hashed per build and go stale.
  */
-function keepCatalog(stored: MockDb, fresh: MockDb): Pick<MockDb, 'categories' | 'services' | 'staff'> {
+function keepCatalog(stored: MockDb, fresh: MockDb): Pick<MockDb, 'categories' | 'services' | 'staff' | 'products'> {
   return {
+    // Products arrived in demo v4; older stored demos start from the seed's.
+    products: stored.products ?? fresh.products,
     categories: stored.categories?.length ? stored.categories : fresh.categories,
     services: stored.services?.length ? stored.services : fresh.services,
     staff: fresh.staff.map((s) => ({

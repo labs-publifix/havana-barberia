@@ -2,6 +2,7 @@ import type {
   Appointment,
   Customer,
   LoyaltyCard,
+  Product,
   Service,
   ServiceCategory,
   Staff,
@@ -29,10 +30,11 @@ export interface MockDb {
   customers: Customer[]
   appointments: Appointment[]
   loyalty: LoyaltyCard[]
+  products: Product[]
 }
 
 /** Bump when the demo data changes shape or content; stored demos refresh, keeping real bookings. */
-export const MOCK_DB_VERSION = 3
+export const MOCK_DB_VERSION = 4
 
 const categories: ServiceCategory[] = [
   { id: 'cortes', name: 'Cortes', order: 1 },
@@ -173,6 +175,28 @@ const REGULAR_NOTES = [
   'Alérgico a la loción con alcohol.',
   'Llega 10 min antes; ofrecerle café.',
 ]
+
+/**
+ * Generic demo products: invented names and prices; cost and commission are
+ * left empty for the owner to capture (real figures never live in this public repo).
+ */
+const products: Omit<Product, 'createdAt'>[] = [
+  ['shampoo-cabello', 'Shampoo para cabello 250 ml', 220],
+  ['shampoo-barba', 'Shampoo para barba 120 ml', 190],
+  ['aceite-barba', 'Aceite para barba 30 ml', 260],
+  ['cera-mate', 'Cera mate 100 g', 240],
+  ['pomada-brillo', 'Pomada de brillo 100 g', 240],
+  ['balsamo-after-shave', 'Bálsamo after shave 100 ml', 210],
+].map(([id, name, price]) => ({
+  id: id as string,
+  name: name as string,
+  brand: '',
+  price: price as number,
+  cost: null,
+  commission: null,
+  imageUrl: null,
+  active: true,
+}))
 
 /** Small deterministic PRNG so the demo agenda looks the same on every load of a given day. */
 function mulberry32(seed: number) {
@@ -406,5 +430,6 @@ export function createSeed(now: Date): MockDb {
     customers,
     appointments,
     loyalty,
+    products: products.map((p) => ({ ...p, createdAt })),
   }
 }

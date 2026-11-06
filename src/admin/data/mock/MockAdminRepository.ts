@@ -4,6 +4,7 @@ import type {
   ID,
   LocalDate,
   LoyaltyCard,
+  Product,
   Service,
   ServiceCategory,
   Slot,
@@ -21,6 +22,7 @@ import type {
   AdminUser,
   AgendaDay,
   NewBlock,
+  ProductInput,
   ServiceInput,
   StaffStatusChange,
   StatusChangeResult,
@@ -253,6 +255,29 @@ export class MockAdminRepository implements AdminRepository {
 
   deleteCategory(id: ID): Promise<void> {
     return this.booking.adminDeleteCategory(id)
+  }
+
+  async listProducts(): Promise<Product[]> {
+    await this.delay()
+    return this.booking.adminProducts()
+  }
+
+  saveProduct(input: ProductInput): Promise<Product> {
+    return this.booking.adminSaveProduct(input)
+  }
+
+  deleteProduct(id: ID): Promise<void> {
+    return this.booking.adminDeleteProduct(id)
+  }
+
+  /** Demo: keep the (already small) image inside the demo data as a data URL. */
+  uploadProductImage(image: Blob): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(String(reader.result))
+      reader.onerror = () => reject(new Error('No se pudo leer la imagen.'))
+      reader.readAsDataURL(image)
+    })
   }
 
   subscribe(listener: (change: AdminChange) => void): () => void {

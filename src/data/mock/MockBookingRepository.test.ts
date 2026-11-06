@@ -566,3 +566,49 @@ describe('MockBookingRepository · catalog', () => {
     ).toBe(true)
   })
 })
+
+describe('MockBookingRepository · products', () => {
+  const base = {
+    name: 'Cera fuerte 100 g',
+    brand: '',
+    price: 250,
+    cost: null,
+    commission: null,
+    imageUrl: null,
+    active: true,
+  }
+
+  it('creates products with cost and commission optional, and validates amounts', async () => {
+    const r = repo()
+    const p = await r.adminSaveProduct(base)
+    expect(p).toMatchObject({ id: 'cera-fuerte-100-g', price: 250, cost: null, commission: null })
+    await expect(r.adminSaveProduct({ ...base, name: 'cera FUERTE 100 g' })).rejects.toThrow('Ya existe')
+    await expect(r.adminSaveProduct({ ...base, name: 'Otro', price: 12.5 })).rejects.toThrow('precio público')
+    await expect(r.adminSaveProduct({ ...base, name: 'Otro', cost: -1 })).rejects.toThrow('costo')
+    const edited = await r.adminSaveProduct({ ...base, id: p.id, cost: 90, commission: 25, brand: ' Havana ' })
+    expect(edited).toMatchObject({ cost: 90, commission: 25, brand: 'Havana' })
+    await r.adminDeleteProduct(p.id)
+    expect(r.adminProducts().some((x) => x.id === p.id)).toBe(false)
+  })
+
+  it('ships generic demo products without cost or commission', () => {
+    const products = repo().adminProducts()
+    expect(products.length).toBeGreaterThan(0)
+    expect(products.every((p) => p.cost === null && p.commission === null)).toBe(true)
+  })
+
+  it('keeps products after a reload and on a new day', async () => {
+    const store = new Map<string, string>()
+    const storage = {
+      getItem: (k: string) => store.get(k) ?? null,
+      setItem: (k: string, v: string) => void store.set(k, v),
+      removeItem: (k: string) => void store.delete(k),
+    }
+    await new MockBookingRepository({ storage, initial: emptyDb(), now: () => NOW }).adminSaveProduct(base)
+    const nextDay = new Date(NOW.getTime() + 24 * 3600 * 1000)
+    const has = (now: Date) =>
+      new MockBookingRepository({ storage, now: () => now }).adminProducts().some((p) => p.name === base.name)
+    expect(has(NOW)).toBe(true)
+    expect(has(nextDay)).toBe(true)
+  })
+})
