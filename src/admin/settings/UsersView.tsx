@@ -144,7 +144,7 @@ function RoleMatrix() {
       description="Costos, comisiones y márgenes solo los ven dueño y gerente."
       bodyClassName="p-0"
     >
-      <div className="overflow-x-auto">
+      <div className="relative overflow-x-auto">
         <table className="w-full min-w-[560px] text-sm">
           <caption className="sr-only">Secciones del panel por rol</caption>
           <thead>

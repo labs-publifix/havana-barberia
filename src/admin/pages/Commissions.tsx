@@ -137,7 +137,7 @@ function EarningsCard({
             <ChevronDown className={cn('size-4 transition-transform', open && 'rotate-180')} aria-hidden />
           </button>
           {open && (
-            <div className="overflow-x-auto border-t border-line">
+            <div className="relative overflow-x-auto border-t border-line">
               <table className="w-full min-w-[560px] text-sm">
                 <caption className="sr-only">Detalle de {r.name}</caption>
                 <thead>

@@ -818,3 +818,18 @@ describe('MockBookingRepository · settings', () => {
     expect(r.adminSettings().services.filter((s) => s.loyaltyEligible).map((s) => s.id)).toEqual(['barba-premium'])
   })
 })
+
+describe('MockBookingRepository · finance', () => {
+  it('records and removes advances, and returns a period of data', async () => {
+    const r = repo()
+    await expect(r.adminAddAdvance({ staffId: 'isaac', date: MONDAY, amount: 0, note: '' })).rejects.toThrow(
+      /sin centavos/,
+    )
+    const a = await r.adminAddAdvance({ staffId: 'isaac', date: MONDAY, amount: 300, note: ' Pasaje ' })
+    expect(a).toMatchObject({ amount: 300, note: 'Pasaje' })
+    expect(r.adminFinance(MONDAY, MONDAY).advances).toHaveLength(1)
+    expect(r.adminFinance('2026-11-03', '2026-11-08').advances).toHaveLength(0)
+    await r.adminDeleteAdvance(a.id)
+    expect(r.adminFinance(MONDAY, MONDAY).advances).toHaveLength(0)
+  })
+})

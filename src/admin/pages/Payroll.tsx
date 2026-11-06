@@ -1,0 +1,342 @@
+import { useState } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Printer, Trash2 } from 'lucide-react'
+import { Alert } from '@/components/ui/Alert'
+import { buttonClass } from '@/components/ui/buttonClass'
+import { Skeleton } from '@/components/ui/Skeleton'
+import { business } from '@/config/business'
+import type { PaymentMethod } from '@/domain/types'
+import { addDays, capitalize, formatDay, localDate, money } from '@/lib/time'
+import { useAdminAuth } from '../auth/AdminAuth'
+import { errorMessage } from '../agenda/useAgendaActions'
+import { cashSummary, methodLabels } from '../cash'
+import { earnings, weekLabel, weekStart, type BarberEarnings } from '../finance'
+import { Input } from '../ui/controls'
+import { Card, PageHeader } from '../ui/Panel'
+import { Select } from '../ui/Select'
+import { SidePanel } from '../ui/SidePanel'
+import { useToast } from '../ui/Toast'
+import { WeekPicker } from '../ui/WeekPicker'
+
+const tz = business.hours.timeZone
+const METHODS: PaymentMethod[] = ['cash', 'card', 'transfer']
+const th = 'px-3 py-2 text-[13px] font-medium text-fg-muted'
+
+/** Cierre y nómina (phase-2 preview): the week's income by payment method, advances and each barber's receipt. */
+export default function Payroll() {
+  const { repo } = useAdminAuth()
+  const qc = useQueryClient()
+  const toast = useToast()
+  const today = localDate(new Date(), tz)
+  const current = weekStart(today)
+  const [from, setFrom] = useState(current)
+  const to = addDays(from, 6)
+  const { data } = useQuery({ queryKey: ['admin', 'finance', from, to], queryFn: () => repo.getFinance(from, to) })
+  const [receipt, setReceipt] = useState<BarberEarnings | null>(null)
+  const [adv, setAdv] = useState({ staffId: '', amount: '', note: '' })
+  const [error, setError] = useState<string | null>(null)
+
+  const refresh = () => qc.invalidateQueries({ queryKey: ['admin', 'finance'] })
+  const add = useMutation({
+    mutationFn: () =>
+      repo.addAdvance({
+        staffId: adv.staffId,
+        amount: Number(adv.amount),
+        note: adv.note,
+        date: today >= from && today <= to ? today : from,
+      }),
+    onSuccess: async () => {
+      setAdv({ staffId: '', amount: '', note: '' })
+      setError(null)
+      await refresh()
+      toast('Anticipo registrado')
+    },
+    onError: (e) => setError(errorMessage(e)),
+  })
+  const remove = useMutation({ mutationFn: (id: string) => repo.deleteAdvance(id), onSuccess: refresh })
+
+  if (!data) {
+    return (
+      <div className="grid gap-4" aria-busy="true">
+        <Skeleton className="h-48 rounded-lg" />
+        <Skeleton className="h-48 rounded-lg" />
+      </div>
+    )
+  }
+
+  const cash = cashSummary(data.appointments)
+  const rows = earnings({ ...data, from, to, timeZone: tz }).filter(
+    (r) => r.services > 0 || r.advances > 0 || data.staff.find((s) => s.id === r.staffId)?.active,
+  )
+  const total = rows.reduce(
+    (t, r) => ({
+      commission: t.commission + r.commission,
+      tips: t.tips + r.tips,
+      advances: t.advances + r.advances,
+      pay: t.pay + r.pay,
+    }),
+    { commission: 0, tips: 0, advances: 0, pay: 0 },
+  )
+  const staffName = (id: string) => data.staff.find((s) => s.id === id)?.name ?? 'Barbero'
+
+  return (
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-6">
+      <PageHeader
+        description="Cierre de la semana: lo que entró por forma de pago, anticipos y el recibo de cada barbero."
+        actions={<WeekPicker value={from} onChange={setFrom} current={current} />}
+      />
+      <Alert tone="info" title="Adelanto de la fase 2">
+        Los cálculos se validan con la barbería antes de usarse para pagar. Las ventas de productos se suman cuando se
+        registren en Ventas.
+      </Alert>
+
+      <Card
+        title="Entradas por forma de pago"
+        description={`${cash.paidCount} citas cobradas en la semana.`}
+        className="min-w-0"
+        bodyClassName="relative overflow-x-auto"
+      >
+        <table className="w-full min-w-[480px] text-sm">
+          <caption className="sr-only">Entradas por forma de pago</caption>
+          <thead>
+            <tr className="text-left">
+              <th scope="col" className={`${th} pl-5`}>
+                Forma de pago
+              </th>
+              <th scope="col" className={`${th} text-right`}>
+                Servicios
+              </th>
+              <th scope="col" className={`${th} text-right`}>
+                Propinas
+              </th>
+              <th scope="col" className={`${th} pr-5 text-right`}>
+                Total
+              </th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-line border-t border-line">
+            {METHODS.map((m) => (
+              <tr key={m}>
+                <th scope="row" className="px-5 py-2.5 text-left font-medium">
+                  {methodLabels[m]}
+                </th>
+                <td className="tabular px-3 py-2.5 text-right">{money(cash.services[m])}</td>
+                <td className="tabular px-3 py-2.5 text-right">{money(cash.tips[m])}</td>
+                <td className="tabular px-5 py-2.5 text-right font-semibold">{money(cash.inByMethod[m])}</td>
+              </tr>
+            ))}
+            <tr className="bg-surface">
+              <th scope="row" className="px-5 py-2.5 text-left font-semibold">
+                Total
+              </th>
+              <td className="tabular px-3 py-2.5 text-right font-semibold">{money(cash.servicesTotal)}</td>
+              <td className="tabular px-3 py-2.5 text-right font-semibold">{money(cash.tipsTotal)}</td>
+              <td className="tabular px-5 py-2.5 text-right text-base font-semibold">{money(cash.total)}</td>
+            </tr>
+          </tbody>
+        </table>
+      </Card>
+
+      <Card
+        title="Nómina de la semana"
+        description="Comisión + propinas − anticipos."
+        className="min-w-0"
+        bodyClassName="relative overflow-x-auto"
+      >
+        <table className="w-full min-w-[620px] text-sm">
+          <caption className="sr-only">Nómina por barbero</caption>
+          <thead>
+            <tr className="text-left">
+              <th scope="col" className={`${th} pl-5`}>
+                Barbero
+              </th>
+              <th scope="col" className={`${th} text-right`}>
+                Comisión
+              </th>
+              <th scope="col" className={`${th} text-right`}>
+                Propinas
+              </th>
+              <th scope="col" className={`${th} text-right`}>
+                Anticipos
+              </th>
+              <th scope="col" className={`${th} text-right`}>
+                A pagar
+              </th>
+              <th scope="col" className={`${th} pr-5`}>
+                <span className="sr-only">Recibo</span>
+              </th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-line border-t border-line">
+            {rows.map((r) => (
+              <tr key={r.staffId}>
+                <th scope="row" className="px-5 py-2.5 text-left font-medium">
+                  {r.name}
+                  {r.missing > 0 && (
+                    <span className="block text-[13px] font-normal text-fg-muted">
+                      {r.missing} {r.missing === 1 ? 'servicio' : 'servicios'} sin comisión capturada
+                    </span>
+                  )}
+                </th>
+                <td className="tabular px-3 py-2.5 text-right">{money(r.commission)}</td>
+                <td className="tabular px-3 py-2.5 text-right">{money(r.tips)}</td>
+                <td className="tabular px-3 py-2.5 text-right">{r.advances ? `−${money(r.advances)}` : '—'}</td>
+                <td className="tabular px-3 py-2.5 text-right font-semibold">{money(r.pay)}</td>
+                <td className="px-5 py-2.5 text-right">
+                  <button
+                    type="button"
+                    onClick={() => setReceipt(r)}
+                    aria-label={`Ver recibo de ${r.name}`}
+                    className={buttonClass({ variant: 'secondary', size: 'sm' })}
+                  >
+                    Ver recibo
+                  </button>
+                </td>
+              </tr>
+            ))}
+            <tr className="bg-surface">
+              <th scope="row" className="px-5 py-2.5 text-left font-semibold">
+                Total
+              </th>
+              <td className="tabular px-3 py-2.5 text-right font-semibold">{money(total.commission)}</td>
+              <td className="tabular px-3 py-2.5 text-right font-semibold">{money(total.tips)}</td>
+              <td className="tabular px-3 py-2.5 text-right font-semibold">
+                {total.advances ? `−${money(total.advances)}` : '—'}
+              </td>
+              <td className="tabular px-3 py-2.5 text-right text-base font-semibold">{money(total.pay)}</td>
+              <td />
+            </tr>
+          </tbody>
+        </table>
+      </Card>
+
+      <Card title="Anticipos" description="Dinero adelantado a un barbero; se descuenta de su pago de la semana.">
+        <form
+          className="grid items-end gap-3 sm:grid-cols-[200px_140px_minmax(0,1fr)_auto]"
+          onSubmit={(e) => {
+            e.preventDefault()
+            add.mutate()
+          }}
+        >
+          <Select
+            label="Barbero"
+            value={adv.staffId}
+            onValueChange={(staffId) => setAdv((a) => ({ ...a, staffId }))}
+            options={[
+              { value: '', label: 'Elige' },
+              ...data.staff.filter((s) => s.active).map((s) => ({ value: s.id, label: s.name })),
+            ]}
+          />
+          <Input
+            label="Monto"
+            prefix="$"
+            inputMode="numeric"
+            value={adv.amount}
+            onChange={(e) => setAdv((a) => ({ ...a, amount: e.target.value.replace(/\D/g, '') }))}
+          />
+          <Input
+            label="Nota (opcional)"
+            value={adv.note}
+            onChange={(e) => setAdv((a) => ({ ...a, note: e.target.value }))}
+          />
+          <button
+            type="submit"
+            disabled={!adv.staffId || !adv.amount || add.isPending}
+            className={buttonClass({ size: 'sm' })}
+          >
+            Registrar
+          </button>
+        </form>
+        {error && <Alert tone="danger" title={error} className="mt-3" />}
+        {data.advances.length > 0 ? (
+          <ul className="mt-4 divide-y divide-line rounded-md border border-line" aria-label="Anticipos de la semana">
+            {data.advances.map((x) => (
+              <li key={x.id} className="flex items-center gap-3 px-4 py-2.5 text-sm">
+                <span className="tabular w-16 shrink-0 text-fg-muted">{capitalize(formatDay(x.date, 'EEE d'))}</span>
+                <span className="min-w-0 flex-1">
+                  <span className="font-medium">{staffName(x.staffId)}</span>
+                  {x.note && <span className="text-fg-muted"> · {x.note}</span>}
+                </span>
+                <span className="tabular font-semibold">{money(x.amount)}</span>
+                <button
+                  type="button"
+                  onClick={() => remove.mutate(x.id)}
+                  aria-label={`Quitar anticipo de ${staffName(x.staffId)}`}
+                  className="grid size-10 place-items-center rounded-full text-fg-muted hover:bg-fg/5 hover:text-fg focus-visible:outline focus-visible:outline-2 focus-visible:outline-focus"
+                >
+                  <Trash2 className="size-4" aria-hidden />
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="mt-4 text-sm text-fg-muted">Sin anticipos esta semana.</p>
+        )}
+      </Card>
+
+      <SidePanel
+        open={!!receipt}
+        onOpenChange={(o) => !o && setReceipt(null)}
+        title={receipt ? `Recibo · ${receipt.name}` : 'Recibo'}
+        description={`Semana del ${weekLabel(from)}`}
+        footer={
+          <button
+            type="button"
+            onClick={() => window.print()}
+            className={buttonClass({ variant: 'secondary', size: 'sm' })}
+          >
+            <Printer className="size-4" aria-hidden /> Imprimir
+          </button>
+        }
+      >
+        {receipt && (
+          <div className="grid gap-5 text-sm">
+            <dl className="grid gap-2 rounded-lg border border-line p-4">
+              {(
+                [
+                  ['Servicios realizados', String(receipt.services)],
+                  ['Ventas generadas', money(receipt.sales)],
+                  ['Comisión', money(receipt.commission)],
+                  ['Propinas', money(receipt.tips)],
+                  ['Anticipos', receipt.advances ? `−${money(receipt.advances)}` : '—'],
+                ] as const
+              ).map(([k, v]) => (
+                <div key={k} className="flex justify-between gap-3">
+                  <dt className="text-fg-muted">{k}</dt>
+                  <dd className="tabular">{v}</dd>
+                </div>
+              ))}
+              <div className="mt-1 flex justify-between gap-3 border-t border-line pt-3 text-base font-semibold">
+                <dt>A pagar</dt>
+                <dd className="tabular">{money(receipt.pay)}</dd>
+              </div>
+            </dl>
+            {receipt.missing > 0 && (
+              <Alert tone="warning" title={`${receipt.missing} servicios sin comisión capturada`}>
+                Captura su comisión en Equipo para que se sume.
+              </Alert>
+            )}
+            <ul className="divide-y divide-line rounded-md border border-line" aria-label="Servicios de la semana">
+              {receipt.lines.map((l) => (
+                <li key={l.appointmentId} className="flex justify-between gap-3 px-4 py-2.5">
+                  <span className="min-w-0">
+                    <span className="block">{l.services.map((s) => s.name).join(' + ')}</span>
+                    <span className="text-[13px] text-fg-muted">
+                      {capitalize(formatDay(l.date, 'EEE d'))} · {l.customer}
+                    </span>
+                  </span>
+                  <span className="tabular shrink-0 text-right">
+                    {l.services.some((s) => s.commission === null)
+                      ? '—'
+                      : money(l.services.reduce((t, s) => t + (s.commission ?? 0), 0))}
+                    {l.tip > 0 && <span className="block text-[13px] text-fg-muted">+{money(l.tip)} propina</span>}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </SidePanel>
+    </div>
+  )
+}
