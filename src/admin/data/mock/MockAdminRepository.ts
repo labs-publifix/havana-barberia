@@ -18,6 +18,7 @@ import { MockBookingRepository } from '@/data/mock/MockBookingRepository'
 import { addDays, localDate, weekdayOf, zonedInstant } from '@/lib/time'
 import type {
   AdminCatalog,
+  AdminFinance,
   AdminSettings,
   AdminTeam,
   AdminChange,
@@ -36,6 +37,7 @@ import type {
   UserInput,
 } from '../../domain'
 import { summarizeCustomers, type CustomerSummary } from '../../customers/model'
+import type { Advance } from '../../finance'
 import { InvalidRequestError } from '@/data/errors'
 import { InvalidCredentialsError, InvalidMfaCodeError, type AdminRepository } from '../AdminRepository'
 
@@ -202,6 +204,31 @@ export class MockAdminRepository implements AdminRepository {
       throw new InvalidRequestError('Debe quedar al menos una persona dueña activa.')
     this.writeUsers(next)
     return { ...user }
+  }
+
+  async getFinance(from: LocalDate, to: LocalDate): Promise<AdminFinance> {
+    await this.delay()
+    const data = this.booking.adminFinance(from, to)
+    // Same rule as RLS will enforce: a barber only gets their own work and rule.
+    const me = (await this.getSession())?.user
+    if (me?.role === 'barber') {
+      return {
+        ...data,
+        appointments: data.appointments.filter((a) => a.staffId === me.staffId),
+        staff: data.staff.filter((s) => s.id === me.staffId),
+        commissions: data.commissions.filter((c) => c.staffId === me.staffId),
+        advances: data.advances.filter((x) => x.staffId === me.staffId),
+      }
+    }
+    return data
+  }
+
+  addAdvance(input: { staffId: ID; date: LocalDate; amount: number; note: string }): Promise<Advance> {
+    return this.booking.adminAddAdvance(input)
+  }
+
+  deleteAdvance(id: ID): Promise<void> {
+    return this.booking.adminDeleteAdvance(id)
   }
 
   async getSettings(): Promise<AdminSettings> {

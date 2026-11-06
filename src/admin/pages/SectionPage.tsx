@@ -16,6 +16,7 @@ const Customers = lazy(() => import('./Customers'))
 const Catalog = lazy(() => import('./Catalog'))
 const Team = lazy(() => import('./Team'))
 const Settings = lazy(() => import('./Settings'))
+const Commissions = lazy(() => import('./Commissions'))
 
 const TOTAL_DELIVERIES = 8
 
@@ -120,6 +121,14 @@ export default function SectionPage() {
     return (
       <Suspense fallback={null}>
         <Team />
+      </Suspense>
+    )
+  }
+
+  if (section === 'comisiones') {
+    return (
+      <Suspense fallback={null}>
+        <Commissions />
       </Suspense>
     )
   }

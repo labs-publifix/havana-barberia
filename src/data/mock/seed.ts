@@ -12,6 +12,7 @@ import type {
   WeeklySchedule,
 } from '@/domain/types'
 import { bookingPolicy, businessHours } from '@/config/business'
+import type { Advance } from '@/admin/finance'
 import { addDays, localDate, toMinutes, weekdayOf, zonedInstant } from '@/lib/time'
 // Head-and-shoulders crops (120px): the tighter face crops cut the faces at small sizes.
 import avatarIsaac from '@/assets/team/isaac-fuentes-card-120.webp'
@@ -36,10 +37,12 @@ export interface MockDb {
   commissions: StaffCommission[]
   /** Booking and loyalty rules, edited in Ajustes (defaults from config/business). */
   policy: BookingPolicy
+  /** Advances (anticipos) given to barbers, discounted in the weekly payroll. */
+  advances: Advance[]
 }
 
 /** Bump when the demo data changes shape or content; stored demos refresh, keeping real bookings. */
-export const MOCK_DB_VERSION = 6
+export const MOCK_DB_VERSION = 7
 
 const categories: ServiceCategory[] = [
   { id: 'cortes', name: 'Cortes', order: 1 },
@@ -347,10 +350,10 @@ export function createSeed(now: Date): MockDb {
     }
   }
 
-  // The previous week, already served (with a few no-shows), so the agenda's week
+  // The previous four weeks, already served (with a few no-shows), so the agenda's week
   // view and customer histories are not empty. Separate PRNG: the days above stay as they were.
   const pastRand = mulberry32(Number(today.replaceAll('-', '')) + 7)
-  for (let d = -7; d < 0; d++) {
+  for (let d = -28; d < 0; d++) {
     const date = addDays(today, d)
     for (const s of staff) {
       const target = 4 + Math.floor(pastRand() * 4)
@@ -445,5 +448,6 @@ export function createSeed(now: Date): MockDb {
     // Commissions are captured by the owner in the admin; nothing real lives in this repo.
     commissions: staff.map((st) => ({ staffId: st.id, mode: 'percent', value: null, overrides: {} })),
     policy: { ...bookingPolicy },
+    advances: [],
   }
 }

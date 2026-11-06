@@ -22,6 +22,7 @@ import { addDays, localDate, toMinutes, weekdayOf, zonedInstant } from '@/lib/ti
 import { normalizeMxPhone } from '@/lib/phone'
 import { DAY_NAMES, outsideSchedule, scheduleErrors } from '@/lib/schedule'
 import { policyError } from '@/lib/policy'
+import type { Advance } from '@/admin/finance'
 import type { BookingRepository, ServiceCatalog, SlotQuery } from '../BookingRepository'
 import {
   BookingLimitError,
@@ -709,6 +710,44 @@ export class MockBookingRepository implements BookingRepository {
 
   // ── Team (barbers, schedules, services, commissions) ──────────────────────
 
+  // ── Finance preview (phase 2) ─────────────────────────────────────────────
+
+  /** Everything finance needs for a period (local dates, inclusive). */
+  adminFinance(from: string, to: string) {
+    const tz = businessHours.timeZone
+    return clone({
+      appointments: this.db.appointments.filter((a) => {
+        const d = localDate(a.startsAt, tz)
+        return d >= from && d <= to
+      }),
+      services: this.db.services,
+      staff: [...this.db.staff].sort((a, b) => a.order - b.order),
+      commissions: this.db.commissions,
+      advances: (this.db.advances ?? []).filter((x) => x.date >= from && x.date <= to),
+    })
+  }
+
+  async adminAddAdvance(input: { staffId: ID; date: string; amount: number; note: string }): Promise<Advance> {
+    await this.delay()
+    return this.exclusive(() => {
+      if (!this.db.staff.some((s) => s.id === input.staffId)) throw new NotFoundError('ese barbero')
+      if (!Number.isInteger(input.amount) || input.amount <= 0 || input.amount > 100000)
+        throw new InvalidRequestError('Escribe el anticipo en pesos, sin centavos.')
+      const advance: Advance = { id: `adv-${randomToken()}`, ...input, note: input.note.trim() }
+      ;(this.db.advances ??= []).push(advance)
+      this.save()
+      return clone(advance)
+    })
+  }
+
+  async adminDeleteAdvance(id: ID): Promise<void> {
+    await this.delay()
+    return this.exclusive(() => {
+      this.db.advances = (this.db.advances ?? []).filter((x) => x.id !== id)
+      this.save()
+    })
+  }
+
   // ── Settings (Ajustes) ────────────────────────────────────────────────────
 
   adminSettings(): { policy: BookingPolicy; services: Service[] } {
@@ -1088,7 +1127,7 @@ function refreshDemo(stored: MockDb, fresh: MockDb): MockDb {
 function keepCatalog(
   stored: MockDb,
   fresh: MockDb,
-): Pick<MockDb, 'categories' | 'services' | 'staff' | 'products' | 'commissions' | 'policy'> {
+): Pick<MockDb, 'categories' | 'services' | 'staff' | 'products' | 'commissions' | 'policy' | 'advances'> {
   return {
     // Products arrived in demo v4; older stored demos start from the seed's.
     products: stored.products ?? fresh.products,
@@ -1105,6 +1144,7 @@ function keepCatalog(
     commissions: stored.commissions ?? fresh.commissions,
     // Rules edited in Ajustes (arrived in demo v6; older demos start from the defaults).
     policy: stored.policy ? { ...fresh.policy, ...stored.policy } : fresh.policy,
+    advances: stored.advances ?? [],
   }
 }
 

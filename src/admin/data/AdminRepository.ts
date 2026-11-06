@@ -15,6 +15,7 @@ import type {
 import type { SlotQuery } from '@/data'
 import type {
   AdminCatalog,
+  AdminFinance,
   AdminSettings,
   AdminTeam,
   AdminChange,
@@ -33,6 +34,7 @@ import type {
   UserInput,
 } from '../domain'
 import type { CustomerSummary } from '../customers/model'
+import type { Advance } from '../finance'
 
 export class InvalidCredentialsError extends Error {
   constructor() {
@@ -104,6 +106,11 @@ export interface AdminRepository {
   moveStaff(id: ID, dir: -1 | 1): Promise<void>
   /** Store a barber photo (already resized) and return its URL. */
   uploadStaffPhoto(image: Blob): Promise<string>
+
+  // Finance preview (phase 2). Supabase: views under RLS (a barber reads only their own rows).
+  getFinance(from: LocalDate, to: LocalDate): Promise<AdminFinance>
+  addAdvance(input: { staffId: ID; date: LocalDate; amount: number; note: string }): Promise<Advance>
+  deleteAdvance(id: ID): Promise<void>
 
   // Settings (Ajustes). Owner and manager. Supabase: a settings row and the profiles table.
   getSettings(): Promise<AdminSettings>

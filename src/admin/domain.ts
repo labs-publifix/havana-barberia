@@ -16,6 +16,7 @@ import type {
   TimeRange,
   WeeklySchedule,
 } from '@/domain/types'
+import type { Advance } from './finance'
 
 /**
  * Admin domain. Roles come from the project fundamentals:
@@ -181,6 +182,16 @@ export interface UserInput {
   /** Required for barbers: their profile in Equipo. */
   staffId: ID | null
   active: boolean
+}
+
+/** A period of finance data (phase-2 preview). */
+export interface AdminFinance {
+  appointments: Appointment[]
+  services: Service[]
+  staff: Staff[]
+  /** Owner and manager only (a barber gets their own). */
+  commissions: StaffCommission[]
+  advances: Advance[]
 }
 
 export interface AdminTeam {
