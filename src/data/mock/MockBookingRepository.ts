@@ -28,6 +28,7 @@ import { rewardAvailable, rewardFor } from '@/lib/loyalty'
 import { cashSummary } from '@/admin/cash'
 import {
   defaultFinanceSettings,
+  earnings,
   expectedCash,
   financeSettingsError,
   type Advance,
@@ -35,6 +36,7 @@ import {
   type CashMove,
   type DailyClose,
   type FinanceSettings,
+  type PayrollClose,
   type ProductSale,
 } from '@/admin/finance'
 import type { BookingRepository, ServiceCatalog, SlotQuery } from '../BookingRepository'
@@ -820,6 +822,7 @@ export class MockBookingRepository implements BookingRepository {
       commissions: this.db.commissions,
       advances: (this.db.advances ?? []).filter((x) => x.date >= from && x.date <= to),
       settings: { ...defaultFinanceSettings(), ...this.db.finance },
+      close: (this.db.payrollCloses ?? []).find((c) => c.weekStart === from) ?? null,
       bonusAwards: (this.db.bonusAwards ?? []).filter((x) => x.weekStart >= from && x.weekStart <= to),
       sales: (this.db.sales ?? []).filter((x) => {
         const d = localDate(x.at, tz)
@@ -832,6 +835,7 @@ export class MockBookingRepository implements BookingRepository {
     await this.delay()
     return this.exclusive(() => {
       if (!this.db.staff.some((s) => s.id === input.staffId)) throw new NotFoundError('ese barbero')
+      this.assertWeekOpen(input.date)
       if (!Number.isInteger(input.amount) || input.amount <= 0 || input.amount > 100000)
         throw new InvalidRequestError('Escribe el anticipo en pesos, sin centavos.')
       const advance: Advance = { id: `adv-${randomToken()}`, ...input, note: input.note.trim() }
@@ -871,6 +875,55 @@ export class MockBookingRepository implements BookingRepository {
       ;(this.db.sales ??= []).push(sale)
       this.save()
       return clone(sale)
+    })
+  }
+
+  // ── Payroll weeks ─────────────────────────────────────────────────────────
+
+  private assertWeekOpen(date: string) {
+    if ((this.db.payrollCloses ?? []).some((c) => date >= c.weekStart && date <= c.weekEnd))
+      throw new InvalidRequestError('Esa semana de nómina ya está cerrada.')
+  }
+
+  /** Freeze the week's receipts as they are now (computed here, never trusted from the screen). */
+  async adminCloseWeek(weekStart: string, closedBy: string): Promise<PayrollClose> {
+    await this.delay()
+    return this.exclusive(() => {
+      if ((this.db.payrollCloses ?? []).some((c) => c.weekStart === weekStart))
+        throw new InvalidRequestError('Esa semana ya está cerrada.')
+      const weekEnd = addDays(weekStart, 6)
+      const data = this.adminFinance(weekStart, weekEnd)
+      const rows = earnings({
+        ...data,
+        bonusRules: data.settings.bonuses,
+        discountCommission: data.settings.discountCommission,
+        from: weekStart,
+        to: weekEnd,
+        timeZone: businessHours.timeZone,
+      }).filter((r) => r.services > 0 || r.advances > 0 || r.bonusTotal > 0 || r.products > 0)
+      const close: PayrollClose = { weekStart, weekEnd, closedAt: this.now().toISOString(), closedBy, rows, paid: {} }
+      ;(this.db.payrollCloses ??= []).push(close)
+      this.save()
+      return clone(close)
+    })
+  }
+
+  async adminMarkPaid(weekStart: string, staffId: ID, paid: boolean, by: string): Promise<void> {
+    await this.delay()
+    return this.exclusive(() => {
+      const c = (this.db.payrollCloses ?? []).find((x) => x.weekStart === weekStart)
+      if (!c) throw new InvalidRequestError('Cierra la semana antes de marcar pagos.')
+      if (paid) c.paid[staffId] = { at: this.now().toISOString(), by }
+      else delete c.paid[staffId]
+      this.save()
+    })
+  }
+
+  async adminReopenWeek(weekStart: string): Promise<void> {
+    await this.delay()
+    return this.exclusive(() => {
+      this.db.payrollCloses = (this.db.payrollCloses ?? []).filter((c) => c.weekStart !== weekStart)
+      this.save()
     })
   }
 
@@ -1000,6 +1053,7 @@ export class MockBookingRepository implements BookingRepository {
     return this.exclusive(() => {
       const rule = (this.db.finance ?? defaultFinanceSettings()).bonuses.find((b) => b.id === award.bonusId)
       if (!rule || rule.kind !== 'manual') throw new InvalidRequestError('Ese bono se calcula solo.')
+      this.assertWeekOpen(award.weekStart)
       const same = (x: BonusAward) =>
         x.weekStart === award.weekStart && x.staffId === award.staffId && x.bonusId === award.bonusId
       const list = (this.db.bonusAwards ?? []).filter((x) => !same(x))
@@ -1011,6 +1065,8 @@ export class MockBookingRepository implements BookingRepository {
   async adminDeleteAdvance(id: ID): Promise<void> {
     await this.delay()
     return this.exclusive(() => {
+      const adv = (this.db.advances ?? []).find((x) => x.id === id)
+      if (adv) this.assertWeekOpen(adv.date)
       this.db.advances = (this.db.advances ?? []).filter((x) => x.id !== id)
       this.save()
     })
@@ -1407,6 +1463,7 @@ function keepCatalog(
   | 'bonusAwards'
   | 'cashMoves'
   | 'dailyCloses'
+  | 'payrollCloses'
 > {
   return {
     // Products arrived in demo v4; older stored demos start from the seed's.
@@ -1430,6 +1487,7 @@ function keepCatalog(
     bonusAwards: stored.bonusAwards ?? [],
     cashMoves: stored.cashMoves ?? [],
     dailyCloses: stored.dailyCloses ?? [],
+    payrollCloses: stored.payrollCloses ?? [],
   }
 }
 

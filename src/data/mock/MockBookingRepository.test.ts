@@ -951,3 +951,22 @@ describe('MockBookingRepository · daily cash', () => {
     expect(r.adminCashDay(MONDAY).close).toBeNull()
   })
 })
+
+describe('MockBookingRepository · payroll weeks', () => {
+  it('freezes the receipts, locks advances and tracks payments', async () => {
+    let now = zonedInstant(MONDAY, '09:00', TZ)
+    const r = new MockBookingRepository({ storage: null, initial: emptyDb(), now: () => now })
+    const a = await r.createAppointment(booking(iso(MONDAY, '10:00')))
+    now = zonedInstant(MONDAY, '11:00', TZ)
+    await r.adminSetStatus(a.id, 'completed', { method: 'cash', tip: 40, tipMethod: 'cash' })
+    const close = await r.adminCloseWeek(MONDAY, 'Dueño')
+    expect(close.rows.find((x) => x.staffId === 'isaac')).toMatchObject({ services: 1, tips: 40 })
+    await expect(r.adminAddAdvance({ staffId: 'isaac', date: MONDAY, amount: 100, note: '' })).rejects.toThrow(
+      /cerrada/,
+    )
+    await r.adminMarkPaid(MONDAY, 'isaac', true, 'Dueño')
+    expect(r.adminFinance(MONDAY, '2026-11-08').close?.paid.isaac).toMatchObject({ by: 'Dueño' })
+    await r.adminReopenWeek(MONDAY)
+    expect(r.adminFinance(MONDAY, '2026-11-08').close).toBeNull()
+  })
+})

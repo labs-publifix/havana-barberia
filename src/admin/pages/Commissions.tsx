@@ -28,16 +28,19 @@ export default function Commissions() {
   const to = addDays(from, 6)
   const { data } = useQuery({ queryKey: ['admin', 'finance', from, to], queryFn: () => repo.getFinance(from, to) })
 
-  const rows = data
-    ? earnings({
-        ...data,
-        bonusRules: data.settings.bonuses,
-        discountCommission: data.settings.discountCommission,
-        from,
-        to,
-        timeZone: tz,
-      }).filter((r) => r.services > 0 || data.staff.find((s) => s.id === r.staffId)?.active)
-    : null
+  // A closed payroll week shows its frozen receipts.
+  const rows = data?.close
+    ? data.close.rows
+    : data
+      ? earnings({
+          ...data,
+          bonusRules: data.settings.bonuses,
+          discountCommission: data.settings.discountCommission,
+          from,
+          to,
+          timeZone: tz,
+        }).filter((r) => r.services > 0 || data.staff.find((s) => s.id === r.staffId)?.active)
+      : null
 
   return (
     <div className="grid grid-cols-[minmax(0,1fr)] gap-6">

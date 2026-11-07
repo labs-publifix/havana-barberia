@@ -16,7 +16,15 @@ import type {
   TimeRange,
   WeeklySchedule,
 } from '@/domain/types'
-import type { Advance, BonusAward, CashMove, DailyClose, FinanceSettings, ProductSale } from './finance'
+import type {
+  Advance,
+  BonusAward,
+  CashMove,
+  DailyClose,
+  FinanceSettings,
+  PayrollClose,
+  ProductSale,
+} from './finance'
 
 /**
  * Admin domain. Roles come from the project fundamentals:
@@ -215,6 +223,8 @@ export interface AdminFinance {
   sales: ProductSale[]
   settings: FinanceSettings
   bonusAwards: BonusAward[]
+  /** The payroll week starting on `from`, if it was closed. */
+  close: PayrollClose | null
 }
 
 export interface AdminTeam {

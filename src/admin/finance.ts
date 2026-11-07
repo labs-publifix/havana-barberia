@@ -309,3 +309,14 @@ export function expectedCash(input: {
   const outs = input.moves.filter((m) => m.kind === 'out').reduce((t, m) => t + m.amount, 0)
   return { ins, outs, expected: input.openingFund + input.cashCharges + input.cashTips + ins - outs }
 }
+
+/** A closed payroll week: the receipts frozen as they were, and who has been paid. */
+export interface PayrollClose {
+  weekStart: LocalDate
+  weekEnd: LocalDate
+  closedAt: string
+  closedBy: string
+  rows: BarberEarnings[]
+  /** staffId → when and who marked the receipt as paid. */
+  paid: Record<ID, { at: string; by: string }>
+}

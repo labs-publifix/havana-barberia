@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Printer, Trash2 } from 'lucide-react'
+import { Check, Lock, Printer, Trash2 } from 'lucide-react'
+import { Badge } from '@/components/ui/Badge'
+import { Dialog } from '@/components/ui/Dialog'
 import { Alert } from '@/components/ui/Alert'
 import { buttonClass } from '@/components/ui/buttonClass'
 import { Skeleton } from '@/components/ui/Skeleton'
@@ -8,7 +10,7 @@ import { business } from '@/config/business'
 import type { PaymentMethod } from '@/domain/types'
 import { addDays, capitalize, formatDay, localDate, money } from '@/lib/time'
 import { useFinanceWeek } from '../useFinanceWeek'
-import { useAdminAuth } from '../auth/AdminAuth'
+import { useAdminAuth, useAdminSession } from '../auth/AdminAuth'
 import { errorMessage } from '../agenda/useAgendaActions'
 import { cashSummary, methodLabels } from '../cash'
 import { cardFee, earnings, weekLabel, type BarberEarnings } from '../finance'
@@ -35,6 +37,8 @@ export default function Payroll() {
   const [receipt, setReceipt] = useState<BarberEarnings | null>(null)
   const [adv, setAdv] = useState({ staffId: '', amount: '', note: '' })
   const [error, setError] = useState<string | null>(null)
+  const [confirmClose, setConfirmClose] = useState(false)
+  const { user } = useAdminSession()
 
   const refresh = () => qc.invalidateQueries({ queryKey: ['admin', 'finance'] })
   const add = useMutation({
@@ -59,6 +63,25 @@ export default function Payroll() {
     onSuccess: refresh,
     onError: (e) => toast(errorMessage(e), 'danger'),
   })
+  const paid = useMutation({
+    mutationFn: (x: { staffId: string; on: boolean }) => repo.markPaid(from, x.staffId, x.on),
+    onSuccess: refresh,
+    onError: (e) => toast(errorMessage(e), 'danger'),
+  })
+  const reopen = useMutation({
+    mutationFn: () => repo.reopenWeek(from),
+    onSuccess: refresh,
+    onError: (e) => toast(errorMessage(e), 'danger'),
+  })
+  const closeWeek = useMutation({
+    mutationFn: () => repo.closeWeek(from),
+    onSuccess: async () => {
+      setConfirmClose(false)
+      await refresh()
+      toast('Semana cerrada')
+    },
+    onError: (e) => toast(errorMessage(e), 'danger'),
+  })
   const remove = useMutation({ mutationFn: (id: string) => repo.deleteAdvance(id), onSuccess: refresh })
 
   if (!data) {
@@ -71,7 +94,8 @@ export default function Payroll() {
   }
 
   const cash = cashSummary(data.appointments, data.sales)
-  const rows = earnings({
+  const closed = data.close
+  const computed = earnings({
     ...data,
     bonusRules: data.settings.bonuses,
     discountCommission: data.settings.discountCommission,
@@ -79,6 +103,8 @@ export default function Payroll() {
     to,
     timeZone: tz,
   }).filter((r) => r.services > 0 || r.advances > 0 || data.staff.find((s) => s.id === r.staffId)?.active)
+  // A closed week shows its frozen receipts.
+  const rows = closed ? closed.rows : computed
   const total = rows.reduce(
     (t, r) => ({
       commission: t.commission + r.commission,
@@ -100,8 +126,35 @@ export default function Payroll() {
     <div className="grid grid-cols-[minmax(0,1fr)] gap-6">
       <PageHeader
         description="Cierre de la semana: lo que entró por forma de pago, anticipos y el recibo de cada barbero."
-        actions={<WeekPicker value={from} onChange={setFrom} current={current} />}
+        actions={
+          <>
+            <WeekPicker value={from} onChange={setFrom} current={current} />
+            {!closed && (
+              <button type="button" onClick={() => setConfirmClose(true)} className={buttonClass({ size: 'sm' })}>
+                <Lock className="size-4" aria-hidden /> Cerrar semana
+              </button>
+            )}
+          </>
+        }
       />
+      {closed && (
+        <Alert
+          tone="success"
+          title={`Semana cerrada el ${formatDay(localDate(closed.closedAt, tz), "EEEE d 'de' MMMM")} por ${closed.closedBy}`}
+        >
+          Los recibos quedaron guardados tal como estaban y ya no cambian. {Object.keys(closed.paid).length} de{' '}
+          {closed.rows.length} pagados.
+          {user.role === 'owner' && (
+            <button
+              type="button"
+              onClick={() => reopen.mutate()}
+              className="ml-2 font-semibold underline underline-offset-2"
+            >
+              Reabrir semana
+            </button>
+          )}
+        </Alert>
+      )}
       <Alert tone="info" title="Adelanto de la fase 2">
         Los cálculos se validan con la barbería antes de usarse para pagar. Incluye las ventas de productos registradas
         en Ventas.
@@ -167,7 +220,7 @@ export default function Payroll() {
         className="min-w-0"
         bodyClassName="relative overflow-x-auto"
       >
-        <table className="w-full min-w-[700px] text-sm">
+        <table className="w-full min-w-[820px] text-sm">
           <caption className="sr-only">Nómina por barbero</caption>
           <thead>
             <tr className="text-left">
@@ -211,14 +264,37 @@ export default function Payroll() {
                 <td className="tabular px-3 py-2.5 text-right">{r.advances ? `−${money(r.advances)}` : '—'}</td>
                 <td className="tabular px-3 py-2.5 text-right font-semibold">{money(r.pay)}</td>
                 <td className="px-5 py-2.5 text-right">
-                  <button
-                    type="button"
-                    onClick={() => setReceipt(r)}
-                    aria-label={`Ver recibo de ${r.name}`}
-                    className={buttonClass({ variant: 'secondary', size: 'sm' })}
-                  >
-                    Ver recibo
-                  </button>
+                  <div className="flex items-center justify-end gap-2">
+                    {closed &&
+                      (closed.paid[r.staffId] ? (
+                        <button
+                          type="button"
+                          onClick={() => paid.mutate({ staffId: r.staffId, on: false })}
+                          aria-label={`Quitar pagado de ${r.name}`}
+                          title={`Pagado por ${closed.paid[r.staffId]!.by}`}
+                        >
+                          <Badge tone="success">
+                            <Check className="size-3.5" aria-hidden /> Pagado
+                          </Badge>
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => paid.mutate({ staffId: r.staffId, on: true })}
+                          className={buttonClass({ size: 'sm' })}
+                        >
+                          Marcar pagado
+                        </button>
+                      ))}
+                    <button
+                      type="button"
+                      onClick={() => setReceipt(r)}
+                      aria-label={`Ver recibo de ${r.name}`}
+                      className={buttonClass({ variant: 'secondary', size: 'sm' })}
+                    >
+                      Ver recibo
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -260,7 +336,7 @@ export default function Payroll() {
                       label={b.name}
                       description={b.amount ? money(b.amount) : 'Monto sin capturar'}
                       checked={awarded(r.staffId, b.id)}
-                      disabled={toggle.isPending}
+                      disabled={toggle.isPending || !!closed}
                       onChange={(on) => toggle.mutate({ staffId: r.staffId, bonusId: b.id, on })}
                     />
                   ))}
@@ -280,42 +356,44 @@ export default function Payroll() {
       </Card>
 
       <Card title="Anticipos" description="Dinero adelantado a un barbero; se descuenta de su pago de la semana.">
-        <form
-          className="grid items-end gap-3 sm:grid-cols-[200px_140px_minmax(0,1fr)_auto]"
-          onSubmit={(e) => {
-            e.preventDefault()
-            add.mutate()
-          }}
-        >
-          <Select
-            label="Barbero"
-            value={adv.staffId}
-            onValueChange={(staffId) => setAdv((a) => ({ ...a, staffId }))}
-            options={[
-              { value: '', label: 'Elige' },
-              ...data.staff.filter((s) => s.active).map((s) => ({ value: s.id, label: s.name })),
-            ]}
-          />
-          <Input
-            label="Monto"
-            prefix="$"
-            inputMode="numeric"
-            value={adv.amount}
-            onChange={(e) => setAdv((a) => ({ ...a, amount: e.target.value.replace(/\D/g, '') }))}
-          />
-          <Input
-            label="Nota (opcional)"
-            value={adv.note}
-            onChange={(e) => setAdv((a) => ({ ...a, note: e.target.value }))}
-          />
-          <button
-            type="submit"
-            disabled={!adv.staffId || !adv.amount || add.isPending}
-            className={buttonClass({ size: 'sm' })}
+        {closed ? null : (
+          <form
+            className="grid items-end gap-3 sm:grid-cols-[200px_140px_minmax(0,1fr)_auto]"
+            onSubmit={(e) => {
+              e.preventDefault()
+              add.mutate()
+            }}
           >
-            Registrar
-          </button>
-        </form>
+            <Select
+              label="Barbero"
+              value={adv.staffId}
+              onValueChange={(staffId) => setAdv((a) => ({ ...a, staffId }))}
+              options={[
+                { value: '', label: 'Elige' },
+                ...data.staff.filter((s) => s.active).map((s) => ({ value: s.id, label: s.name })),
+              ]}
+            />
+            <Input
+              label="Monto"
+              prefix="$"
+              inputMode="numeric"
+              value={adv.amount}
+              onChange={(e) => setAdv((a) => ({ ...a, amount: e.target.value.replace(/\D/g, '') }))}
+            />
+            <Input
+              label="Nota (opcional)"
+              value={adv.note}
+              onChange={(e) => setAdv((a) => ({ ...a, note: e.target.value }))}
+            />
+            <button
+              type="submit"
+              disabled={!adv.staffId || !adv.amount || add.isPending}
+              className={buttonClass({ size: 'sm' })}
+            >
+              Registrar
+            </button>
+          </form>
+        )}
         {error && <Alert tone="danger" title={error} className="mt-3" />}
         {data.advances.length > 0 ? (
           <ul className="mt-4 divide-y divide-line rounded-md border border-line" aria-label="Anticipos de la semana">
@@ -327,14 +405,16 @@ export default function Payroll() {
                   {x.note && <span className="text-fg-muted"> · {x.note}</span>}
                 </span>
                 <span className="tabular font-semibold">{money(x.amount)}</span>
-                <button
-                  type="button"
-                  onClick={() => remove.mutate(x.id)}
-                  aria-label={`Quitar anticipo de ${staffName(x.staffId)}`}
-                  className="grid size-10 place-items-center rounded-full text-fg-muted hover:bg-fg/5 hover:text-fg focus-visible:outline focus-visible:outline-2 focus-visible:outline-focus"
-                >
-                  <Trash2 className="size-4" aria-hidden />
-                </button>
+                {!closed && (
+                  <button
+                    type="button"
+                    onClick={() => remove.mutate(x.id)}
+                    aria-label={`Quitar anticipo de ${staffName(x.staffId)}`}
+                    className="grid size-10 place-items-center rounded-full text-fg-muted hover:bg-fg/5 hover:text-fg focus-visible:outline focus-visible:outline-2 focus-visible:outline-focus"
+                  >
+                    <Trash2 className="size-4" aria-hidden />
+                  </button>
+                )}
               </li>
             ))}
           </ul>
@@ -342,6 +422,36 @@ export default function Payroll() {
           <p className="mt-4 text-sm text-fg-muted">Sin anticipos esta semana.</p>
         )}
       </Card>
+
+      <Dialog
+        open={confirmClose}
+        onOpenChange={setConfirmClose}
+        title={`¿Cerrar la semana del ${weekLabel(from)}?`}
+        description={
+          to >= today
+            ? 'La semana todavía no termina. Al cerrarla, los recibos se guardan como están ahora y ya no cambian.'
+            : 'Los recibos se guardan como están y ya no cambian. Después podrás marcar cada uno como pagado.'
+        }
+        footer={
+          <>
+            <button
+              type="button"
+              onClick={() => setConfirmClose(false)}
+              className={buttonClass({ variant: 'secondary', size: 'sm' })}
+            >
+              Volver
+            </button>
+            <button
+              type="button"
+              disabled={closeWeek.isPending}
+              onClick={() => closeWeek.mutate()}
+              className={buttonClass({ size: 'sm' })}
+            >
+              Cerrar semana
+            </button>
+          </>
+        }
+      />
 
       <SidePanel
         open={!!receipt}

@@ -19,6 +19,7 @@ import {
   type CashMove,
   type DailyClose,
   type FinanceSettings,
+  type PayrollClose,
   type ProductSale,
 } from '@/admin/finance'
 import { addDays, localDate, toMinutes, weekdayOf, zonedInstant } from '@/lib/time'
@@ -57,6 +58,8 @@ export interface MockDb {
   cashMoves: CashMove[]
   /** Daily cash counts. */
   dailyCloses: DailyClose[]
+  /** Closed payroll weeks (frozen receipts). */
+  payrollCloses: PayrollClose[]
 }
 
 /** Bump when the demo data changes shape or content; stored demos refresh, keeping real bookings. */
@@ -472,5 +475,6 @@ export function createSeed(now: Date): MockDb {
     bonusAwards: [],
     cashMoves: [],
     dailyCloses: [],
+    payrollCloses: [],
   }
 }

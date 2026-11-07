@@ -39,7 +39,15 @@ import type {
   UserInput,
 } from '../../domain'
 import { summarizeCustomers, type CustomerSummary } from '../../customers/model'
-import type { Advance, BonusAward, CashMove, DailyClose, FinanceSettings, ProductSale } from '../../finance'
+import type {
+  Advance,
+  BonusAward,
+  CashMove,
+  DailyClose,
+  FinanceSettings,
+  PayrollClose,
+  ProductSale,
+} from '../../finance'
 import { InvalidRequestError } from '@/data/errors'
 import { InvalidCredentialsError, InvalidMfaCodeError, type AdminRepository } from '../AdminRepository'
 
@@ -222,6 +230,7 @@ export class MockAdminRepository implements AdminRepository {
         advances: data.advances.filter((x) => x.staffId === me.staffId),
         sales: data.sales.filter((x) => x.staffId === me.staffId),
         bonusAwards: data.bonusAwards.filter((x) => x.staffId === me.staffId),
+        close: data.close && { ...data.close, rows: data.close.rows.filter((r) => r.staffId === me.staffId) },
       }
     }
     return data
@@ -237,6 +246,22 @@ export class MockAdminRepository implements AdminRepository {
     method: PaymentMethod
   }): Promise<ProductSale> {
     return this.booking.adminCreateSale(input)
+  }
+
+  async closeWeek(weekStart: LocalDate): Promise<PayrollClose> {
+    const me = (await this.getSession())?.user
+    return this.booking.adminCloseWeek(weekStart, me?.name ?? 'Panel')
+  }
+
+  async markPaid(weekStart: LocalDate, staffId: ID, paid: boolean): Promise<void> {
+    const me = (await this.getSession())?.user
+    return this.booking.adminMarkPaid(weekStart, staffId, paid, me?.name ?? 'Panel')
+  }
+
+  async reopenWeek(weekStart: LocalDate): Promise<void> {
+    const me = (await this.getSession())?.user
+    if (me?.role !== 'owner') throw new InvalidRequestError('Solo el dueño puede reabrir una semana cerrada.')
+    return this.booking.adminReopenWeek(weekStart)
   }
 
   async getCashDay(date: LocalDate): Promise<CashDay> {

@@ -36,7 +36,15 @@ import type {
   UserInput,
 } from '../domain'
 import type { CustomerSummary } from '../customers/model'
-import type { Advance, BonusAward, CashMove, DailyClose, FinanceSettings, ProductSale } from '../finance'
+import type {
+  Advance,
+  BonusAward,
+  CashMove,
+  DailyClose,
+  FinanceSettings,
+  PayrollClose,
+  ProductSale,
+} from '../finance'
 
 export class InvalidCredentialsError extends Error {
   constructor() {
@@ -114,6 +122,11 @@ export interface AdminRepository {
   addAdvance(input: { staffId: ID; date: LocalDate; amount: number; note: string }): Promise<Advance>
   deleteAdvance(id: ID): Promise<void>
   getFinanceSettings(): Promise<FinanceSettings>
+  // Payroll weeks (owner and manager). A closed week freezes its receipts.
+  closeWeek(weekStart: LocalDate): Promise<PayrollClose>
+  markPaid(weekStart: LocalDate, staffId: ID, paid: boolean): Promise<void>
+  /** Owner only. */
+  reopenWeek(weekStart: LocalDate): Promise<void>
   // Daily cash (desk roles). Changes are refused once the day is closed.
   getCashDay(date: LocalDate): Promise<CashDay>
   addCashMove(input: { date: LocalDate; kind: 'out' | 'in'; amount: number; concept: string }): Promise<CashMove>
