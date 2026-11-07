@@ -169,7 +169,8 @@ export function TimeGrid({
                 return (
                   <li key={a.id} className="absolute inset-x-1" style={{ top: y(s) + 1, height: h - 2 }}>
                     <Tip
-                      side="right"
+                      // One wide column (a single barber) leaves no room at the sides: show it above.
+                      side={columns.length === 1 ? 'top' : 'right'}
                       align="start"
                       content={
                         <AppointmentTooltip
