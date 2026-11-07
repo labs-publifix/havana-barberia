@@ -2,7 +2,15 @@ import { describe, expect, it } from 'vitest'
 import { createSeed } from '@/data/mock/seed'
 import type { Appointment, StaffCommission } from '@/domain/types'
 import { zonedInstant } from '@/lib/time'
-import { dailySales, earnings, weekLabel, weekStart } from './finance'
+import {
+  cardFee,
+  dailySales,
+  defaultFinanceSettings,
+  earnings,
+  financeSettingsError,
+  weekLabel,
+  weekStart,
+} from './finance'
 
 const TZ = 'America/Mexico_City'
 const seed = createSeed(zonedInstant('2026-11-01', '09:00', TZ))
@@ -77,5 +85,46 @@ describe('finance', () => {
       ['2026-11-03', 0, 0],
       ['2026-11-04', 0, 0],
     ])
+  })
+
+  it('starts the week on the configured day', () => {
+    expect(weekStart('2026-11-05', 0)).toBe('2026-11-01')
+    expect(weekStart('2026-11-05', 4)).toBe('2026-11-05')
+    expect(weekStart('2026-11-04', 4)).toBe('2026-10-29')
+  })
+
+  it('adds fixed bonuses (marked or reached) and never pays commission on the free cut', () => {
+    const bonusRules = defaultFinanceSettings().bonuses.map((b) => ({
+      ...b,
+      amount: 100,
+      threshold: b.kind === 'services' ? 2 : 5,
+    }))
+    const free = appt('f', 'leonardo', '2026-11-04', ['corte-adulto'])
+    free.payment = { ...free.payment!, amount: 0, rewardServiceId: 'corte-adulto' }
+    const [leo] = earnings({
+      appointments: [appt('a', 'leonardo', '2026-11-02', ['corte-adulto']), free],
+      services: seed.services,
+      staff: seed.staff.filter((s) => s.id === 'leonardo'),
+      commissions: [{ staffId: 'leonardo', mode: 'percent', value: 40, overrides: {} }],
+      bonusRules,
+      bonusAwards: [{ weekStart: '2026-11-02', staffId: 'leonardo', bonusId: 'puntualidad' }],
+      from: '2026-11-02',
+      to: '2026-11-08',
+      timeZone: TZ,
+    })
+    expect(leo!.commission).toBe(112)
+    expect(leo!.lines[1]!.services[0]).toMatchObject({ price: 0, commission: 0 })
+    expect(leo!.bonuses.map((b) => b.id)).toEqual(['puntualidad', 'meta-servicios'])
+    expect(leo!.pay).toBe(112 + 200)
+  })
+
+  it('validates finance settings and computes the card fee', () => {
+    expect(financeSettingsError(defaultFinanceSettings())).toBeNull()
+    expect(financeSettingsError({ ...defaultFinanceSettings(), cardFeePercent: 12 })).toMatch(/0 a 10/)
+    const dup = defaultFinanceSettings()
+    dup.bonuses[1]!.name = 'puntualidad'
+    expect(financeSettingsError(dup)).toMatch(/dos bonos/)
+    expect(cardFee(1000, 3.5)).toBe(35)
+    expect(cardFee(1000, null)).toBe(0)
   })
 })

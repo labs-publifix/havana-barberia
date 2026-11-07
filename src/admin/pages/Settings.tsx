@@ -7,12 +7,13 @@ import { Skeleton } from '@/components/ui/Skeleton'
 import { useAdminAuth } from '../auth/AdminAuth'
 import { errorMessage } from '../agenda/useAgendaActions'
 import { BookingRulesView, LoyaltyView, type PolicyForm } from '../settings/PolicyViews'
+import { FinanceView } from '../settings/FinanceView'
 import { UsersView } from '../settings/UsersView'
 import { TabPanel, Tabs } from '../ui/Tabs'
 import { useToast } from '../ui/Toast'
 
-type Tab = 'reservas' | 'lealtad' | 'usuarios'
-const TABS: Tab[] = ['reservas', 'lealtad', 'usuarios']
+type Tab = 'reservas' | 'lealtad' | 'finanzas' | 'usuarios'
+const TABS: Tab[] = ['reservas', 'lealtad', 'finanzas', 'usuarios']
 
 const same = (a: PolicyForm, b: PolicyForm) =>
   JSON.stringify(a.policy) === JSON.stringify(b.policy) &&
@@ -85,12 +86,15 @@ export default function Settings() {
         tabs={[
           { value: 'reservas', label: 'Reservas' },
           { value: 'lealtad', label: 'Lealtad' },
+          { value: 'finanzas', label: 'Finanzas' },
           { value: 'usuarios', label: 'Usuarios y roles' },
         ]}
       />
       <TabPanel idBase={idBase} value={tab}>
         {tab === 'usuarios' ? (
           <UsersView />
+        ) : tab === 'finanzas' ? (
+          <FinanceView />
         ) : !form || !saved || !catalog ? (
           <div className="grid gap-4" aria-busy="true">
             <Skeleton className="h-72 rounded-lg" />
@@ -118,7 +122,7 @@ export default function Settings() {
         )}
       </TabPanel>
 
-      {dirty && tab !== 'usuarios' && (
+      {dirty && (tab === 'reservas' || tab === 'lealtad') && (
         <div
           role="region"
           aria-label="Cambios sin guardar"

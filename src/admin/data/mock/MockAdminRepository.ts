@@ -38,7 +38,7 @@ import type {
   UserInput,
 } from '../../domain'
 import { summarizeCustomers, type CustomerSummary } from '../../customers/model'
-import type { Advance, ProductSale } from '../../finance'
+import type { Advance, BonusAward, FinanceSettings, ProductSale } from '../../finance'
 import { InvalidRequestError } from '@/data/errors'
 import { InvalidCredentialsError, InvalidMfaCodeError, type AdminRepository } from '../AdminRepository'
 
@@ -220,6 +220,7 @@ export class MockAdminRepository implements AdminRepository {
         commissions: data.commissions.filter((c) => c.staffId === me.staffId),
         advances: data.advances.filter((x) => x.staffId === me.staffId),
         sales: data.sales.filter((x) => x.staffId === me.staffId),
+        bonusAwards: data.bonusAwards.filter((x) => x.staffId === me.staffId),
       }
     }
     return data
@@ -235,6 +236,19 @@ export class MockAdminRepository implements AdminRepository {
     method: PaymentMethod
   }): Promise<ProductSale> {
     return this.booking.adminCreateSale(input)
+  }
+
+  async getFinanceSettings(): Promise<FinanceSettings> {
+    await this.delay()
+    return this.booking.adminFinance('0000-00-00', '0000-00-00').settings
+  }
+
+  saveFinanceSettings(input: FinanceSettings): Promise<FinanceSettings> {
+    return this.booking.adminSaveFinanceSettings(input)
+  }
+
+  setBonusAward(award: BonusAward, on: boolean): Promise<void> {
+    return this.booking.adminSetBonusAward(award, on)
   }
 
   deleteAdvance(id: ID): Promise<void> {

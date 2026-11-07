@@ -154,6 +154,8 @@ export interface AppointmentPayment {
   /** How the tip was paid (card tips carry the terminal fee). */
   tipMethod: PaymentMethod
   paidAt: Instant
+  /** Service covered by the loyalty free cut (not charged, no commission). */
+  rewardServiceId?: ID
 }
 
 export type AppointmentSource = 'online' | 'panel' | 'walk_in'

@@ -9,9 +9,10 @@ import { Badge } from '@/components/ui/Badge'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { business } from '@/config/business'
 import { cn } from '@/lib/cn'
-import { addDays, capitalize, formatDay, localDate, money } from '@/lib/time'
+import { addDays, capitalize, formatDay, money } from '@/lib/time'
+import { useFinanceWeek } from '../useFinanceWeek'
 import { useAdminAuth, useAdminSession } from '../auth/AdminAuth'
-import { earnings, weekStart, type BarberEarnings } from '../finance'
+import { earnings, type BarberEarnings } from '../finance'
 import { commissionLabel } from '../team/model'
 import { PageHeader } from '../ui/Panel'
 import { WeekPicker } from '../ui/WeekPicker'
@@ -23,8 +24,7 @@ export default function Commissions() {
   const { repo } = useAdminAuth()
   const { user } = useAdminSession()
   const isBarber = user.role === 'barber'
-  const current = weekStart(localDate(new Date(), tz))
-  const [from, setFrom] = useState(current)
+  const { from, setFrom, current } = useFinanceWeek()
   const to = addDays(from, 6)
   const { data } = useQuery({ queryKey: ['admin', 'finance', from, to], queryFn: () => repo.getFinance(from, to) })
 

@@ -22,7 +22,14 @@ import { addDays, localDate, toMinutes, weekdayOf, zonedInstant } from '@/lib/ti
 import { normalizeMxPhone } from '@/lib/phone'
 import { DAY_NAMES, outsideSchedule, scheduleErrors } from '@/lib/schedule'
 import { policyError } from '@/lib/policy'
-import type { Advance, ProductSale } from '@/admin/finance'
+import {
+  defaultFinanceSettings,
+  financeSettingsError,
+  type Advance,
+  type BonusAward,
+  type FinanceSettings,
+  type ProductSale,
+} from '@/admin/finance'
 import type { BookingRepository, ServiceCatalog, SlotQuery } from '../BookingRepository'
 import {
   BookingLimitError,
@@ -723,6 +730,8 @@ export class MockBookingRepository implements BookingRepository {
       staff: [...this.db.staff].sort((a, b) => a.order - b.order),
       commissions: this.db.commissions,
       advances: (this.db.advances ?? []).filter((x) => x.date >= from && x.date <= to),
+      settings: this.db.finance ?? defaultFinanceSettings(),
+      bonusAwards: (this.db.bonusAwards ?? []).filter((x) => x.weekStart >= from && x.weekStart <= to),
       sales: (this.db.sales ?? []).filter((x) => {
         const d = localDate(x.at, tz)
         return d >= from && d <= to
@@ -773,6 +782,41 @@ export class MockBookingRepository implements BookingRepository {
       ;(this.db.sales ??= []).push(sale)
       this.save()
       return clone(sale)
+    })
+  }
+
+  /** Payroll week start, card terminal fee and bonus rules. */
+  async adminSaveFinanceSettings(input: FinanceSettings): Promise<FinanceSettings> {
+    await this.delay()
+    return this.exclusive(() => {
+      const err = financeSettingsError(input)
+      if (err) throw new InvalidRequestError(err)
+      const settings: FinanceSettings = {
+        weekStartDay: input.weekStartDay,
+        cardFeePercent: input.cardFeePercent,
+        bonuses: input.bonuses.map((b) => ({
+          ...b,
+          name: b.name.trim(),
+          threshold: b.kind === 'manual' ? null : b.threshold,
+        })),
+      }
+      this.db.finance = settings
+      this.save()
+      return clone(settings)
+    })
+  }
+
+  /** Mark or unmark a manual bonus (punctuality, attendance…) for a barber in a payroll week. */
+  async adminSetBonusAward(award: BonusAward, on: boolean): Promise<void> {
+    await this.delay()
+    return this.exclusive(() => {
+      const rule = (this.db.finance ?? defaultFinanceSettings()).bonuses.find((b) => b.id === award.bonusId)
+      if (!rule || rule.kind !== 'manual') throw new InvalidRequestError('Ese bono se calcula solo.')
+      const same = (x: BonusAward) =>
+        x.weekStart === award.weekStart && x.staffId === award.staffId && x.bonusId === award.bonusId
+      const list = (this.db.bonusAwards ?? []).filter((x) => !same(x))
+      this.db.bonusAwards = on ? [...list, { ...award }] : list
+      this.save()
     })
   }
 
@@ -1161,7 +1205,19 @@ function refreshDemo(stored: MockDb, fresh: MockDb): MockDb {
 function keepCatalog(
   stored: MockDb,
   fresh: MockDb,
-): Pick<MockDb, 'categories' | 'services' | 'staff' | 'products' | 'commissions' | 'policy' | 'advances' | 'sales'> {
+): Pick<
+  MockDb,
+  | 'categories'
+  | 'services'
+  | 'staff'
+  | 'products'
+  | 'commissions'
+  | 'policy'
+  | 'advances'
+  | 'sales'
+  | 'finance'
+  | 'bonusAwards'
+> {
   return {
     // Products arrived in demo v4; older stored demos start from the seed's.
     products: stored.products ?? fresh.products,
@@ -1180,6 +1236,8 @@ function keepCatalog(
     policy: stored.policy ? { ...fresh.policy, ...stored.policy } : fresh.policy,
     advances: stored.advances ?? [],
     sales: stored.sales ?? [],
+    finance: stored.finance ?? fresh.finance,
+    bonusAwards: stored.bonusAwards ?? [],
   }
 }
 

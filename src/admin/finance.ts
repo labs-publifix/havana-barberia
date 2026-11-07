@@ -8,8 +8,87 @@ import { commissionOn } from './team/model'
  * Amounts in whole MXN pesos. Real figures only ever live in the database.
  */
 
-/** Monday of the week that contains `date` (the shop's week runs Monday to Sunday). */
-export const weekStart = (date: LocalDate): LocalDate => addDays(date, -((weekdayOf(date) + 6) % 7))
+/** First day of the payroll week that contains `date` (startDay: 0 = Sunday … 6; Monday by default). */
+export const weekStart = (date: LocalDate, startDay = 1): LocalDate =>
+  addDays(date, -((weekdayOf(date) - startDay + 7) % 7))
+
+/**
+ * Fixed-amount bonuses the shop configures. "manual" ones (punctuality,
+ * attendance) are marked per barber and week in the payroll; "services" and
+ * "products" are earned automatically when the barber reaches the threshold.
+ */
+export interface BonusRule {
+  id: ID
+  name: string
+  kind: 'manual' | 'services' | 'products'
+  /** Services or product units needed in the week (automatic kinds). */
+  threshold: number | null
+  /** Whole pesos; null until the shop captures it. */
+  amount: number | null
+  active: boolean
+}
+
+/** Finance settings (Ajustes › Finanzas). */
+export interface FinanceSettings {
+  /** Day the payroll week starts (0 = Sunday … 6 = Saturday). */
+  weekStartDay: number
+  /** Card terminal fee in percent (absorbed by the shop, never by the barber); null until captured. */
+  cardFeePercent: number | null
+  bonuses: BonusRule[]
+}
+
+/** A manual bonus marked for a barber in a payroll week. */
+export interface BonusAward {
+  weekStart: LocalDate
+  staffId: ID
+  bonusId: ID
+}
+
+export const defaultFinanceSettings = (): FinanceSettings => ({
+  weekStartDay: 1,
+  cardFeePercent: null,
+  // Amounts are captured by the shop (never real figures in this public repository).
+  bonuses: [
+    { id: 'puntualidad', name: 'Puntualidad', kind: 'manual', threshold: null, amount: null, active: true },
+    { id: 'asistencia', name: 'Asistencia completa', kind: 'manual', threshold: null, amount: null, active: true },
+    { id: 'meta-servicios', name: 'Meta de servicios', kind: 'services', threshold: null, amount: null, active: true },
+    {
+      id: 'venta-productos',
+      name: 'Venta de productos',
+      kind: 'products',
+      threshold: null,
+      amount: null,
+      active: true,
+    },
+  ],
+})
+
+/** First problem with the finance settings, as a message to show; null when valid. */
+export function financeSettingsError(f: FinanceSettings): string | null {
+  if (!Number.isInteger(f.weekStartDay) || f.weekStartDay < 0 || f.weekStartDay > 6)
+    return 'Elige el día de inicio de la semana.'
+  if (f.cardFeePercent !== null && !(f.cardFeePercent >= 0 && f.cardFeePercent <= 10))
+    return 'La comisión de la terminal va de 0 a 10 %.'
+  const names = new Set<string>()
+  for (const b of f.bonuses) {
+    const name = b.name.trim()
+    if (!name) return 'Cada bono necesita un nombre.'
+    if (names.has(name.toLowerCase())) return `Hay dos bonos llamados «${name}».`
+    names.add(name.toLowerCase())
+    if (b.amount !== null && (!Number.isInteger(b.amount) || b.amount < 0 || b.amount > 100000))
+      return `Escribe el monto de «${name}» en pesos, sin centavos.`
+    if (
+      b.kind !== 'manual' &&
+      b.threshold !== null &&
+      (!Number.isInteger(b.threshold) || b.threshold < 1 || b.threshold > 999)
+    )
+      return `Revisa la meta de «${name}».`
+  }
+  return null
+}
+
+/** Card fee on an amount, rounded to whole pesos (0 when the fee is not captured). */
+export const cardFee = (amount: number, percent: number | null) => (percent ? Math.round((amount * percent) / 100) : 0)
 
 /** "2 – 8 de noviembre" or "28 de oct – 3 de nov". */
 export function weekLabel(from: LocalDate) {
@@ -54,7 +133,10 @@ export interface BarberEarnings {
   tips: number
   /** Advances (anticipos) given during the week. */
   advances: number
-  /** commission + tips − advances. */
+  /** Bonuses earned this week (fixed amounts). */
+  bonuses: { id: ID; name: string; amount: number }[]
+  bonusTotal: number
+  /** commission + tips + bonuses − advances. */
   pay: number
 }
 
@@ -74,6 +156,8 @@ export function earnings(input: {
   commissions: StaffCommission[]
   advances?: Advance[]
   sales?: ProductSale[]
+  bonusRules?: BonusRule[]
+  bonusAwards?: BonusAward[]
   from: LocalDate
   to: LocalDate
   timeZone: string
@@ -89,6 +173,9 @@ export function earnings(input: {
         const services = a.serviceIds.map((id) => {
           const svc = input.services.find((x) => x.id === id)
           const price = svc?.price ?? 0
+          // The loyalty free cut is not charged and pays no commission.
+          if (a.payment?.rewardServiceId === id)
+            return { id, name: `${svc?.name ?? 'Servicio'} (corte gratis)`, price: 0, commission: 0 }
           return { id, name: svc?.name ?? 'Servicio', price, commission: commissionOn({ id, price }, rule) }
         })
         return {
@@ -110,6 +197,16 @@ export function earnings(input: {
     const advances = (input.advances ?? [])
       .filter((x) => x.staffId === s.id && inRange(x.date))
       .reduce((t, x) => t + x.amount, 0)
+    const count = { services: all.length, products: sold.reduce((t, i) => t + i.qty, 0) }
+    const bonuses = (input.bonusRules ?? [])
+      .filter((b) => b.active && b.amount)
+      .filter((b) =>
+        b.kind === 'manual'
+          ? (input.bonusAwards ?? []).some((w) => w.staffId === s.id && w.bonusId === b.id && w.weekStart === from)
+          : b.threshold !== null && count[b.kind] >= b.threshold,
+      )
+      .map((b) => ({ id: b.id, name: b.name, amount: b.amount! }))
+    const bonusTotal = bonuses.reduce((t, b) => t + b.amount, 0)
     return {
       staffId: s.id,
       name: s.name,
@@ -117,11 +214,13 @@ export function earnings(input: {
       services: all.length,
       sales: lines.reduce((t, l) => t + l.price, 0),
       commission: commission + productCommission,
-      products: sold.reduce((t, i) => t + i.qty, 0),
+      products: count.products,
       missing: all.filter((x) => x.commission === null).length,
       tips,
       advances,
-      pay: commission + productCommission + tips - advances,
+      bonuses,
+      bonusTotal,
+      pay: commission + productCommission + tips + bonusTotal - advances,
     }
   })
 }

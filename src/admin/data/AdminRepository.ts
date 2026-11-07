@@ -35,7 +35,7 @@ import type {
   UserInput,
 } from '../domain'
 import type { CustomerSummary } from '../customers/model'
-import type { Advance, ProductSale } from '../finance'
+import type { Advance, BonusAward, FinanceSettings, ProductSale } from '../finance'
 
 export class InvalidCredentialsError extends Error {
   constructor() {
@@ -112,6 +112,10 @@ export interface AdminRepository {
   getFinance(from: LocalDate, to: LocalDate): Promise<AdminFinance>
   addAdvance(input: { staffId: ID; date: LocalDate; amount: number; note: string }): Promise<Advance>
   deleteAdvance(id: ID): Promise<void>
+  getFinanceSettings(): Promise<FinanceSettings>
+  /** Owner and manager. Errors: InvalidRequestError. */
+  saveFinanceSettings(input: FinanceSettings): Promise<FinanceSettings>
+  setBonusAward(award: BonusAward, on: boolean): Promise<void>
   /** Counter sale of products (prices and commissions from the catalog). */
   createSale(input: {
     items: { productId: ID; qty: number }[]

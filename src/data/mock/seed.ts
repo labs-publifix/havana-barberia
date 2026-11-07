@@ -12,7 +12,13 @@ import type {
   WeeklySchedule,
 } from '@/domain/types'
 import { bookingPolicy, businessHours } from '@/config/business'
-import type { Advance, ProductSale } from '@/admin/finance'
+import {
+  defaultFinanceSettings,
+  type Advance,
+  type BonusAward,
+  type FinanceSettings,
+  type ProductSale,
+} from '@/admin/finance'
 import { addDays, localDate, toMinutes, weekdayOf, zonedInstant } from '@/lib/time'
 // Head-and-shoulders crops (120px): the tighter face crops cut the faces at small sizes.
 import avatarIsaac from '@/assets/team/isaac-fuentes-card-120.webp'
@@ -41,6 +47,10 @@ export interface MockDb {
   advances: Advance[]
   /** Product sales at the counter. */
   sales: ProductSale[]
+  /** Payroll week, terminal fee and bonuses (Ajustes › Finanzas). */
+  finance: FinanceSettings
+  /** Manual bonuses marked per barber and week. */
+  bonusAwards: BonusAward[]
 }
 
 /** Bump when the demo data changes shape or content; stored demos refresh, keeping real bookings. */
@@ -452,5 +462,7 @@ export function createSeed(now: Date): MockDb {
     policy: { ...bookingPolicy },
     advances: [],
     sales: [],
+    finance: defaultFinanceSettings(),
+    bonusAwards: [],
   }
 }

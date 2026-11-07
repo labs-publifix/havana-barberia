@@ -7,11 +7,12 @@ import { Skeleton } from '@/components/ui/Skeleton'
 import { business } from '@/config/business'
 import type { PaymentMethod } from '@/domain/types'
 import { addDays, capitalize, formatDay, localDate, money } from '@/lib/time'
+import { useFinanceWeek } from '../useFinanceWeek'
 import { useAdminAuth } from '../auth/AdminAuth'
 import { errorMessage } from '../agenda/useAgendaActions'
 import { cashSummary, methodLabels } from '../cash'
-import { earnings, weekLabel, weekStart, type BarberEarnings } from '../finance'
-import { Input } from '../ui/controls'
+import { cardFee, earnings, weekLabel, type BarberEarnings } from '../finance'
+import { Input, Switch } from '../ui/controls'
 import { Card, PageHeader } from '../ui/Panel'
 import { Select } from '../ui/Select'
 import { SidePanel } from '../ui/SidePanel'
@@ -28,8 +29,7 @@ export default function Payroll() {
   const qc = useQueryClient()
   const toast = useToast()
   const today = localDate(new Date(), tz)
-  const current = weekStart(today)
-  const [from, setFrom] = useState(current)
+  const { from, setFrom, current } = useFinanceWeek()
   const to = addDays(from, 6)
   const { data } = useQuery({ queryKey: ['admin', 'finance', from, to], queryFn: () => repo.getFinance(from, to) })
   const [receipt, setReceipt] = useState<BarberEarnings | null>(null)
@@ -53,6 +53,12 @@ export default function Payroll() {
     },
     onError: (e) => setError(errorMessage(e)),
   })
+  const toggle = useMutation({
+    mutationFn: (x: { staffId: string; bonusId: string; on: boolean }) =>
+      repo.setBonusAward({ weekStart: from, staffId: x.staffId, bonusId: x.bonusId }, x.on),
+    onSuccess: refresh,
+    onError: (e) => toast(errorMessage(e), 'danger'),
+  })
   const remove = useMutation({ mutationFn: (id: string) => repo.deleteAdvance(id), onSuccess: refresh })
 
   if (!data) {
@@ -68,7 +74,7 @@ export default function Payroll() {
   const prod: Record<PaymentMethod, number> = { cash: 0, card: 0, transfer: 0 }
   for (const x of data.sales) prod[x.method] += x.total
   const prodTotal = prod.cash + prod.card + prod.transfer
-  const rows = earnings({ ...data, from, to, timeZone: tz }).filter(
+  const rows = earnings({ ...data, bonusRules: data.settings.bonuses, from, to, timeZone: tz }).filter(
     (r) => r.services > 0 || r.advances > 0 || data.staff.find((s) => s.id === r.staffId)?.active,
   )
   const total = rows.reduce(
@@ -76,10 +82,16 @@ export default function Payroll() {
       commission: t.commission + r.commission,
       tips: t.tips + r.tips,
       advances: t.advances + r.advances,
+      bonuses: t.bonuses + r.bonusTotal,
       pay: t.pay + r.pay,
     }),
-    { commission: 0, tips: 0, advances: 0, pay: 0 },
+    { commission: 0, tips: 0, advances: 0, bonuses: 0, pay: 0 },
   )
+  const fee = data.settings.cardFeePercent
+  const cardIn = cash.inByMethod.card + prod.card
+  const manualBonuses = data.settings.bonuses.filter((b) => b.active && b.kind === 'manual')
+  const awarded = (staffId: string, bonusId: string) =>
+    data.bonusAwards.some((w) => w.staffId === staffId && w.bonusId === bonusId && w.weekStart === from)
   const staffName = (id: string) => data.staff.find((s) => s.id === id)?.name ?? 'Barbero'
 
   return (
@@ -145,15 +157,20 @@ export default function Payroll() {
             </tr>
           </tbody>
         </table>
+        <p className="border-t border-line px-5 py-3 text-[13px] text-fg-muted">
+          {fee
+            ? `Comisión de la terminal (${fee} %) sobre ${money(cardIn)} con tarjeta: −${money(cardFee(cardIn, fee))}. La absorbe la barbería; las propinas llegan completas al barbero.`
+            : 'Comisión de la terminal: captúrala en Ajustes › Finanzas. La absorbe la barbería; las propinas llegan completas al barbero.'}
+        </p>
       </Card>
 
       <Card
         title="Nómina de la semana"
-        description="Comisión + propinas − anticipos."
+        description="Comisión + propinas + bonos − anticipos."
         className="min-w-0"
         bodyClassName="relative overflow-x-auto"
       >
-        <table className="w-full min-w-[620px] text-sm">
+        <table className="w-full min-w-[700px] text-sm">
           <caption className="sr-only">Nómina por barbero</caption>
           <thead>
             <tr className="text-left">
@@ -165,6 +182,9 @@ export default function Payroll() {
               </th>
               <th scope="col" className={`${th} text-right`}>
                 Propinas
+              </th>
+              <th scope="col" className={`${th} text-right`}>
+                Bonos
               </th>
               <th scope="col" className={`${th} text-right`}>
                 Anticipos
@@ -190,6 +210,7 @@ export default function Payroll() {
                 </th>
                 <td className="tabular px-3 py-2.5 text-right">{money(r.commission)}</td>
                 <td className="tabular px-3 py-2.5 text-right">{money(r.tips)}</td>
+                <td className="tabular px-3 py-2.5 text-right">{r.bonusTotal ? money(r.bonusTotal) : '—'}</td>
                 <td className="tabular px-3 py-2.5 text-right">{r.advances ? `−${money(r.advances)}` : '—'}</td>
                 <td className="tabular px-3 py-2.5 text-right font-semibold">{money(r.pay)}</td>
                 <td className="px-5 py-2.5 text-right">
@@ -211,6 +232,9 @@ export default function Payroll() {
               <td className="tabular px-3 py-2.5 text-right font-semibold">{money(total.commission)}</td>
               <td className="tabular px-3 py-2.5 text-right font-semibold">{money(total.tips)}</td>
               <td className="tabular px-3 py-2.5 text-right font-semibold">
+                {total.bonuses ? money(total.bonuses) : '—'}
+              </td>
+              <td className="tabular px-3 py-2.5 text-right font-semibold">
                 {total.advances ? `−${money(total.advances)}` : '—'}
               </td>
               <td className="tabular px-3 py-2.5 text-right text-base font-semibold">{money(total.pay)}</td>
@@ -218,6 +242,44 @@ export default function Payroll() {
             </tr>
           </tbody>
         </table>
+      </Card>
+
+      <Card
+        title="Bonos de la semana"
+        description="Marca los bonos que se ganaron. Meta de servicios y venta de productos se calculan solos. Montos y metas en Ajustes › Finanzas."
+        className="min-w-0"
+      >
+        {manualBonuses.length === 0 ? (
+          <p className="text-sm text-fg-muted">No hay bonos que se marquen a mano.</p>
+        ) : (
+          <ul className="grid gap-3 sm:grid-cols-2" aria-label="Bonos por barbero">
+            {rows.map((r) => (
+              <li key={r.staffId} className="rounded-md border border-line p-4">
+                <p className="font-semibold">{r.name}</p>
+                <div className="mt-2 grid gap-3">
+                  {manualBonuses.map((b) => (
+                    <Switch
+                      key={b.id}
+                      label={b.name}
+                      description={b.amount ? money(b.amount) : 'Monto sin capturar'}
+                      checked={awarded(r.staffId, b.id)}
+                      disabled={toggle.isPending}
+                      onChange={(on) => toggle.mutate({ staffId: r.staffId, bonusId: b.id, on })}
+                    />
+                  ))}
+                  {r.bonuses
+                    .filter((b) => !manualBonuses.some((m) => m.id === b.id))
+                    .map((b) => (
+                      <p key={b.id} className="flex justify-between text-sm">
+                        <span>{b.name} (meta alcanzada)</span>
+                        <span className="tabular font-medium">{money(b.amount)}</span>
+                      </p>
+                    ))}
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
       </Card>
 
       <Card title="Anticipos" description="Dinero adelantado a un barbero; se descuenta de su pago de la semana.">
@@ -308,6 +370,7 @@ export default function Payroll() {
                   ['Ventas generadas', money(receipt.sales)],
                   ['Comisión', money(receipt.commission)],
                   ['Propinas', money(receipt.tips)],
+                  ...receipt.bonuses.map((b) => [`Bono: ${b.name}`, money(b.amount)] as const),
                   ['Anticipos', receipt.advances ? `−${money(receipt.advances)}` : '—'],
                 ] as const
               ).map(([k, v]) => (

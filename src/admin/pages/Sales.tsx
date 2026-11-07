@@ -7,10 +7,10 @@ import { Skeleton } from '@/components/ui/Skeleton'
 import { business } from '@/config/business'
 import type { PaymentMethod } from '@/domain/types'
 import { addDays, capitalize, formatDay, formatTime12, localDate, localTime, money } from '@/lib/time'
+import { useFinanceWeek } from '../useFinanceWeek'
 import { useAdminAuth } from '../auth/AdminAuth'
 import { errorMessage } from '../agenda/useAgendaActions'
 import { methodLabels } from '../cash'
-import { weekStart } from '../finance'
 import { Segmented } from '../ui/controls'
 import { Card, PageHeader, StatCard } from '../ui/Panel'
 import { Select } from '../ui/Select'
@@ -34,8 +34,7 @@ interface Ticket {
 /** Ventas (phase-2 preview): every ticket of the week (paid appointments and counter sales of products). */
 export default function Sales() {
   const { repo } = useAdminAuth()
-  const current = weekStart(localDate(new Date(), tz))
-  const [from, setFrom] = useState(current)
+  const { from, setFrom, current } = useFinanceWeek()
   const to = addDays(from, 6)
   const [open, setOpen] = useState(false)
   const { data } = useQuery({ queryKey: ['admin', 'finance', from, to], queryFn: () => repo.getFinance(from, to) })

@@ -6,7 +6,8 @@ import { business } from '@/config/business'
 import type { AppointmentSource } from '@/domain/types'
 import { addDays, capitalize, formatDay, localDate, money } from '@/lib/time'
 import { useAdminAuth } from '../auth/AdminAuth'
-import { dailySales, weekStart } from '../finance'
+import { dailySales } from '../finance'
+import { useFinanceWeek } from '../useFinanceWeek'
 import { Segmented } from '../ui/controls'
 import { Card, PageHeader, StatCard } from '../ui/Panel'
 
@@ -24,7 +25,8 @@ export default function Reports() {
   const { repo } = useAdminAuth()
   const today = localDate(new Date(), tz)
   const [period, setPeriod] = useState<Period>('semana')
-  const from = period === 'semana' ? weekStart(today) : addDays(weekStart(today), -21)
+  const { current } = useFinanceWeek()
+  const from = period === 'semana' ? current : addDays(current, -21)
   const to = today
   const { data } = useQuery({ queryKey: ['admin', 'finance', from, to], queryFn: () => repo.getFinance(from, to) })
 

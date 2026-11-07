@@ -16,7 +16,7 @@ import type {
   TimeRange,
   WeeklySchedule,
 } from '@/domain/types'
-import type { Advance, ProductSale } from './finance'
+import type { Advance, BonusAward, FinanceSettings, ProductSale } from './finance'
 
 /**
  * Admin domain. Roles come from the project fundamentals:
@@ -193,6 +193,8 @@ export interface AdminFinance {
   commissions: StaffCommission[]
   advances: Advance[]
   sales: ProductSale[]
+  settings: FinanceSettings
+  bonusAwards: BonusAward[]
 }
 
 export interface AdminTeam {
