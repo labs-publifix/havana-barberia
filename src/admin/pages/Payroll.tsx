@@ -155,10 +155,6 @@ export default function Payroll() {
           )}
         </Alert>
       )}
-      <Alert tone="info" title="Adelanto de la fase 2">
-        Los cálculos se validan con la barbería antes de usarse para pagar. Incluye las ventas de productos registradas
-        en Ventas.
-      </Alert>
 
       <Card
         title="Entradas por forma de pago"

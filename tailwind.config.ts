@@ -19,6 +19,7 @@ export default {
         gray: c.gray,
         aqua: c.aqua,
         'google-star': v('color-google-star'),
+        viz: { 1: v('viz-1'), 2: v('viz-2'), 3: v('viz-3') },
         glass: { DEFAULT: v('glass-bg'), border: v('glass-border') },
         red: c.red,
         success: c.success,

@@ -11,6 +11,7 @@ import type { Appointment, LocalDate, TimeBlock } from '@/domain/types'
 import { cn } from '@/lib/cn'
 import { capitalize, formatDateLong, formatDay, localDate, weekdayOf } from '@/lib/time'
 import { AgendaList } from '../agenda/AgendaList'
+import { AgendaLegend } from '../agenda/AgendaLegend'
 import { AppointmentPanel } from '../agenda/AppointmentPanel'
 import { BlockPanel, type BlockDraft } from '../agenda/BlockPanel'
 import { gridBounds, shiftDate, weekOf, type AgendaView } from '../agenda/model'
@@ -258,6 +259,8 @@ export default function Agenda() {
           )}
         </div>
       </div>
+
+      <AgendaLegend />
 
       {!days || !bounds ? (
         <Skeleton className="h-[640px] rounded-lg" />

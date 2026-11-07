@@ -1,54 +1,78 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { FileSpreadsheet } from 'lucide-react'
-import { Alert } from '@/components/ui/Alert'
+import { buttonClass } from '@/components/ui/buttonClass'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { business } from '@/config/business'
-import type { AppointmentSource } from '@/domain/types'
-import { addDays, capitalize, formatDay, localDate, localTime, money } from '@/lib/time'
-import { useAdminAuth } from '../auth/AdminAuth'
-import { comparison, dailySales, periodStats } from '../finance'
 import { downloadCsv } from '@/lib/csv'
-import { buttonClass } from '@/components/ui/buttonClass'
-import { methodLabels, productsTotalOf } from '../cash'
+import { addDays, capitalize, formatDay, localDate, localTime, money, toMinutes } from '@/lib/time'
+import { useAdminAuth } from '../auth/AdminAuth'
+import { cashSummary, methodLabels, productsTotalOf } from '../cash'
 import type { AdminFinance } from '../domain'
+import { Delta, DailyColumns, DemandHeatmap, RankedBars, SplitBar, StatTile } from '../reports/charts'
+import {
+  bySource,
+  changePct,
+  customersServed,
+  demandGrid,
+  occupancy,
+  salesByBarber,
+  salesByDay,
+  topServices,
+} from '../reports/metrics'
 import { useFinanceWeek } from '../useFinanceWeek'
 import { Segmented } from '../ui/controls'
-import { Card, PageHeader, StatCard } from '../ui/Panel'
+import { Card, PageHeader } from '../ui/Panel'
 
 const tz = business.hours.timeZone
-type Period = 'semana' | 'mes'
+type Period = 'semana' | 'pasada' | 'mes'
 
-const sourceLabels: Record<AppointmentSource, string> = {
-  online: 'En línea',
-  panel: 'Desde el panel',
-  walk_in: 'Sin cita',
-}
+/** Opening hours of the shop, as whole hours (columns of the demand map). */
+const HOURS = (() => {
+  const all = business.hours.weekly.flat()
+  const start = Math.floor(Math.min(...all.map((r) => toMinutes(r.start))) / 60)
+  const end = Math.ceil(Math.max(...all.map((r) => toMinutes(r.end))) / 60)
+  return Array.from({ length: end - start }, (_, i) => start + i)
+})()
 
-/** Reportes (phase-2 preview): sales and appointments for the week or the last four weeks. */
+/**
+ * Reportes: how the business is doing for a period against the one before it
+ * (same number of days, up to the same moment). KPIs with trend, sales per
+ * day, barbers, services, payment methods, channels and busiest hours.
+ */
 export default function Reports() {
   const { repo } = useAdminAuth()
   const today = localDate(new Date(), tz)
   const [period, setPeriod] = useState<Period>('semana')
   const { current } = useFinanceWeek()
-  const from = period === 'semana' ? current : addDays(current, -21)
-  const to = today
-  const { data } = useQuery({ queryKey: ['admin', 'finance', from, to], queryFn: () => repo.getFinance(from, to) })
-  // Same number of days, one period earlier.
-  const back = period === 'semana' ? 7 : 28
+  const from = period === 'semana' ? current : period === 'pasada' ? addDays(current, -7) : addDays(current, -21)
+  const to = period === 'pasada' ? addDays(current, -1) : today
+  const back = period === 'mes' ? 28 : 7
   const prevFrom = addDays(from, -back)
   const prevTo = addDays(to, -back)
+  const vs = period === 'mes' ? 'las 4 semanas anteriores' : 'la semana anterior'
+  const { data } = useQuery({ queryKey: ['admin', 'finance', from, to], queryFn: () => repo.getFinance(from, to) })
   const { data: prev } = useQuery({
     queryKey: ['admin', 'finance', prevFrom, prevTo],
     queryFn: () => repo.getFinance(prevFrom, prevTo),
   })
-  const vs = period === 'semana' ? 'la semana anterior' : 'las 4 semanas anteriores'
 
   const header = (
     <PageHeader
-      description="Cómo va el negocio: ventas, citas y desempeño por barbero."
+      description="Cómo va el negocio frente al periodo anterior, con el mismo número de días."
       actions={
         <>
+          <Segmented<Period>
+            label="Periodo"
+            value={period}
+            onChange={setPeriod}
+            options={[
+              { value: 'semana', label: 'Esta semana' },
+              { value: 'pasada', label: 'Semana pasada' },
+              { value: 'mes', label: '4 semanas' },
+            ]}
+            className="max-w-full overflow-x-auto"
+          />
           <button
             type="button"
             disabled={!data}
@@ -57,184 +81,224 @@ export default function Reports() {
           >
             <FileSpreadsheet className="size-4" aria-hidden /> Exportar a Excel
           </button>
-          <Segmented<Period>
-            label="Periodo"
-            value={period}
-            onChange={setPeriod}
-            options={[
-              { value: 'semana', label: 'Esta semana' },
-              { value: 'mes', label: 'Últimas 4 semanas' },
-            ]}
-          />
         </>
       }
     />
   )
-  if (!data) {
+
+  if (!data || !prev) {
     return (
       <div className="grid gap-6">
         {header}
-        <Skeleton className="h-72 rounded-lg" aria-busy="true" />
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-5" aria-busy="true">
+          {Array.from({ length: 5 }, (_, i) => (
+            <Skeleton key={i} className="h-36 rounded-lg" />
+          ))}
+        </div>
+        <Skeleton className="h-72 rounded-lg" />
       </div>
     )
   }
 
+  // Only what already happened counts; the previous period up to the same moment.
   const nowIso = new Date().toISOString()
-  const stats = periodStats(data.appointments, data.sales, nowIso)
-  // Compared up to the same moment of the previous period (today counts only what already happened).
-  const prevNow = new Date(Date.now() - back * 86400000).toISOString()
-  const before = prev ? periodStats(prev.appointments, prev.sales, prevNow) : null
-  const done = data.appointments.filter((a) => a.startsAt <= nowIso && a.status === 'completed')
-  const days = dailySales(data.appointments, from, to, tz)
-  const max = Math.max(1, ...days.map((d) => d.sales))
-
-  const byBarber = data.staff
-    .map((s) => {
-      const mine = done.filter((a) => a.staffId === s.id)
-      const sales = mine.reduce((t, a) => t + (a.payment?.amount ?? a.totalPrice), 0)
-      return {
-        id: s.id,
-        name: s.name,
-        count: mine.length,
-        sales,
-        avg: mine.length ? Math.round(sales / mine.length) : 0,
-      }
-    })
-    .filter((r) => r.count > 0)
-
-  const svcCount = new Map<string, number>()
-  for (const a of done) for (const id of a.serviceIds) svcCount.set(id, (svcCount.get(id) ?? 0) + 1)
-  const top = [...svcCount.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 5)
-    .map(([id, n]) => ({ name: data.services.find((s) => s.id === id)?.name ?? 'Servicio', n }))
-
-  const sources = (['online', 'panel', 'walk_in'] as const).map((k) => ({
-    k,
-    n: data.appointments.filter((a) => (a.source ?? 'online') === k && a.status !== 'cancelled').length,
-  }))
-  const sourceTotal = Math.max(
-    1,
-    sources.reduce((t, s) => t + s.n, 0),
+  const prevNowIso = new Date(Date.now() - back * 86400000).toISOString()
+  const cur = data.appointments.filter((a) => a.startsAt <= nowIso)
+  const old = prev.appointments.filter((a) => a.startsAt <= prevNowIso)
+  const days = salesByDay(cur, data.sales, from, to, tz)
+  const prevDays = salesByDay(
+    old,
+    prev.sales.filter((s) => s.at <= prevNowIso),
+    prevFrom,
+    prevTo,
+    tz,
   )
+  const sum = (d: typeof days, k: 'sales' | 'done') => d.reduce((t, x) => t + x[k], 0)
+  const sales = sum(days, 'sales')
+  const done = sum(days, 'done')
+  const prevSales = sum(prevDays, 'sales')
+  const prevDone = sum(prevDays, 'done')
+  const avg = done ? Math.round(sales / done) : 0
+  const prevAvg = prevDone ? Math.round(prevSales / prevDone) : 0
+  const noShowRate = (list: typeof cur) => {
+    const started = list.filter((a) => a.status !== 'cancelled' && a.status !== 'booked' && a.status !== 'confirmed')
+    const ns = started.filter((a) => a.status === 'no_show').length
+    return { pct: started.length ? Math.round((ns / started.length) * 100) : 0, n: ns, of: started.length }
+  }
+  const ns = noShowRate(cur)
+  const prevNs = noShowRate(old)
+  const occTo = to < today ? to : addDays(today, -1) >= from ? addDays(today, -1) : from
+  const occ = occupancy(cur, data.staff, from, occTo, tz)
+  const prevOcc = occupancy(old, prev.staff, prevFrom, addDays(occTo, -back), tz)
+  const people = customersServed(cur, old)
+  const barbers = salesByBarber(cur, old, data.staff)
+  const services = topServices(cur, data.services)
+  const cash = cashSummary(cur, data.sales)
+  const sources = bySource(data.appointments)
+  const grid = demandGrid(data.appointments, tz, HOURS)
 
   return (
     <div className="grid grid-cols-[minmax(0,1fr)] gap-6">
       {header}
-      <Alert tone="info" title="Adelanto de la fase 2">
-        Indicadores con datos de demostración. Cada cifra se compara con el mismo número de días del periodo anterior.
-        «Exportar a Excel» descarga los tickets del periodo.
-      </Alert>
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatCard
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-6">
+        <StatTile
+          className="lg:col-span-3"
           label="Ventas"
-          value={money(stats.sales)}
-          detail={(before && comparison(stats.sales, before.sales, vs)) ?? `${money(stats.products)} en productos`}
+          value={money(sales)}
+          delta={<Delta pct={changePct(sales, prevSales)} vs={vs} />}
+          spark={days.map((d) => d.sales)}
+          hint={`Servicios y productos, sin propinas`}
         />
-        <StatCard
+        <StatTile
+          className="lg:col-span-3"
           label="Citas completadas"
-          value={String(stats.done)}
-          detail={before ? comparison(stats.done, before.done, vs) : null}
+          value={String(done)}
+          delta={<Delta pct={changePct(done, prevDone)} vs={vs} />}
+          spark={days.map((d) => d.done)}
+          hint={`${people.served} clientes · ${people.returning} repiten`}
         />
-        <StatCard
+        <StatTile
+          className="lg:col-span-2"
           label="Ticket promedio"
-          value={money(stats.avgTicket)}
-          detail={before ? comparison(stats.avgTicket, before.avgTicket, vs) : null}
+          value={money(avg)}
+          delta={<Delta pct={changePct(avg, prevAvg)} vs={vs} />}
         />
-        <StatCard
+        <StatTile
+          className="lg:col-span-2"
+          label="Ocupación"
+          value={`${occ.pct} %`}
+          delta={<Delta pct={prevOcc.pct ? occ.pct - prevOcc.pct : null} unit="pts" vs={vs} />}
+          hint="Tiempo agendado sobre el horario de los barberos"
+        />
+        <StatTile
+          className="sm:col-span-2 lg:col-span-2"
           label="No-shows"
-          value={`${stats.noShowRate}%`}
-          detail={
-            before?.started
-              ? `${stats.noShows} de ${stats.started} citas · antes ${before.noShowRate}%`
-              : `${stats.noShows} de ${stats.started} citas`
-          }
+          value={`${ns.pct} %`}
+          delta={<Delta pct={prevNs.of ? ns.pct - prevNs.pct : null} unit="pts" upIsGood={false} vs={vs} />}
+          hint={`${ns.n} de ${ns.of} citas`}
         />
       </div>
 
-      <Card title="Ventas por día" description="Servicios cobrados." className="min-w-0">
-        <div
-          className="flex h-48 items-end gap-1"
-          role="img"
-          aria-label="Gráfica de ventas por día; los datos están en la tabla siguiente"
-        >
-          {days.map((d) => (
-            <div
-              key={d.date}
-              className="flex h-full min-w-0 flex-1 flex-col justify-end"
-              title={`${formatDay(d.date, "EEE d 'de' MMM")}: ${money(d.sales)}`}
-            >
-              <div
-                className="mx-auto w-full max-w-12 rounded-t-sm bg-ink-950"
-                style={{ height: `${(d.sales / max) * 100}%`, minHeight: d.sales ? 2 : 0 }}
-              />
-            </div>
-          ))}
-        </div>
-        <div className="mt-2 flex justify-between text-[12px] text-fg-muted" aria-hidden>
-          <span>{capitalize(formatDay(from, "EEE d 'de' MMM"))}</span>
-          <span>{capitalize(formatDay(to, "EEE d 'de' MMM"))}</span>
-        </div>
-        <details className="mt-3 text-sm">
+      <Card
+        title="Ventas por día"
+        description={`Servicios y productos cobrados, junto al mismo día de ${vs}.`}
+        className="min-w-0"
+      >
+        <DailyColumns days={days} previous={prevDays} vs={vs} />
+        <details className="mt-4 text-sm">
           <summary className="cursor-pointer text-fg-muted hover:text-fg">Ver como tabla</summary>
-          <table className="mt-2 w-full">
-            <caption className="sr-only">Ventas por día</caption>
-            <tbody className="divide-y divide-line">
-              {days.map((d) => (
-                <tr key={d.date}>
-                  <th scope="row" className="py-1.5 text-left font-normal">
-                    {capitalize(formatDay(d.date, "EEE d 'de' MMM"))}
+          <div className="relative mt-2 overflow-x-auto">
+            <table className="w-full min-w-[360px]">
+              <caption className="sr-only">Ventas por día</caption>
+              <thead>
+                <tr className="text-left text-[13px] text-fg-muted">
+                  <th scope="col" className="py-1.5 font-medium">
+                    Día
                   </th>
-                  <td className="tabular py-1.5 text-right">{d.count} citas</td>
-                  <td className="tabular py-1.5 text-right">{money(d.sales)}</td>
+                  <th scope="col" className="py-1.5 text-right font-medium">
+                    Citas
+                  </th>
+                  <th scope="col" className="py-1.5 text-right font-medium">
+                    Ventas
+                  </th>
+                  <th scope="col" className="py-1.5 text-right font-medium">
+                    {capitalize(vs)}
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-line">
+                {days.map((d, i) => (
+                  <tr key={d.date}>
+                    <th scope="row" className="py-1.5 text-left font-normal">
+                      {capitalize(formatDay(d.date, "EEE d 'de' MMM"))}
+                    </th>
+                    <td className="tabular py-1.5 text-right">{d.done}</td>
+                    <td className="tabular py-1.5 text-right">{money(d.sales)}</td>
+                    <td className="tabular py-1.5 text-right text-fg-muted">{money(prevDays[i]?.sales ?? 0)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </details>
       </Card>
 
       <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-2">
-        <Card title="Desempeño por barbero" className="min-w-0" bodyClassName="p-0">
-          <ul className="divide-y divide-line" aria-label="Desempeño por barbero">
-            {byBarber.map((r) => (
-              <li key={r.id} className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 px-5 py-3 text-sm">
-                <span className="font-medium">{r.name}</span>
-                <span className="tabular text-right font-semibold">{money(r.sales)}</span>
-                <span className="text-[13px] text-fg-muted">{r.count} citas</span>
-                <span className="tabular text-right text-[13px] text-fg-muted">Promedio {money(r.avg)}</span>
-              </li>
-            ))}
-          </ul>
+        <Card title="Ventas por barbero" description="Ordenado de mayor a menor." className="min-w-0">
+          {barbers.length ? (
+            <RankedBars
+              label="Ventas por barbero"
+              rows={barbers.map((b) => ({
+                id: b.id,
+                name: b.name,
+                value: b.sales,
+                extra: (
+                  <span className="flex flex-wrap gap-x-3 gap-y-1">
+                    <span>
+                      {b.done} citas · ticket {money(b.avg)} · ocupación {occ.byStaff.get(b.id) ?? 0} %
+                    </span>
+                    <Delta pct={changePct(b.sales, b.prevSales)} vs={vs} />
+                  </span>
+                ),
+              }))}
+            />
+          ) : (
+            <p className="text-sm text-fg-muted">Sin citas completadas en este periodo.</p>
+          )}
         </Card>
-        <Card title="Servicios más pedidos" className="min-w-0">
-          <ol className="grid gap-3">
-            {top.map((t) => (
-              <li key={t.name} className="grid gap-1 text-sm">
-                <span className="flex justify-between gap-3">
-                  <span className="truncate">{t.name}</span>
-                  <span className="tabular text-fg-muted">{t.n}</span>
-                </span>
-                <span className="h-1.5 rounded-full bg-fg/[0.06]">
-                  <span
-                    className="block h-full rounded-full bg-ink-950"
-                    style={{ width: `${(t.n / (top[0]?.n ?? 1)) * 100}%` }}
-                  />
-                </span>
-              </li>
-            ))}
-          </ol>
+        <Card title="Servicios más pedidos" description="Veces que se hizo cada servicio." className="min-w-0">
+          {services.length ? (
+            <RankedBars
+              label="Servicios más pedidos"
+              format={(n) => `${n} ${n === 1 ? 'vez' : 'veces'}`}
+              rows={services.map((s) => ({
+                id: s.id,
+                name: s.name,
+                value: s.n,
+                extra: `${money(s.revenue)} a precio de lista`,
+              }))}
+            />
+          ) : (
+            <p className="text-sm text-fg-muted">Sin servicios completados en este periodo.</p>
+          )}
         </Card>
-        <Card title="Cómo llegan las citas" className="min-w-0 lg:col-span-2">
-          <ul className="grid gap-3 sm:grid-cols-3">
-            {sources.map((s) => (
-              <li key={s.k} className="rounded-md border border-line p-4">
-                <p className="text-[13px] text-fg-muted">{sourceLabels[s.k]}</p>
-                <p className="tabular text-xl font-semibold">{Math.round((s.n / sourceTotal) * 100)}%</p>
-                <p className="text-[13px] text-fg-muted">{s.n} citas</p>
-              </li>
-            ))}
-          </ul>
+        <Card
+          title="Formas de pago"
+          description="Lo cobrado por cada forma (pagos mixtos repartidos)."
+          className="min-w-0"
+        >
+          <SplitBar
+            label="Formas de pago"
+            parts={(['cash', 'card', 'transfer'] as const).map((m) => ({
+              key: m,
+              name: methodLabels[m],
+              value: cash.charges[m],
+              detail: cash.tips[m] ? `+ ${money(cash.tips[m])} propinas` : undefined,
+            }))}
+          />
+        </Card>
+        <Card
+          title="Cómo llegan las citas"
+          description="Citas agendadas en el periodo (sin canceladas)."
+          className="min-w-0"
+        >
+          <SplitBar
+            label="Cómo llegan las citas"
+            format={(n) => `${n} citas`}
+            parts={[
+              { key: 'online', name: 'Reserva en línea', value: sources.online },
+              { key: 'panel', name: 'Por teléfono o WhatsApp (panel)', value: sources.panel },
+              { key: 'walk_in', name: 'Sin cita', value: sources.walk_in },
+            ]}
+          />
+        </Card>
+        <Card
+          title="Días y horas con más citas"
+          description="Para decidir turnos y promociones. Más oscuro, más citas."
+          className="min-w-0 lg:col-span-2"
+        >
+          <DemandHeatmap grid={grid} hours={HOURS} />
         </Card>
       </div>
     </div>

@@ -88,7 +88,7 @@ export const sections: Record<SectionId, Section> = {
     icon: ReceiptText,
     roles: desk,
     delivery: 8,
-    summary: 'Registro manual de tickets (adelanto visual de la fase 2).',
+    summary: 'Tickets de la semana, venta de productos y caja del día.',
     features: [
       'Ticket con servicios y productos',
       'Pagos mixtos, propinas y descuentos con autorización',
@@ -124,7 +124,7 @@ export const sections: Record<SectionId, Section> = {
     icon: HandCoins,
     roles: ['owner', 'manager', 'barber'],
     delivery: 8,
-    summary: 'Reglas editables con vigencias (adelanto visual de la fase 2).',
+    summary: 'Lo que gana cada barbero por semana, según su comisión.',
     features: [
       'Comisión por servicio y barbero',
       'Bonos de puntualidad, asistencia y venta de producto',
@@ -137,7 +137,7 @@ export const sections: Record<SectionId, Section> = {
     icon: Wallet,
     roles: finance,
     delivery: 8,
-    summary: 'Cierre semanal y recibos (adelanto visual de la fase 2).',
+    summary: 'Cierre semanal, bonos, anticipos y recibos.',
     features: ['Ventas por forma de pago y salidas', 'Anticipos', 'Recibo semanal por barbero'],
   },
   reportes: {
@@ -146,7 +146,7 @@ export const sections: Record<SectionId, Section> = {
     icon: BarChart3,
     roles: finance,
     delivery: 8,
-    summary: 'Indicadores del negocio (adelanto visual de la fase 2).',
+    summary: 'Indicadores del negocio y comparativos.',
     features: ['Ventas y citas por periodo', 'Desempeño por barbero', 'Clientes nuevos y recurrentes'],
   },
   ajustes: {

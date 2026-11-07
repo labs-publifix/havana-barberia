@@ -3,7 +3,6 @@ import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { ChevronDown } from 'lucide-react'
 import { routes } from '@/app/routes'
-import { Alert } from '@/components/ui/Alert'
 import { Avatar } from '@/components/booking/Avatar'
 import { Badge } from '@/components/ui/Badge'
 import { Skeleton } from '@/components/ui/Skeleton'
@@ -52,9 +51,6 @@ export default function Commissions() {
         }
         actions={<WeekPicker value={from} onChange={setFrom} current={current} />}
       />
-      <Alert tone="info" title="Adelanto de la fase 2">
-        Los cálculos se validan con la barbería antes de usarse para pagar.
-      </Alert>
       {!rows || !data ? (
         <div className="grid gap-4 md:grid-cols-2" aria-busy="true">
           <Skeleton className="h-48 rounded-lg" />
