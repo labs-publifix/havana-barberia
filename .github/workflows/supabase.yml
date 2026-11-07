@@ -37,6 +37,9 @@ jobs:
       SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
       SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
       RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+      # Optional: Session pooler connection string (IPv4). GitHub runners have no
+      # IPv6, which the direct database host requires.
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
     steps:
       - uses: actions/checkout@v4
       - name: Check secrets
@@ -50,8 +53,13 @@ jobs:
       - name: Link project
         run: supabase link --project-ref "$SUPABASE_PROJECT_REF"
       - name: Apply migrations and seed
-        # --remote: the linked Supabase project (never a local database).
-        run: supabase db push --remote --include-seed --password "$SUPABASE_DB_PASSWORD" --yes
+        run: |
+          if [ -n "$SUPABASE_DB_URL" ]; then
+            supabase db push --db-url "$SUPABASE_DB_URL" --include-seed --yes
+          else
+            # --remote: the linked Supabase project (never a local database).
+            supabase db push --remote --include-seed --password "$SUPABASE_DB_PASSWORD" --yes
+          fi
       - name: Server-side secrets for Edge Functions
         if: env.RESEND_API_KEY != ''
         run: supabase secrets set --project-ref "$SUPABASE_PROJECT_REF" RESEND_API_KEY="$RESEND_API_KEY"
