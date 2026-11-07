@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Minus, Package, Plus, ShoppingBag } from 'lucide-react'
+import { Minus, Package, Plus, Printer, ShoppingBag } from 'lucide-react'
 import { Alert } from '@/components/ui/Alert'
 import { buttonClass } from '@/components/ui/buttonClass'
 import { Skeleton } from '@/components/ui/Skeleton'
@@ -11,7 +11,8 @@ import { useFinanceWeek } from '../useFinanceWeek'
 import { useAdminAuth } from '../auth/AdminAuth'
 import { errorMessage } from '../agenda/useAgendaActions'
 import { methodLabels } from '../cash'
-import { Segmented } from '../ui/controls'
+import { printTicket, ticketFromAppointment, ticketFromSale, type TicketData } from '../ticket'
+import { Segmented, Switch } from '../ui/controls'
 import { Card, PageHeader, StatCard } from '../ui/Panel'
 import { Select } from '../ui/Select'
 import { SidePanel } from '../ui/SidePanel'
@@ -29,6 +30,7 @@ interface Ticket {
   staff: string
   method: PaymentMethod
   total: number
+  ticket: () => TicketData
 }
 
 /** Ventas (phase-2 preview): every ticket of the week (paid appointments and counter sales of products). */
@@ -37,6 +39,7 @@ export default function Sales() {
   const { from, setFrom, current } = useFinanceWeek()
   const to = addDays(from, 6)
   const [open, setOpen] = useState(false)
+  const toast = useToast()
   const { data } = useQuery({ queryKey: ['admin', 'finance', from, to], queryFn: () => repo.getFinance(from, to) })
 
   if (!data) {
@@ -62,6 +65,7 @@ export default function Sales() {
         staff: name(a.staffId),
         method: a.payment!.method,
         total: a.payment!.amount + a.payment!.tip,
+        ticket: () => ticketFromAppointment(a, data.services, name(a.staffId)),
       })),
     ...data.sales.map((s) => ({
       id: s.id,
@@ -72,6 +76,7 @@ export default function Sales() {
       staff: name(s.staffId),
       method: s.method,
       total: s.total,
+      ticket: () => ticketFromSale(s, s.staffId ? name(s.staffId) : undefined),
     })),
   ].sort((a, b) => b.at.localeCompare(a.at))
 
@@ -103,7 +108,7 @@ export default function Sales() {
             {tickets.map((t) => (
               <li
                 key={t.id}
-                className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 gap-y-1 px-5 py-3 text-sm sm:grid-cols-[120px_minmax(0,1fr)_140px_120px_100px] sm:items-center"
+                className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 gap-y-1 px-5 py-3 text-sm sm:grid-cols-[120px_minmax(0,1fr)_140px_160px_100px] sm:items-center"
               >
                 <span className="tabular text-fg-muted">
                   {capitalize(formatDay(localDate(t.at, tz), 'EEE d'))} · {formatTime12(localTime(t.at, tz))}
@@ -117,7 +122,19 @@ export default function Sales() {
                   <span className="block truncate text-[13px] text-fg-muted">{t.detail}</span>
                 </span>
                 <span className="text-fg-muted">{t.staff}</span>
-                <span className="text-fg-muted">{methodLabels[t.method]}</span>
+                <span className="flex items-center justify-between gap-2 text-fg-muted">
+                  {methodLabels[t.method]}
+                  <button
+                    type="button"
+                    onClick={() =>
+                      void printTicket(t.ticket()).catch(() => toast('No se pudo generar el ticket.', 'danger'))
+                    }
+                    aria-label={`Imprimir ticket de ${t.title}`}
+                    className="grid size-10 place-items-center rounded-full text-fg-muted hover:bg-fg/5 hover:text-fg focus-visible:outline focus-visible:outline-2 focus-visible:outline-focus"
+                  >
+                    <Printer className="size-4" aria-hidden />
+                  </button>
+                </span>
               </li>
             ))}
           </ul>
@@ -151,6 +168,7 @@ function SalePanel({
   const [staffId, setStaffId] = useState('')
   const [method, setMethod] = useState<PaymentMethod>('cash')
   const [error, setError] = useState<string | null>(null)
+  const [print, setPrint] = useState(false)
   const items = Object.entries(qty).filter(([, n]) => n > 0)
   const total = items.reduce((t, [id, n]) => t + (products?.find((p) => p.id === id)?.price ?? 0) * n, 0)
 
@@ -170,6 +188,7 @@ function SalePanel({
     onSuccess: async (s) => {
       await qc.invalidateQueries({ queryKey: ['admin', 'finance'] })
       toast(`Venta registrada · ${money(s.total)}`)
+      if (print) void printTicket(ticketFromSale(s, staff.find((x) => x.id === s.staffId)?.name)).catch(() => undefined)
       reset()
       onClose()
     },
@@ -254,6 +273,7 @@ function SalePanel({
           ]}
           hint="El barbero gana la comisión del producto, si está capturada."
         />
+        <Switch label="Imprimir ticket al cobrar" checked={print} onChange={setPrint} />
         <div className="grid gap-1.5">
           <p className="text-[13px] font-medium">Forma de pago</p>
           <Segmented<PaymentMethod>

@@ -56,20 +56,20 @@ Entregas, cada una publicada en la vista previa para revisión:
 7. ✅ **Ajustes:** políticas de reserva (anticipación, días hacia adelante, citas por cliente, tiempo entre citas,
    plazo para cambios, tolerancia) y de lealtad (sellos, vigencia, servicios que suman sello), con vista previa de lo
    que lee el cliente; usuarios (invitar, rol, perfil de barbero, quitar acceso) y matriz de qué ve cada rol.
-8. ✅ **Adelanto de administración (fase 2, solo UI):** Ventas (tickets de la semana y venta de productos en
-   mostrador), Comisiones (por barbero y semana, con detalle por cita), Cierre y nómina (entradas por forma de pago,
-   anticipos y recibo por barbero) y Reportes (ventas por día, desempeño, servicios y canales). Pendiente para la fase 2: a petición del cliente se adelanta
-   la parte visual con datos ficticios:
-   - **Ventas:** registro manual de ticket (servicios, productos, pagos mixtos, propinas,
-     descuentos con autorización); una cita completada puede generar su venta.
-   - **Comisiones y bonos:** reglas editables por servicio y barbero con vigencias
-     (cambiar una regla crea una vigencia nueva, el historial no se reescribe).
-   - **Cierre semanal y nómina:** resumen por forma de pago y salidas, anticipos,
-     recibo semanal por barbero.
-   - **Reportes** básicos.
+8. ✅ **Administración (UI con datos de prueba):** Ventas (tickets de la semana, venta de productos en
+   mostrador, ticket en PDF), Comisiones (por barbero y semana, con detalle por cita), Cierre y nómina (entradas por
+   forma de pago, comisión de terminal, bonos, anticipos y recibo por barbero) y Reportes (ventas por día,
+   desempeño, servicios y canales). Ajustes › Finanzas: semana de nómina, comisión de terminal y bonos.
 
-   Los cálculos reales se validan en la fase 2 con las decisiones pendientes
-   (ver abajo).
+   **Decisiones de la barbería (ya aplicadas):** comisión personal por barbero; combos con el porcentaje del barbero
+   sobre el precio del combo (o monto propio); bonos de monto fijo configurables (puntualidad y asistencia se marcan
+   cada semana; meta de servicios y venta de productos se calculan solos); semana de nómina de lunes a domingo,
+   configurable; el corte gratis no se cobra ni paga comisión; la comisión de la terminal la absorbe la barbería;
+   ticket de 80 mm en PDF al completar y cobrar.
+
+   **Pendiente para la fase 2:** pagos mixtos en un ticket, servicios y productos en una misma cuenta, descuentos
+   con autorización, salidas de caja y corte diario con arqueo, cerrar la semana (bloquearla y marcar recibos
+   pagados), reglas de comisión con vigencias, comparativos y exportación en reportes.
 
 Permisos que la UI debe reflejar: el barbero solo ve su agenda y sus comisiones;
 finanzas solo dueño y gerente; recepción opera agenda, clientes y ventas.
@@ -115,8 +115,7 @@ inventario.
 - Accesos: cambio de propiedad del dominio en Namecheap; verificación de Resend;
   secretos de Supabase en GitHub; Cloudflare Turnstile.
 - Exportación de AgendaPro (clientes e historial).
-- Decisiones para la fase 2: comisión de combos nuevos, tarifa por nivel o personal,
-  bonos (ventas de producto, puntualidad, asistencia), día de inicio de la semana de
-  nómina, quién absorbe la comisión de un corte gratis, precio único o por barbero (resuelto: precio único).
+- Decisiones de finanzas: resueltas (ver entrega 8). Falta capturar montos reales de comisiones, bonos y
+  comisión de terminal directamente en el sistema (nunca en este repositorio).
 - Lealtad: servicios que dan sello y vigencia del corte gratis (propuesta 90 días).
 - Logo en SVG, horario de domingo, número de WhatsApp.

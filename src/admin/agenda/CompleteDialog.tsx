@@ -37,7 +37,7 @@ export function CompleteDialog({
   busy: boolean
   error: string | null
   onCancel: () => void
-  onConfirm: (payment: PaymentInput) => void
+  onConfirm: (payment: PaymentInput, printTicket: boolean) => void
 }) {
   const [method, setMethod] = useState<PaymentMethod | null>(null)
   const [hasTip, setHasTip] = useState(false)
@@ -45,6 +45,22 @@ export function CompleteDialog({
   const [tipMethod, setTipMethod] = useState<PaymentMethod | null>(null)
   const [local, setLocal] = useState<string | null>(null)
   const [useReward, setUseReward] = useState(false)
+  // Per-device preference (the shop's counter computer usually prints every ticket).
+  const [print, setPrint] = useState(() => {
+    try {
+      return localStorage.getItem('havana:print-ticket') === '1'
+    } catch {
+      return false
+    }
+  })
+  const togglePrint = (on: boolean) => {
+    setPrint(on)
+    try {
+      localStorage.setItem('havana:print-ticket', on ? '1' : '0')
+    } catch {
+      /* storage blocked: remember for this visit only */
+    }
+  }
   const [openFor, setOpenFor] = useState<string | null>(null)
   if (open && openFor !== a.id) {
     setOpenFor(a.id)
@@ -77,12 +93,15 @@ export function CompleteDialog({
     if (!m) return setLocal('Elige cómo pagó.')
     if (hasTip && tipAmount <= 0) return setLocal('Escribe el monto de la propina o desactívala.')
     setLocal(null)
-    onConfirm({
-      method: m,
-      tip: tipAmount,
-      tipMethod: hasTip ? (tipMethod ?? m) : m,
-      ...(useReward && reward ? { useReward: true } : {}),
-    })
+    onConfirm(
+      {
+        method: m,
+        tip: tipAmount,
+        tipMethod: hasTip ? (tipMethod ?? m) : m,
+        ...(useReward && reward ? { useReward: true } : {}),
+      },
+      print,
+    )
   }
 
   return (
@@ -190,6 +209,13 @@ export function CompleteDialog({
             </>
           )}
         </div>
+
+        <Switch
+          label="Imprimir ticket al completar"
+          description="Ticket de 80 mm en PDF. También puedes imprimirlo o descargarlo después desde la cita."
+          checked={print}
+          onChange={togglePrint}
+        />
 
         <dl className="grid gap-1 rounded-lg bg-surface px-4 py-3 text-sm">
           <div className="flex justify-between">

@@ -11,6 +11,8 @@ import { Dialog } from '@/components/ui/Dialog'
 import { TextArea } from '@/components/ui/Field'
 import { usePolicy } from '@/app/queries'
 import { rewardAvailable, rewardServiceFor } from '@/lib/loyalty'
+import { printTicket, ticketFromAppointment } from '../ticket'
+import { TicketButtons } from '../ui/TicketButtons'
 import { formatMxPhone } from '@/lib/phone'
 import { capitalize, durationLabel, formatDateLong, formatTime12, localDate, localTime, money } from '@/lib/time'
 import { useAdminAuth } from '../auth/AdminAuth'
@@ -196,11 +198,15 @@ export function AppointmentPanel({
     })
   }
 
-  const finish = (payment: PaymentInput) => {
+  const finish = (payment: PaymentInput, print: boolean) => {
     setChargeError(null)
     complete.mutate([a.id, payment], {
       onSuccess: (r) => {
         setCharging(false)
+        if (print && r.appointment.payment)
+          void printTicket(ticketFromAppointment(r.appointment, services, barber?.name, r.loyalty)).catch(() =>
+            toast('No se pudo generar el ticket. Usa «Imprimir ticket» en la cita.', 'danger'),
+          )
         const p = r.appointment.payment
         const paid = p ? ` · ${money(p.amount + p.tip)} ${methodPhrases[p.method]}` : ''
         const l = r.loyalty
@@ -310,9 +316,7 @@ export function AppointmentPanel({
                 </p>
               )}
               {open && completeOk && !noShowOk && (
-                <p className="text-[13px] text-fg-muted">
-                  No-show disponible tras {toleranceMin} min de tolerancia.
-                </p>
+                <p className="text-[13px] text-fg-muted">No-show disponible tras {toleranceMin} min de tolerancia.</p>
               )}
             </div>
 
@@ -334,6 +338,7 @@ export function AppointmentPanel({
                     <dd className="tabular">{money(a.payment.amount + a.payment.tip)}</dd>
                   </div>
                 </dl>
+                <TicketButtons ticket={() => ticketFromAppointment(a, services, barber?.name, card)} />
               </Section>
             )}
 
