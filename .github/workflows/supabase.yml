@@ -55,11 +55,11 @@ jobs:
       - name: Apply migrations and seed
         run: |
           if [ -n "$SUPABASE_DB_URL" ]; then
-            supabase db push --db-url "$SUPABASE_DB_URL" --include-seed --yes
+            supabase db push --remote="$SUPABASE_DB_URL" --include-seed --yes
           else
             # --remote: the linked Supabase project (never a local database).
             supabase db push --remote --include-seed --password "$SUPABASE_DB_PASSWORD" --yes
           fi
       - name: Server-side secrets for Edge Functions
         if: env.RESEND_API_KEY != ''
-        run: supabase secrets set --project-ref "$SUPABASE_PROJECT_REF" RESEND_API_KEY="$RESEND_API_KEY"
+        run: supabase secrets set --remote="$SUPABASE_PROJECT_REF" --yes RESEND_API_KEY="$RESEND_API_KEY"
