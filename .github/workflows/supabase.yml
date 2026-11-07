@@ -48,9 +48,10 @@ jobs:
         with:
           version: latest
       - name: Link project
-        run: supabase link --project-ref "$SUPABASE_PROJECT_REF" --password "$SUPABASE_DB_PASSWORD"
+        run: supabase link --project-ref "$SUPABASE_PROJECT_REF"
       - name: Apply migrations and seed
-        run: supabase db push --include-seed --password "$SUPABASE_DB_PASSWORD"
+        # --remote: the linked Supabase project (never a local database).
+        run: supabase db push --remote --include-seed --password "$SUPABASE_DB_PASSWORD" --yes
       - name: Server-side secrets for Edge Functions
         if: env.RESEND_API_KEY != ''
         run: supabase secrets set --project-ref "$SUPABASE_PROJECT_REF" RESEND_API_KEY="$RESEND_API_KEY"
