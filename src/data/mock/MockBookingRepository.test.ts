@@ -970,3 +970,33 @@ describe('MockBookingRepository · payroll weeks', () => {
     expect(r.adminFinance(MONDAY, '2026-11-08').close).toBeNull()
   })
 })
+
+describe('MockBookingRepository · commission versions', () => {
+  it('a new rule applies from its date; earlier weeks keep the old one', async () => {
+    const r = repo()
+    const team = r.adminTeam()
+    const leo = team.staff.find((s) => s.id === 'leonardo')!
+    const save = (value: number, commissionFrom: string) =>
+      r.adminSaveStaff({
+        id: leo.id,
+        name: leo.name,
+        title: '',
+        photoUrl: leo.photoUrl,
+        active: true,
+        schedule: leo.schedule,
+        serviceIds: r.adminCatalog().services.map((s) => s.id),
+        commission: { mode: 'percent', value, overrides: {} },
+        commissionFrom,
+      })
+    await save(40, '2026-10-26')
+    await save(50, '2026-11-02')
+    const h = r.adminTeam().commissionHistory.filter((v) => v.staffId === 'leonardo')
+    expect(h.map((v) => [v.validFrom, v.value])).toEqual([
+      ['0000-01-01', null],
+      ['2026-10-26', 40],
+      ['2026-11-02', 50],
+    ])
+    await r.adminCloseWeek('2026-11-02', 'Dueño')
+    await expect(save(60, '2026-11-05')).rejects.toThrow(/semana de nómina ya cerrada/)
+  })
+})

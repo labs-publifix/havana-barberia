@@ -1,5 +1,6 @@
 import type {
   Appointment,
+  StaffCommission,
   AppointmentPayment,
   SoldProduct,
   AppointmentSource,
@@ -820,6 +821,7 @@ export class MockBookingRepository implements BookingRepository {
       services: this.db.services,
       staff: [...this.db.staff].sort((a, b) => a.order - b.order),
       commissions: this.db.commissions,
+      commissionHistory: this.db.commissionHistory ?? [],
       advances: (this.db.advances ?? []).filter((x) => x.date >= from && x.date <= to),
       settings: { ...defaultFinanceSettings(), ...this.db.finance },
       close: (this.db.payrollCloses ?? []).find((c) => c.weekStart === from) ?? null,
@@ -1128,6 +1130,7 @@ export class MockBookingRepository implements BookingRepository {
     return clone({
       staff: [...this.db.staff].sort((a, b) => a.order - b.order),
       commissions: this.db.commissions,
+      commissionHistory: this.db.commissionHistory ?? [],
       blocks: this.db.blocks.filter((b) => b.endsAt > now).sort((a, b) => a.startsAt.localeCompare(b.startsAt)),
     })
   }
@@ -1146,6 +1149,8 @@ export class MockBookingRepository implements BookingRepository {
     schedule: WeeklySchedule
     serviceIds: ID[]
     commission?: { mode: 'percent' | 'fixed'; value: number | null; overrides: Record<ID, number> }
+    /** When a commission change starts to apply (default: today). */
+    commissionFrom?: string
   }): Promise<{ staff: Staff; outside: Appointment[] }> {
     await this.delay()
     return this.exclusive(() => {
@@ -1195,10 +1200,29 @@ export class MockBookingRepository implements BookingRepository {
           if (!ok(v)) throw new InvalidRequestError(`Cada comisión personalizada debe ser ${what}.`)
           overrides[id] = v
         }
-        this.db.commissions = [
-          ...this.db.commissions.filter((x) => x.staffId !== staff.id),
-          { staffId: staff.id, mode: c.mode, value: c.value, overrides },
-        ]
+        const next: StaffCommission = { staffId: staff.id, mode: c.mode, value: c.value, overrides }
+        const prev = this.db.commissions.find((x) => x.staffId === staff.id)
+        const same = (x?: StaffCommission) =>
+          !!x &&
+          x.mode === next.mode &&
+          x.value === next.value &&
+          JSON.stringify(x.overrides) === JSON.stringify(overrides)
+        if (!same(prev)) {
+          // A change applies from a date; past weeks keep the rule they had.
+          const from = input.commissionFrom ?? localDate(this.now(), businessHours.timeZone)
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(from)) throw new InvalidRequestError('Elige desde cuándo aplica la comisión.')
+          if ((this.db.payrollCloses ?? []).some((w) => from <= w.weekEnd))
+            throw new InvalidRequestError(
+              'Esa fecha cae en una semana de nómina ya cerrada. Elige una fecha posterior.',
+            )
+          let history = (this.db.commissionHistory ??= [])
+          const mine = history.filter((v) => v.staffId === staff.id)
+          if (!mine.length && prev) history.push({ ...prev, validFrom: '0000-01-01' })
+          history = history.filter((v) => !(v.staffId === staff.id && v.validFrom >= from))
+          history.push({ ...next, validFrom: from })
+          this.db.commissionHistory = history
+        }
+        this.db.commissions = [...this.db.commissions.filter((x) => x.staffId !== staff.id), next]
       } else if (!this.db.commissions.some((x) => x.staffId === staff.id)) {
         this.db.commissions.push({ staffId: staff.id, mode: 'percent', value: null, overrides: {} })
       }
@@ -1464,6 +1488,7 @@ function keepCatalog(
   | 'cashMoves'
   | 'dailyCloses'
   | 'payrollCloses'
+  | 'commissionHistory'
 > {
   return {
     // Products arrived in demo v4; older stored demos start from the seed's.
@@ -1488,6 +1513,7 @@ function keepCatalog(
     cashMoves: stored.cashMoves ?? [],
     dailyCloses: stored.dailyCloses ?? [],
     payrollCloses: stored.payrollCloses ?? [],
+    commissionHistory: stored.commissionHistory ?? [],
   }
 }
 

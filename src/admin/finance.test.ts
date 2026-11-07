@@ -127,4 +127,25 @@ describe('finance', () => {
     expect(cardFee(1000, 3.5)).toBe(35)
     expect(cardFee(1000, null)).toBe(0)
   })
+
+  it('uses the commission rule in force on each date', () => {
+    const rows = earnings({
+      appointments: [
+        appt('a', 'leonardo', '2026-11-02', ['corte-adulto']),
+        appt('b', 'leonardo', '2026-11-05', ['corte-adulto']),
+      ],
+      services: seed.services,
+      staff: seed.staff.filter((s) => s.id === 'leonardo'),
+      commissions: [{ staffId: 'leonardo', mode: 'percent', value: 50, overrides: {} }],
+      commissionHistory: [
+        { staffId: 'leonardo', mode: 'percent', value: 40, overrides: {}, validFrom: '0000-01-01' },
+        { staffId: 'leonardo', mode: 'percent', value: 50, overrides: {}, validFrom: '2026-11-04' },
+      ],
+      from: '2026-11-02',
+      to: '2026-11-08',
+      timeZone: TZ,
+    })
+    // $280 × 40% + $280 × 50%.
+    expect(rows[0]!.commission).toBe(112 + 140)
+  })
 })

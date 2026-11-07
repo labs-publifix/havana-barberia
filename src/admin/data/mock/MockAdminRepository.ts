@@ -227,6 +227,7 @@ export class MockAdminRepository implements AdminRepository {
         appointments: data.appointments.filter((a) => a.staffId === me.staffId),
         staff: data.staff.filter((s) => s.id === me.staffId),
         commissions: data.commissions.filter((c) => c.staffId === me.staffId),
+        commissionHistory: data.commissionHistory.filter((c) => c.staffId === me.staffId),
         advances: data.advances.filter((x) => x.staffId === me.staffId),
         sales: data.sales.filter((x) => x.staffId === me.staffId),
         bonusAwards: data.bonusAwards.filter((x) => x.staffId === me.staffId),

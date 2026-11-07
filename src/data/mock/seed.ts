@@ -17,6 +17,7 @@ import {
   type Advance,
   type BonusAward,
   type CashMove,
+  type CommissionVersion,
   type DailyClose,
   type FinanceSettings,
   type PayrollClose,
@@ -60,6 +61,8 @@ export interface MockDb {
   dailyCloses: DailyClose[]
   /** Closed payroll weeks (frozen receipts). */
   payrollCloses: PayrollClose[]
+  /** Commission rules over time (a change applies from a date; past weeks keep theirs). */
+  commissionHistory: CommissionVersion[]
 }
 
 /** Bump when the demo data changes shape or content; stored demos refresh, keeping real bookings. */
@@ -476,5 +479,6 @@ export function createSeed(now: Date): MockDb {
     cashMoves: [],
     dailyCloses: [],
     payrollCloses: [],
+    commissionHistory: [],
   }
 }

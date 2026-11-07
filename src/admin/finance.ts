@@ -180,7 +180,11 @@ export function earnings(input: {
     const versions = (input.commissionHistory ?? [])
       .filter((v) => v.staffId === staffId && v.validFrom <= date)
       .sort((x, y) => y.validFrom.localeCompare(x.validFrom))
-    return versions[0] ?? input.commissions.find((c) => c.staffId === staffId)
+    if (versions[0]) return versions[0]
+    // No history yet for this barber: the current rule. With history, before its first version there was none.
+    return (input.commissionHistory ?? []).some((v) => v.staffId === staffId)
+      ? undefined
+      : input.commissions.find((c) => c.staffId === staffId)
   }
   return input.staff.map((s) => {
     const lines: EarningLine[] = input.appointments

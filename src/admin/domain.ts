@@ -20,6 +20,7 @@ import type {
   Advance,
   BonusAward,
   CashMove,
+  CommissionVersion,
   DailyClose,
   FinanceSettings,
   PayrollClose,
@@ -219,6 +220,7 @@ export interface AdminFinance {
   staff: Staff[]
   /** Owner and manager only (a barber gets their own). */
   commissions: StaffCommission[]
+  commissionHistory: CommissionVersion[]
   advances: Advance[]
   sales: ProductSale[]
   settings: FinanceSettings
@@ -232,6 +234,7 @@ export interface AdminTeam {
   staff: Staff[]
   /** Owner and manager only (Supabase: a separate table under RLS). */
   commissions: StaffCommission[]
+  commissionHistory: CommissionVersion[]
   /** Upcoming time off (per barber and shop-wide). */
   blocks: TimeBlock[]
 }
@@ -248,4 +251,6 @@ export interface StaffInput {
   serviceIds: ID[]
   /** Owner and manager only; undefined leaves it as it was. */
   commission?: Omit<StaffCommission, 'staffId'>
+  /** When a changed commission starts to apply (default: today). Past weeks keep their rule. */
+  commissionFrom?: LocalDate
 }

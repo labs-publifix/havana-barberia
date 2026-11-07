@@ -39,7 +39,8 @@ import { Select } from '../ui/Select'
 import { SidePanel } from '../ui/SidePanel'
 import { TabPanel, Tabs } from '../ui/Tabs'
 import { useToast } from '../ui/Toast'
-import { commissionOn } from './model'
+import { commissionLabel, commissionOn } from './model'
+import { useFinanceWeek } from '../useFinanceWeek'
 import { ScheduleEditor } from './ScheduleEditor'
 
 export type StaffDraft = { mode: 'new' } | { mode: 'edit'; id: string }
@@ -203,6 +204,9 @@ export function StaffPanel({
   const [shownFor, setShownFor] = useState<StaffDraft | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [outside, setOutside] = useState<Appointment[] | null>(null)
+  const { current: weekFrom } = useFinanceWeek()
+  const todayLocal = localDate(new Date(), tz)
+  const [commissionFrom, setCommissionFrom] = useState<string | null>(null)
   const editing = draft?.mode === 'edit' ? team.staff.find((s) => s.id === draft.id) : undefined
   const commission = editing ? team.commissions.find((c) => c.staffId === editing.id) : undefined
 
@@ -211,6 +215,7 @@ export function StaffPanel({
     setTab('perfil')
     setError(null)
     setOutside(null)
+    setCommissionFrom(null)
     const shop = business.hours.weekly
     setForm(
       !draft
@@ -250,6 +255,11 @@ export function StaffPanel({
     }
   }, [form, editing?.id])
 
+  const history = editing
+    ? (team.commissionHistory ?? [])
+        .filter((v) => v.staffId === editing.id)
+        .sort((a, b) => b.validFrom.localeCompare(a.validFrom))
+    : []
   if (!draft || !form) return null
   const set = (patch: Partial<Form>) => setForm({ ...form, ...patch })
   const scheduleProblems = Object.keys(scheduleErrors(form.schedule, business.hours.weekly)).length
@@ -272,6 +282,7 @@ export function StaffPanel({
           seesFinance && general
             ? { mode: general.mode, value: general.value, overrides: general.overrides }
             : undefined,
+        commissionFrom: commissionFrom ?? weekFrom,
       },
       {
         onSuccess: ({ staff, outside: left }) => {
@@ -446,6 +457,43 @@ export function StaffPanel({
 
           {tab === 'comision' && seesFinance && general && (
             <div className="grid gap-5">
+              {editing && (
+                <div className="grid gap-3 rounded-lg border border-line p-4">
+                  <Select
+                    label="Si cambias la comisión, aplica desde"
+                    value={commissionFrom ?? weekFrom}
+                    onValueChange={setCommissionFrom}
+                    options={[
+                      {
+                        value: weekFrom,
+                        label: `Esta semana de nómina (desde el ${formatDay(weekFrom, "EEE d 'de' MMM")})`,
+                      },
+                      ...(todayLocal !== weekFrom
+                        ? [{ value: todayLocal, label: `Hoy (${formatDay(todayLocal, "EEE d 'de' MMM")})` }]
+                        : []),
+                      {
+                        value: addDays(weekFrom, 7),
+                        label: `La próxima semana (desde el ${formatDay(addDays(weekFrom, 7), "EEE d 'de' MMM")})`,
+                      },
+                    ]}
+                    hint="Las semanas anteriores conservan la comisión que tenían."
+                  />
+                  {history.length > 0 && (
+                    <ul className="grid gap-1 text-[13px]" aria-label="Historial de comisión">
+                      {history.map((v) => (
+                        <li key={v.validFrom} className="flex justify-between gap-3">
+                          <span className="text-fg-muted">
+                            {v.validFrom === '0000-01-01'
+                              ? 'Antes'
+                              : `Desde ${formatDay(v.validFrom, "d 'de' MMM yyyy")}`}
+                          </span>
+                          <span>{commissionLabel(v)}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
               <p className="text-[13px] text-fg-muted">
                 Solo la ven dueño y gerente. Las comisiones de productos se capturan en cada producto.
               </p>
