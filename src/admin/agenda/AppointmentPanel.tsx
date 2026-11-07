@@ -10,6 +10,7 @@ import { buttonClass } from '@/components/ui/buttonClass'
 import { Dialog } from '@/components/ui/Dialog'
 import { TextArea } from '@/components/ui/Field'
 import { usePolicy } from '@/app/queries'
+import { rewardAvailable, rewardServiceFor } from '@/lib/loyalty'
 import { formatMxPhone } from '@/lib/phone'
 import { capitalize, durationLabel, formatDateLong, formatTime12, localDate, localTime, money } from '@/lib/time'
 import { useAdminAuth } from '../auth/AdminAuth'
@@ -485,6 +486,7 @@ export function AppointmentPanel({
         error={chargeError}
         onCancel={() => setCharging(false)}
         onConfirm={finish}
+        reward={rewardAvailable(card, now) ? rewardServiceFor(a.serviceIds, services) : null}
       />
     </>
   )

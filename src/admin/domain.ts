@@ -82,6 +82,8 @@ export interface PaymentInput {
   /** 0 when no tip. */
   tip: number
   tipMethod: PaymentMethod
+  /** Redeem the loyalty free cut (the haircut is not charged and pays no commission). */
+  useReward?: boolean
 }
 
 export interface StatusChangeResult {

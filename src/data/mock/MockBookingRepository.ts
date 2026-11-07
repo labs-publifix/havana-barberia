@@ -22,6 +22,7 @@ import { addDays, localDate, toMinutes, weekdayOf, zonedInstant } from '@/lib/ti
 import { normalizeMxPhone } from '@/lib/phone'
 import { DAY_NAMES, outsideSchedule, scheduleErrors } from '@/lib/schedule'
 import { policyError } from '@/lib/policy'
+import { rewardAvailable, rewardServiceFor } from '@/lib/loyalty'
 import {
   defaultFinanceSettings,
   financeSettingsError,
@@ -355,7 +356,7 @@ export class MockBookingRepository implements BookingRepository {
   async adminSetStatus(
     id: ID,
     status: 'confirmed' | 'completed' | 'no_show' | 'cancelled',
-    payment?: { method: PaymentMethod; tip: number; tipMethod: PaymentMethod },
+    payment?: { method: PaymentMethod; tip: number; tipMethod: PaymentMethod; useReward?: boolean },
   ): Promise<{ appointment: Appointment; loyalty: LoyaltyCard | null; stampAdded: boolean }> {
     await this.delay()
     return this.exclusive(() => {
@@ -377,9 +378,24 @@ export class MockBookingRepository implements BookingRepository {
           throw new InvalidRequestError('Escribe la propina en pesos, sin centavos.')
         if (payment.tip > 0 && !methods.includes(payment.tipMethod))
           throw new InvalidRequestError('Elige cómo dejó la propina.')
+        let amount = a.totalPrice
+        let rewardServiceId: ID | undefined
+        if (payment.useReward) {
+          const card = this.db.loyalty.find((c) => c.customerId === a.customerId)
+          if (!rewardAvailable(card, this.now()))
+            throw new InvalidRequestError('Este cliente no tiene un corte gratis vigente.')
+          const svc = rewardServiceFor(a.serviceIds, this.db.services)
+          if (!svc) throw new InvalidRequestError('El corte gratis aplica solo a un corte de cabello.')
+          amount -= svc.price
+          rewardServiceId = svc.id
+          // Redeemed: the card starts over. The free visit does not add a stamp.
+          card!.stamps = 0
+          card!.rewardExpiresAt = null
+        }
         a.payment = {
           method: payment.method,
-          amount: a.totalPrice,
+          ...(rewardServiceId ? { rewardServiceId } : {}),
+          amount,
           tip: payment.tip,
           tipMethod: payment.tip > 0 ? payment.tipMethod : payment.method,
           paidAt: this.now().toISOString(),
@@ -391,7 +407,7 @@ export class MockBookingRepository implements BookingRepository {
       let stampAdded = false
       let card = this.db.loyalty.find((c) => c.customerId === a.customerId) ?? null
       const eligible = this.db.services.some((sv) => a.serviceIds.includes(sv.id) && sv.loyaltyEligible)
-      if (status === 'completed' && eligible) {
+      if (status === 'completed' && eligible && !a.payment?.rewardServiceId) {
         const customer = this.db.customers.find((c) => c.id === a.customerId)
         if (customer) {
           card = this.cardFor(customer)

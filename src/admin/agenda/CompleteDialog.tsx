@@ -3,7 +3,7 @@ import { ArrowLeftRight, Banknote, CreditCard, type LucideIcon } from 'lucide-re
 import { Alert } from '@/components/ui/Alert'
 import { buttonClass } from '@/components/ui/buttonClass'
 import { Dialog } from '@/components/ui/Dialog'
-import type { Appointment, PaymentMethod } from '@/domain/types'
+import type { Appointment, PaymentMethod, Service } from '@/domain/types'
 import { cn } from '@/lib/cn'
 import { money } from '@/lib/time'
 import { methodLabels } from '../cash'
@@ -28,7 +28,10 @@ export function CompleteDialog({
   error,
   onCancel,
   onConfirm,
+  reward,
 }: {
+  /** Loyalty free cut the customer can use on this visit (the haircut it covers). */
+  reward?: Service | null
   appointment: Appointment
   open: boolean
   busy: boolean
@@ -41,6 +44,7 @@ export function CompleteDialog({
   const [tip, setTip] = useState('')
   const [tipMethod, setTipMethod] = useState<PaymentMethod | null>(null)
   const [local, setLocal] = useState<string | null>(null)
+  const [useReward, setUseReward] = useState(false)
   const [openFor, setOpenFor] = useState<string | null>(null)
   if (open && openFor !== a.id) {
     setOpenFor(a.id)
@@ -49,11 +53,13 @@ export function CompleteDialog({
     setTip('')
     setTipMethod(null)
     setLocal(null)
+    setUseReward(false)
   }
   if (!open && openFor) setOpenFor(null)
 
   const tipAmount = hasTip ? Number(tip || 0) : 0
-  const total = a.totalPrice + tipAmount
+  const charge = a.totalPrice - (useReward && reward ? reward.price : 0)
+  const total = charge + tipAmount
 
   const onKey = (e: KeyboardEvent<HTMLButtonElement>, i: number) => {
     const d =
@@ -66,10 +72,17 @@ export function CompleteDialog({
   }
 
   const confirm = () => {
-    if (!method) return setLocal('Elige cómo pagó.')
+    // Nothing to charge (free cut, no tip): no payment method needed.
+    const m = method ?? (total === 0 ? 'cash' : null)
+    if (!m) return setLocal('Elige cómo pagó.')
     if (hasTip && tipAmount <= 0) return setLocal('Escribe el monto de la propina o desactívala.')
     setLocal(null)
-    onConfirm({ method, tip: tipAmount, tipMethod: hasTip ? (tipMethod ?? method) : method })
+    onConfirm({
+      method: m,
+      tip: tipAmount,
+      tipMethod: hasTip ? (tipMethod ?? m) : m,
+      ...(useReward && reward ? { useReward: true } : {}),
+    })
   }
 
   return (
@@ -91,6 +104,17 @@ export function CompleteDialog({
     >
       <div className="grid gap-5">
         {(local || error) && <Alert tone="danger" title={(local || error)!} />}
+
+        {reward && (
+          <div className="rounded-lg border-[1.5px] border-aqua-800/40 bg-aqua-500/10 p-4">
+            <Switch
+              label="Usar su corte gratis"
+              description={`Tarjeta de lealtad completa: no se cobra ${reward.name} (${money(reward.price)}) y no genera comisión.`}
+              checked={useReward}
+              onChange={setUseReward}
+            />
+          </div>
+        )}
 
         <div className="grid gap-2">
           <p id="pay-method" className="text-[13px] font-medium">
@@ -172,6 +196,12 @@ export function CompleteDialog({
             <dt className="text-fg-muted">Servicios</dt>
             <dd className="tabular">{money(a.totalPrice)}</dd>
           </div>
+          {useReward && reward && (
+            <div className="flex justify-between">
+              <dt className="text-fg-muted">Corte gratis</dt>
+              <dd className="tabular">−{money(reward.price)}</dd>
+            </div>
+          )}
           <div className="flex justify-between">
             <dt className="text-fg-muted">Propina</dt>
             <dd className="tabular">{money(tipAmount)}</dd>

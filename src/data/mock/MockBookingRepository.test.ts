@@ -784,9 +784,9 @@ describe('MockBookingRepository · settings', () => {
   it('rejects values off the lists and an empty loyalty list', async () => {
     const r = repo()
     const policy = await r.getPolicy()
-    await expect(r.adminSavePolicy({ policy: { ...policy, toleranceMin: 7 }, loyaltyServiceIds: all(r) })).rejects.toThrow(
-      'Elige un valor válido para la tolerancia.',
-    )
+    await expect(
+      r.adminSavePolicy({ policy: { ...policy, toleranceMin: 7 }, loyaltyServiceIds: all(r) }),
+    ).rejects.toThrow('Elige un valor válido para la tolerancia.')
     await expect(r.adminSavePolicy({ policy, loyaltyServiceIds: [] })).rejects.toThrow(/al menos un servicio/)
   })
 
@@ -815,7 +815,12 @@ describe('MockBookingRepository · settings', () => {
     const r = repo()
     const policy = await r.getPolicy()
     await r.adminSavePolicy({ policy, loyaltyServiceIds: ['barba-premium'] })
-    expect(r.adminSettings().services.filter((s) => s.loyaltyEligible).map((s) => s.id)).toEqual(['barba-premium'])
+    expect(
+      r
+        .adminSettings()
+        .services.filter((s) => s.loyaltyEligible)
+        .map((s) => s.id),
+    ).toEqual(['barba-premium'])
   })
 })
 
@@ -838,9 +843,35 @@ describe('MockBookingRepository · product sales', () => {
   it('sells active products at catalog price and rejects empty sales', async () => {
     const r = repo()
     const [p] = r.snapshot().products.filter((x) => x.active)
-    await expect(r.adminCreateSale({ items: [], staffId: null, method: 'cash' })).rejects.toThrow(/al menos un producto/)
+    await expect(r.adminCreateSale({ items: [], staffId: null, method: 'cash' })).rejects.toThrow(
+      /al menos un producto/,
+    )
     const sale = await r.adminCreateSale({ items: [{ productId: p!.id, qty: 2 }], staffId: 'isaac', method: 'card' })
     expect(sale).toMatchObject({ total: p!.price * 2, staffId: 'isaac', method: 'card' })
     expect(r.adminFinance('2026-11-01', '2026-11-01').sales).toHaveLength(1)
+  })
+})
+
+describe('MockBookingRepository · free cut', () => {
+  it('redeems the free haircut: not charged, card starts over, no stamp', async () => {
+    let now = zonedInstant(MONDAY, '09:00', TZ)
+    const r = new MockBookingRepository({ storage: null, initial: emptyDb(), now: () => now })
+    const a = await r.createAppointment(booking(iso(MONDAY, '10:00'), 1, 'isaac', ['corte-adulto', 'bigote']))
+    now = zonedInstant(MONDAY, '11:00', TZ)
+    const pay = { method: 'cash' as const, tip: 0, tipMethod: 'cash' as const, useReward: true }
+    await expect(r.adminSetStatus(a.id, 'completed', pay)).rejects.toThrow(/no tiene un corte gratis/)
+
+    const card = (
+      r as unknown as {
+        db: { loyalty: { customerId: string; stamps: number; goal: number; rewardExpiresAt: string | null }[] }
+      }
+    ).db.loyalty.find((c) => c.customerId === a.customerId)!
+    card.stamps = card.goal
+    card.rewardExpiresAt = iso('2026-12-31', '23:59')
+    const { appointment, loyalty, stampAdded } = await r.adminSetStatus(a.id, 'completed', pay)
+    const corte = r.snapshot().services.find((s) => s.id === 'corte-adulto')!
+    expect(appointment.payment).toMatchObject({ amount: a.totalPrice - corte.price, rewardServiceId: 'corte-adulto' })
+    expect(loyalty).toMatchObject({ stamps: 0, rewardExpiresAt: null })
+    expect(stampAdded).toBe(false)
   })
 })
