@@ -40,17 +40,22 @@ La UI nunca importa datos directamente: pide todo a `BookingRepository` mediante
 
 `computeSlots()` es una función pura: recibe la fecha, la duración (suma de servicios), los barberos candidatos, el horario, la política, las citas, los bloqueos y `now`, y devuelve la cuadrícula de 15 minutos con `available` y el barbero asignado. Nunca depende del huso horario del dispositivo. En Supabase se puede portar a una función SQL o a una Edge Function, y estas pruebas sirven como especificación.
 
-## Cómo agregar Supabase (hito 1B)
+## Base de datos (Supabase, hito 1C)
 
-1. Crear `src/data/supabase/SupabaseBookingRepository.ts` que implemente `BookingRepository`:
-   - `listServices`, `listStaff` y `getLoyaltyCardByToken` leen tablas con RLS de solo lectura.
-   - `getAvailableSlots` llama a una función RPC de disponibilidad.
-   - `createAppointment`, `cancelAppointment` y `rescheduleAppointment` llaman a **Edge Functions**. Ahí se validan los datos, se aplican los límites y Turnstile, y se usa la llave de servicio, que nunca llega al navegador.
-   - Convertir las filas `snake_case` a los tipos de `src/domain/types.ts` y lanzar los errores de `src/data/errors.ts` (`SlotUnavailableError`, `ChangeWindowClosedError`, `BookingLimitError`) para que la UI siga mostrando los mensajes correctos.
-2. En `src/data/index.ts` agregar `case 'supabase': return new SupabaseBookingRepository(...)`.
-3. Definir `VITE_DATA_SOURCE=supabase`, `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY` como variables del workflow. Solo la llave **anon** es pública.
-4. En la base: restricción de exclusión sobre `(staff_id, tstzrange(starts_at, ends_at))` para que Postgres impida dobles citas aunque fallen otras capas.
-5. Mover `config/business.ts` (horario y políticas) a la tabla `settings` y exponerlo con un método nuevo del repositorio cuando el panel permita editarlo.
+**Hecho:** esquema, permisos y candados en `supabase/migrations/`, datos iniciales en `supabase/seed.sql`.
+
+- **Tablas:** `settings` (políticas, finanzas y horario en una sola fila), catálogo (`categories`, `services`, `products` y `product_costs` aparte), equipo (`staff` con horario en JSON, `staff_services`, `commission_versions` con vigencias), `customers`, `loyalty_cards`, `appointments` (con `service_ids`), `payments` (ticket completo: pago mixto, productos, descuento y corte gratis), `time_blocks`, `product_sales`, `cash_moves`, `daily_closes`, `advances`, `bonus_rules`, `bonus_awards`, `payroll_closes`, `payroll_payments`, `profiles` (usuarios del panel) y `audit_log`.
+- **Reglas en la base** (no se pueden saltar desde la pantalla): sin citas encimadas por barbero (restricción de exclusión; canceladas y no-shows liberan el horario), valores permitidos de las políticas, caja cerrada sin movimientos, semana de nómina cerrada sin anticipos, bonos ni comisiones nuevas dentro de ella, nadie cambia su propio rol y siempre queda una persona dueña activa.
+- **Permisos (RLS):** dueño y gerente todo, incluidas finanzas; recepción agenda, clientes, ventas y caja (lee catálogo y equipo, no ve comisiones ni costos); barbero solo sus citas, sus clientes, su comisión y sus pagos. El sitio público (`anon`) lee catálogo, equipo y políticas, y usa funciones seguras: `busy_times` (horarios ocupados sin datos del cliente), `appointment_by_token` y `loyalty_by_token` (con el enlace privado).
+- **Bitácora:** cobros, ventas, caja, nómina, comisiones, costos, usuarios y ajustes quedan en `audit_log` con quién y cuándo.
+- **Pruebas:** `scripts/test-db.sh` levanta un Postgres local, aplica migraciones y semilla, y corre `supabase/tests/*.test.sql` (quién ve y cambia qué).
+- **Despliegue:** `.github/workflows/supabase.yml` corre esas pruebas en cada PR y, desde `main`, aplica las migraciones al proyecto con los secretos `SUPABASE_ACCESS_TOKEN`, `SUPABASE_DB_PASSWORD` y `SUPABASE_PROJECT_REF`; `RESEND_API_KEY` se guarda como secreto de las Edge Functions.
+
+**Sigue:**
+
+1. `SupabaseBookingRepository` y `SupabaseAdminRepository` que implementen las mismas interfaces (filas `snake_case` → tipos de `src/domain`; errores de `src/data/errors.ts`), y `VITE_DATA_SOURCE=supabase` con `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY` (solo la llave anon es pública).
+2. Edge Functions para reservar, cancelar y reprogramar desde el sitio (Turnstile, límites y la llave de servicio), cobrar y cerrar caja/semana (cálculos en el servidor) e invitar usuarios.
+3. Correos con Resend y recordatorios con `pg_cron`; tiempo real con Supabase Realtime.
 
 Ninguna pantalla debería cambiar.
 

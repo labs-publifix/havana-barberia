@@ -1,0 +1,15 @@
+# Supabase CLI project config (local tooling and `supabase db push`).
+# The real project is linked in CI with SUPABASE_PROJECT_REF; no secrets here.
+project_id = "havana-barberia"
+
+[db]
+major_version = 15
+
+[db.seed]
+enabled = true
+sql_paths = ["./seed.sql"]
+
+[auth]
+# No public sign-up: the owner invites panel users.
+enable_signup = false
+site_url = "https://labs-publifix.github.io/havana-barberia/"

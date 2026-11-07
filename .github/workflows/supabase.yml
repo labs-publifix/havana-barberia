@@ -1,0 +1,56 @@
+name: Supabase database
+
+# Tests the schema and permissions on a throwaway Postgres, then applies the
+# migrations (and the idempotent seed) to the Supabase project. Secrets live in
+# the repository settings; nothing sensitive is in the code.
+on:
+  push:
+    branches: [main]
+    paths: ['supabase/**', 'scripts/test-db.sh', '.github/workflows/supabase.yml']
+  pull_request:
+    paths: ['supabase/**', 'scripts/test-db.sh', '.github/workflows/supabase.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: supabase
+  cancel-in-progress: false
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Migrations and permissions on a local Postgres
+        run: ./scripts/test-db.sh
+
+  deploy:
+    needs: test
+    # Only from main (merged) or by hand; never from a pull request.
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    environment: production
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+      RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check secrets
+        run: |
+          for v in SUPABASE_ACCESS_TOKEN SUPABASE_DB_PASSWORD SUPABASE_PROJECT_REF; do
+            if [ -z "${!v}" ]; then echo "::error::Falta el secreto $v en Settings › Secrets and variables › Actions"; exit 1; fi
+          done
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Link project
+        run: supabase link --project-ref "$SUPABASE_PROJECT_REF" --password "$SUPABASE_DB_PASSWORD"
+      - name: Apply migrations and seed
+        run: supabase db push --include-seed --password "$SUPABASE_DB_PASSWORD"
+      - name: Server-side secrets for Edge Functions
+        if: env.RESEND_API_KEY != ''
+        run: supabase secrets set --project-ref "$SUPABASE_PROJECT_REF" RESEND_API_KEY="$RESEND_API_KEY"
