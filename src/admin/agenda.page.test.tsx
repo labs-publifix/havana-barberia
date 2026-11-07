@@ -128,7 +128,8 @@ describe('admin agenda', () => {
 
     expect(await screen.findByText('Cita completada · $330 con tarjeta · sello 1 de 10')).toBeInTheDocument()
     await waitFor(() => expect(within(panel).getByRole('img', { name: '1 de 10 sellos' })).toBeInTheDocument())
-    expect(panel).toHaveTextContent('Servicios · Tarjeta$280')
+    expect(panel).toHaveTextContent('Servicios$280')
+    expect(panel).toHaveTextContent('Pagó con tarjeta')
     expect(panel).toHaveTextContent('Propina · Efectivo$50')
     const saved = booking.snapshot().appointments.find((x) => x.customer.name === 'Pablo Ríos')!
     expect(saved).toMatchObject({
