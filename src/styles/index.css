@@ -86,3 +86,24 @@
     transform: translateY(8px);
   }
 }
+@keyframes panel-in {
+  from {
+    transform: translateX(32px);
+    opacity: 0;
+  }
+}
+@keyframes drawer-in {
+  from {
+    transform: translateX(-32px);
+    opacity: 0;
+  }
+}
+
+/* Admin timeline: blocked time (time off, training) as soft diagonal stripes. */
+.timeline-block {
+  background: repeating-linear-gradient(
+    -45deg,
+    color-mix(in srgb, var(--sem-text-secondary) 14%, transparent) 0 6px,
+    color-mix(in srgb, var(--sem-text-secondary) 6%, transparent) 6px 12px
+  );
+}

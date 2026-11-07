@@ -15,7 +15,10 @@ import { staffPortraits } from './media'
  */
 export function Barbers() {
   const { data: staff } = useStaff()
-  const people = teamOrder.map((id) => ({ id, s: staff?.find((x) => x.id === id) }))
+  const people = teamOrder
+    .map((id) => ({ id, s: staff?.find((x) => x.id === id) }))
+    // Deactivated in the admin: drop it once the team has loaded (skeletons only while loading).
+    .filter((p) => !staff || p.s)
   return (
     <section id="barberos" aria-labelledby="barberos-title" className="relative scroll-mt-24 py-24 md:py-32">
       <div className="mx-auto grid max-w-6xl gap-4 px-4 md:px-8">
@@ -29,7 +32,7 @@ export function Barbers() {
         </Reveal>
         <Reveal delay={140}>
           <p className="text-xs font-semibold uppercase tracking-[0.24em] text-gray-300">
-            <span className="tabular">{teamOrder.length}</span> profesionales · <span className="tabular">1</span>{' '}
+            <span className="tabular">{people.length}</span> profesionales · <span className="tabular">1</span>{' '}
             sucursal
           </p>
         </Reveal>

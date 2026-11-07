@@ -13,12 +13,22 @@
 
   /* Google review stars: part of Google's visual language, not the Havana accent. */
   --color-google-star: #fbbc04;
+  /* Data visualization: categorical slots for parts of a whole (payment methods, booking channels).
+     Validated for color-vision deficiencies on white (dataviz validator, light mode). */
+  --viz-1: #0a8a73;
+  --viz-2: #3b6cf6;
+  --viz-3: #eb6834;
 
   /* Home hero mask over the video (layers, from tokens: ink-950 at different strengths). */
   --hero-mask-base: rgb(10 10 11 / 0.32);
   --hero-mask-top: rgb(10 10 11 / 0.7);
   --hero-mask-mid: rgb(10 10 11 / 0.72);
   --hero-mask-bottom: rgb(10 10 11 / 1);
+
+  /* Admin sign-in photo mask (ink-950 at different strengths). */
+  --auth-mask-top: rgb(10 10 11 / 0.55);
+  --auth-mask-mid: rgb(10 10 11 / 0.35);
+  --auth-mask-bottom: rgb(10 10 11 / 0.92);
 
   /* Glass surfaces on dark (floating nav, quick booking panel). */
   --glass-bg: rgb(18 18 20 / 0.8);

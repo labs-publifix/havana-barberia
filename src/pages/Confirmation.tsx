@@ -14,6 +14,7 @@ import { addToCalendar } from '@/features/appointment/calendar'
 import { useAppointment, useCatalog, useLoyalty, useStaff } from '@/app/queries'
 import { routes } from '@/app/routes'
 import { business } from '@/config/business'
+import { usePolicy } from '@/app/queries'
 
 export default function Confirmation() {
   const { token } = useParams()
@@ -22,6 +23,7 @@ export default function Confirmation() {
   const catalog = useCatalog()
   const staff = useStaff()
   const loyalty = useLoyalty(appt.data?.loyaltyToken)
+  const policy = usePolicy()
 
   const loading = appt.isPending || catalog.isPending || staff.isPending
   const a = appt.data
@@ -71,7 +73,7 @@ export default function Confirmation() {
             />
 
             <div className="grid gap-3">
-              <Button variant="primary" size="lg" block onClick={() => addToCalendar(a, catalog.data?.services ?? [])}>
+              <Button variant="primary" size="lg" block onClick={() => addToCalendar(a, catalog.data?.services ?? [], policy.changeCutoffMin)}>
                 <CalendarPlus className="size-5" strokeWidth={1.75} aria-hidden />
                 Agregar al calendario
               </Button>
@@ -87,7 +89,7 @@ export default function Confirmation() {
             </div>
 
             <Alert tone="info" title="¿Cambio de planes?">
-              Puedes cancelar o reprogramar hasta {business.policy.changeCutoffMin / 60} horas antes.{' '}
+              Puedes cancelar o reprogramar hasta {policy.changeCutoffMin / 60} horas antes.{' '}
               <Link to={routes.manage(a.token)} className="font-semibold underline underline-offset-4">
                 Cancelar o reprogramar
               </Link>

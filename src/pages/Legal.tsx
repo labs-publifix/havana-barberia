@@ -5,24 +5,25 @@ import { SkipLink } from '@/features/site/SkipLink'
 import { Alert } from '@/components/ui/Alert'
 import { useDocumentTitle } from '@/app/useDocumentTitle'
 import { business } from '@/config/business'
-
-const p = business.policy
+import { usePolicy } from '@/app/queries'
+import type { BookingPolicy } from '@/domain/types'
+import { durationText } from '@/lib/policy'
 
 /** DRAFT texts. Must be reviewed by a lawyer before launch. */
-const content: Record<'policies' | 'privacy', { title: string; body: ReactNode }> = {
+const contentFor = (p: BookingPolicy): Record<'policies' | 'privacy', { title: string; body: ReactNode }> => ({
   policies: {
     title: 'Políticas de reserva',
     body: (
       <>
         <h2>Reservas</h2>
         <p>
-          Reservas sin crear cuenta, solo con tu nombre, teléfono y correo. Puedes agendar desde {p.minNoticeMin / 60}{' '}
-          hora antes y hasta {p.maxAdvanceDays} días después de hoy. Cada cliente puede tener hasta{' '}
+          Reservas sin crear cuenta, solo con tu nombre, teléfono y correo. Puedes agendar desde {durationText(p.minNoticeMin)}{' '}
+          antes y hasta {p.maxAdvanceDays} días después de hoy. Cada cliente puede tener hasta{' '}
           {p.maxActiveAppointmentsPerCustomer} citas próximas activas.
         </p>
         <h2>Cancelaciones y cambios</h2>
         <p>
-          Puedes cancelar o reprogramar sin costo hasta {p.changeCutoffMin / 60} horas antes de tu cita, desde el enlace
+          Puedes cancelar o reprogramar sin costo hasta {durationText(p.changeCutoffMin)} antes de tu cita, desde el enlace
           de tu cita. Después de ese plazo, llámanos al {business.phoneDisplay}.
         </p>
         <h2>Puntualidad</h2>
@@ -65,10 +66,10 @@ const content: Record<'policies' | 'privacy', { title: string; body: ReactNode }
       </>
     ),
   },
-}
+})
 
 export default function Legal({ kind }: { kind: 'policies' | 'privacy' }) {
-  const { title, body } = content[kind]
+  const { title, body } = contentFor(usePolicy())[kind]
   useDocumentTitle(title)
   return (
     <div data-theme="dark" className="min-h-dvh bg-page text-fg">

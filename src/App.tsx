@@ -10,6 +10,7 @@ const Loyalty = lazy(() => import('@/pages/Loyalty'))
 const Legal = lazy(() => import('@/pages/Legal'))
 const NotFound = lazy(() => import('@/pages/NotFound'))
 const UiGallery = lazy(() => import('@/pages/UiGallery'))
+const AdminApp = lazy(() => import('@/admin/AdminApp'))
 
 const galleryEnabled = import.meta.env.DEV || import.meta.env.VITE_UI_GALLERY === 'true'
 
@@ -37,6 +38,7 @@ export function AppRoutes() {
         <Route path="/lealtad/:token" element={<Loyalty />} />
         <Route path="/politicas" element={<Legal kind="policies" />} />
         <Route path="/privacidad" element={<Legal kind="privacy" />} />
+        <Route path="/admin/*" element={<AdminApp />} />
         {galleryEnabled && <Route path="/__ui" element={<UiGallery />} />}
         <Route path="*" element={<NotFound />} />
       </Routes>

@@ -1,14 +1,28 @@
 import type {
+  BookingPolicy,
   Appointment,
   Customer,
   LoyaltyCard,
+  Product,
   Service,
   ServiceCategory,
   Staff,
+  StaffCommission,
   TimeBlock,
   WeeklySchedule,
 } from '@/domain/types'
 import { bookingPolicy, businessHours } from '@/config/business'
+import {
+  defaultFinanceSettings,
+  type Advance,
+  type BonusAward,
+  type CashMove,
+  type CommissionVersion,
+  type DailyClose,
+  type FinanceSettings,
+  type PayrollClose,
+  type ProductSale,
+} from '@/admin/finance'
 import { addDays, localDate, toMinutes, weekdayOf, zonedInstant } from '@/lib/time'
 // Head-and-shoulders crops (120px): the tighter face crops cut the faces at small sizes.
 import avatarIsaac from '@/assets/team/isaac-fuentes-card-120.webp'
@@ -29,9 +43,30 @@ export interface MockDb {
   customers: Customer[]
   appointments: Appointment[]
   loyalty: LoyaltyCard[]
+  products: Product[]
+  commissions: StaffCommission[]
+  /** Booking and loyalty rules, edited in Ajustes (defaults from config/business). */
+  policy: BookingPolicy
+  /** Advances (anticipos) given to barbers, discounted in the weekly payroll. */
+  advances: Advance[]
+  /** Product sales at the counter. */
+  sales: ProductSale[]
+  /** Payroll week, terminal fee and bonuses (Ajustes › Finanzas). */
+  finance: FinanceSettings
+  /** Manual bonuses marked per barber and week. */
+  bonusAwards: BonusAward[]
+  /** Cash taken out or put in the drawer. */
+  cashMoves: CashMove[]
+  /** Daily cash counts. */
+  dailyCloses: DailyClose[]
+  /** Closed payroll weeks (frozen receipts). */
+  payrollCloses: PayrollClose[]
+  /** Commission rules over time (a change applies from a date; past weeks keep theirs). */
+  commissionHistory: CommissionVersion[]
 }
 
-export const MOCK_DB_VERSION = 1
+/** Bump when the demo data changes shape or content; stored demos refresh, keeping real bookings. */
+export const MOCK_DB_VERSION = 7
 
 const categories: ServiceCategory[] = [
   { id: 'cortes', name: 'Cortes', order: 1 },
@@ -114,6 +149,87 @@ const staff: Staff[] = [
   },
 ]
 
+// Invented, generic names for demo customers (no real people).
+const FIRST_NAMES = [
+  'Carlos',
+  'Jorge',
+  'Miguel',
+  'Andrés',
+  'Ricardo',
+  'Fernando',
+  'Alejandro',
+  'Javier',
+  'Emiliano',
+  'Sergio',
+  'Daniel',
+  'Héctor',
+  'Mateo',
+  'Pablo',
+  'Óscar',
+  'Raúl',
+  'Eduardo',
+  'Tomás',
+  'Gerardo',
+  'Manuel',
+  'Roberto',
+  'Adrián',
+  'Mauricio',
+  'Bruno',
+]
+const LAST_NAMES = [
+  'Mendoza',
+  'Ramírez',
+  'Torres',
+  'Herrera',
+  'Castillo',
+  'Vargas',
+  'Navarro',
+  'Ríos',
+  'Salinas',
+  'Cabrera',
+  'Ortega',
+  'Delgado',
+  'Fuentes',
+  'Rosales',
+  'Aguilar',
+  'Campos',
+  'Valdez',
+  'Ibarra',
+  'Molina',
+  'Peña',
+]
+/** Unique for the first 480 customers: the surname shifts every full round of first names. */
+const demoName = (n: number) =>
+  `${FIRST_NAMES[(n * 7) % FIRST_NAMES.length]} ${LAST_NAMES[(n * 11 + Math.floor(n / FIRST_NAMES.length) * 3) % LAST_NAMES.length]}`
+
+const REGULAR_NOTES = [
+  'Prefiere degradado bajo y tijera arriba.',
+  'Alérgico a la loción con alcohol.',
+  'Llega 10 min antes; ofrecerle café.',
+]
+
+/**
+ * Generic demo products: invented names and prices; cost and commission are
+ * left empty for the owner to capture (real figures never live in this public repo).
+ */
+const products: Omit<Product, 'createdAt'>[] = [
+  ['shampoo-cabello', 'Shampoo para cabello 250 ml', 220],
+  ['shampoo-barba', 'Shampoo para barba 120 ml', 190],
+  ['aceite-barba', 'Aceite para barba 30 ml', 260],
+  ['cera-mate', 'Cera mate 100 g', 240],
+  ['pomada-brillo', 'Pomada de brillo 100 g', 240],
+  ['balsamo-after-shave', 'Bálsamo after shave 100 ml', 210],
+].map(([id, name, price]) => ({
+  id: id as string,
+  name: name as string,
+  brand: '',
+  price: price as number,
+  cost: null,
+  commission: null,
+  imageUrl: null,
+  active: true,
+}))
+
 /** Small deterministic PRNG so the demo agenda looks the same on every load of a given day. */
 function mulberry32(seed: number) {
   let a = seed
@@ -190,6 +306,44 @@ export function createSeed(now: Date): MockDb {
     })
   }
 
+  // Customers: about half the appointments belong to regulars who come back.
+  // Separate PRNG, so appointment days and times stay the same as before.
+  const people = mulberry32(Number(today.replaceAll('-', '')) + 13)
+  const regulars: Customer[] = []
+  const newCustomer = (): Customer => {
+    const n = customers.length
+    const daysAgo = Math.floor(people() * 420)
+    const c: Customer = {
+      id: `cust-${n}`,
+      name: demoName(n),
+      phone: `442000${String(n).padStart(4, '0')}`,
+      email: `cliente${n}@ejemplo.com`,
+      createdAt: new Date(now.getTime() - daysAgo * 86400000).toISOString(),
+    }
+    customers.push(c)
+    return c
+  }
+  // Realistic reuse: nobody twice on the same day, and at most one pending
+  // future appointment per regular (the policy allows two).
+  const seen = new Set<string>() // `${customerId}|${date}`
+  const pending = new Set<string>()
+  const customerFor = (date: string, future: boolean): Customer => {
+    if (regulars.length >= 6 && people() < 0.55) {
+      const pool = regulars.filter((c) => !seen.has(`${c.id}|${date}`) && !(future && pending.has(c.id)))
+      const c = pool[Math.floor(people() * pool.length)]
+      if (c) {
+        seen.add(`${c.id}|${date}`)
+        if (future) pending.add(c.id)
+        return c
+      }
+    }
+    const c = newCustomer()
+    seen.add(`${c.id}|${date}`)
+    if (future) pending.add(c.id)
+    if (regulars.length < 24 && people() < 0.5) regulars.push(c)
+    return c
+  }
+
   // Demo appointment: the next day Isaac works, at 12:00, so /cita/demo-cita can be cancelled.
   const isaac = staff[0]!
   for (let i = 2; i < 10; i++) {
@@ -209,16 +363,29 @@ export function createSeed(now: Date): MockDb {
         const svc = services[Math.floor(rand() * services.length)]!
         const start = 10 * 60 + Math.floor(rand() * 40) * 15
         if (!fits(s, date, start, svc.durationMin)) continue
-        const n = customers.length
-        const customer: Customer = {
-          id: `cust-${n}`,
-          name: `Cliente de ejemplo ${n}`,
-          phone: `44200000${String(n).padStart(2, '0')}`,
-          email: `cliente${n}@ejemplo.com`,
-          createdAt,
-        }
-        customers.push(customer)
         const past = Date.parse(iso(date, '00:00')) + (start + svc.durationMin) * 60000 < now.getTime()
+        const customer = customerFor(date, !past)
+        // Online bookings arrive confirmed. The old booked/confirmed draw is still
+        // consumed so the PRNG sequence, and every appointment after this one, stays the same.
+        if (!past) rand()
+        add(s, date, start, [svc], customer, `seed-${date}-${s.id}-${start}`, past ? 'completed' : 'confirmed')
+        made++
+      }
+    }
+  }
+
+  // The previous four weeks, already served (with a few no-shows), so the agenda's week
+  // view and customer histories are not empty. Separate PRNG: the days above stay as they were.
+  const pastRand = mulberry32(Number(today.replaceAll('-', '')) + 7)
+  for (let d = -28; d < 0; d++) {
+    const date = addDays(today, d)
+    for (const s of staff) {
+      const target = 4 + Math.floor(pastRand() * 4)
+      for (let tries = 0, made = 0; tries < 40 && made < target; tries++) {
+        const svc = services[Math.floor(pastRand() * services.length)]!
+        const start = 10 * 60 + Math.floor(pastRand() * 40) * 15
+        if (!fits(s, date, start, svc.durationMin)) continue
+        const customer = customerFor(date, false)
         add(
           s,
           date,
@@ -226,11 +393,57 @@ export function createSeed(now: Date): MockDb {
           [svc],
           customer,
           `seed-${date}-${s.id}-${start}`,
-          past ? 'completed' : rand() < 0.5 ? 'booked' : 'confirmed',
+          pastRand() < 0.08 ? 'no_show' : 'completed',
         )
         made++
       }
     }
+  }
+
+  // Regulars carry a loyalty card: stamps from earlier visits plus the ones in the
+  // seed; one has a full card with the free cut ready. A few have staff notes.
+  regulars.forEach((c, i) => {
+    const earned = appointments.filter(
+      (a) =>
+        a.customerId === c.id &&
+        a.status === 'completed' &&
+        a.serviceIds.some((id) => services.find((x) => x.id === id)?.loyaltyEligible),
+    ).length
+    const full = i === 1
+    const stamps = full
+      ? bookingPolicy.loyaltyGoal
+      : Math.min(bookingPolicy.loyaltyGoal - 1, earned + Math.floor(people() * 8))
+    const token = `seed-card-${c.id}`
+    loyalty.push({
+      token,
+      customerId: c.id,
+      customerFirstName: c.name.split(' ')[0]!,
+      stamps,
+      goal: bookingPolicy.loyaltyGoal,
+      rewardExpiresAt: full ? iso(addDays(today, 60), '23:59') : null,
+    })
+    for (const a of appointments) if (a.customerId === c.id) a.loyaltyToken = token
+    if (i < REGULAR_NOTES.length) c.notes = REGULAR_NOTES[i]
+  })
+
+  // Today gets a no-show and a cancellation so the admin overview has something to flag.
+  const todays = appointments
+    .filter((a) => localDate(a.startsAt, tz) === today && a.token.startsWith('seed-'))
+    .sort((a, b) => a.startsAt.localeCompare(b.startsAt))
+  const pastToday = todays.filter((a) => a.status === 'completed')
+  if (pastToday.length >= 2) pastToday[1]!.status = 'no_show'
+  const upcoming = todays.filter((a) => a.status === 'confirmed' && a.token.startsWith('seed-'))
+  if (upcoming.length >= 2) upcoming[upcoming.length - 1]!.status = 'cancelled'
+
+  // Served appointments carry their payment (cash, card or transfer; sometimes a
+  // tip), so the daily cash count has data. Separate PRNG: nothing else moves.
+  const payRand = mulberry32(Number(today.replaceAll('-', '')) + 29)
+  const methods = ['cash', 'cash', 'card', 'card', 'transfer'] as const
+  for (const a of appointments) {
+    if (a.status !== 'completed') continue
+    const method = methods[Math.floor(payRand() * methods.length)]!
+    const tip = payRand() < 0.35 ? [20, 30, 50, 50, 100][Math.floor(payRand() * 5)]! : 0
+    a.payment = { method, amount: a.totalPrice, tip, tipMethod: method, paidAt: a.endsAt }
   }
 
   // A block (e.g. training) so the agenda shows it.
@@ -255,5 +468,17 @@ export function createSeed(now: Date): MockDb {
     customers,
     appointments,
     loyalty,
+    products: products.map((p) => ({ ...p, createdAt })),
+    // Commissions are captured by the owner in the admin; nothing real lives in this repo.
+    commissions: staff.map((st) => ({ staffId: st.id, mode: 'percent', value: null, overrides: {} })),
+    policy: { ...bookingPolicy },
+    advances: [],
+    sales: [],
+    finance: defaultFinanceSettings(),
+    bonusAwards: [],
+    cashMoves: [],
+    dailyCloses: [],
+    payrollCloses: [],
+    commissionHistory: [],
   }
 }

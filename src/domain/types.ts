@@ -44,6 +44,29 @@ export interface Service {
   loyaltyEligible: boolean
 }
 
+/**
+ * Product sold at the shop (shampoo, wax…). Cost and commission are captured
+ * by the owner in the admin and only owner and manager see them; null means
+ * "not captured yet". All amounts in whole MXN pesos.
+ */
+export interface Product {
+  id: ID
+  name: string
+  /** Optional brand, shown under the name. */
+  brand: string
+  /** Public price. */
+  price: number
+  /** Production / purchase cost. */
+  cost: number | null
+  /** Fixed amount the barber earns per unit sold. */
+  commission: number | null
+  /** Photo (Supabase Storage URL; data URL in the demo). */
+  imageUrl: string | null
+  /** Available for sale. */
+  active: boolean
+  createdAt: Instant
+}
+
 export interface Staff {
   id: ID
   name: string
@@ -54,6 +77,21 @@ export interface Staff {
   /** Services this person performs; "all" for every active service. */
   serviceIds: ID[] | 'all'
   schedule: WeeklySchedule
+  /** Short title shown with the name (e.g. "Barbero senior"); optional. */
+  title?: string
+}
+
+/**
+ * How a barber earns on services. Financial: owner and manager only, stored
+ * apart from the public staff profile so it never reaches the site. `value`
+ * null = not captured yet. Overrides set a different amount for specific
+ * services, in the same mode (percent or fixed MXN).
+ */
+export interface StaffCommission {
+  staffId: ID
+  mode: 'percent' | 'fixed'
+  value: number | null
+  overrides: Record<ID, number>
 }
 
 /** Time the shop or a barber is not bookable (lunch, vacation, holiday, walk-in). */
@@ -76,6 +114,8 @@ export interface CustomerContact {
 export interface Customer extends CustomerContact {
   id: ID
   createdAt: Instant
+  /** Staff notes about the person (preferences, allergies…). */
+  notes?: string
 }
 
 export type AppointmentStatus = 'booked' | 'confirmed' | 'completed' | 'cancelled' | 'no_show'
@@ -97,7 +137,45 @@ export interface Appointment {
   createdAt: Instant
   /** Token of the customer's loyalty card, if any. */
   loyaltyToken: string | null
+  /** Where it came from: the public site, the panel (phone, front desk) or a walk-in. */
+  source?: AppointmentSource
+  /** Recorded when the appointment is completed (feeds the daily cash count and finance). */
+  payment?: AppointmentPayment
 }
+
+export type PaymentMethod = 'cash' | 'card' | 'transfer'
+
+export interface AppointmentPayment {
+  method: PaymentMethod
+  /** Charged for the services (MXN, whole pesos). */
+  amount: number
+  /** Tip left for the barber; 0 when none. */
+  tip: number
+  /** How the tip was paid (card tips carry the terminal fee). */
+  tipMethod: PaymentMethod
+  paidAt: Instant
+  /** Service covered by the loyalty free cut (not charged, no commission). */
+  rewardServiceId?: ID
+  /** How much of that service the free cut covered (a haircut's price; the rest is charged). */
+  rewardAmount?: number
+  /** Mixed payment: how the charge (services + products, without the tip) was split. */
+  splits?: { method: PaymentMethod; amount: number }[]
+  /** Products sold in the same ticket. */
+  products?: SoldProduct[]
+  /** Discount on the services, authorized by the owner or a manager. */
+  discount?: { amount: number; reason: string; authorizedBy: ID; authorizedByName: string }
+}
+
+export interface SoldProduct {
+  productId: ID
+  name: string
+  qty: number
+  price: number
+  /** Fixed commission per unit for whoever sold it (null if not captured). */
+  commission: number | null
+}
+
+export type AppointmentSource = 'online' | 'panel' | 'walk_in'
 
 export interface LoyaltyCard {
   token: string

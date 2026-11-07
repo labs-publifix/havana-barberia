@@ -1,4 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
+import type { BookingPolicy } from '@/domain/types'
+import { business } from '@/config/business'
 import type { SlotQuery } from '@/data'
 import { useRepository } from './RepositoryContext'
 
@@ -8,6 +10,7 @@ export const keys = {
   slots: (q: SlotQuery) => ['slots', q.date, q.staffId, q.serviceIds.join(','), q.excludeAppointmentId ?? ''] as const,
   appointment: (token: string) => ['appointment', token] as const,
   loyalty: (token: string) => ['loyalty', token] as const,
+  policy: ['policy'] as const,
 }
 
 export function useCatalog() {
@@ -48,4 +51,14 @@ export function useLoyalty(token: string | null | undefined) {
     queryFn: () => repo.getLoyaltyCardByToken(token!),
     enabled: Boolean(token),
   })
+}
+
+/**
+ * Booking and loyalty rules as the shop set them in the admin. Until they load
+ * (and if they fail) the defaults in config/business apply.
+ */
+export function usePolicy(): BookingPolicy {
+  const repo = useRepository()
+  const { data } = useQuery({ queryKey: keys.policy, queryFn: () => repo.getPolicy(), staleTime: 60_000 })
+  return data ?? business.policy
 }

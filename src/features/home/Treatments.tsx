@@ -38,6 +38,8 @@ export function Treatments() {
       >
         {business.featuredServiceIds.map((id, i) => {
           const s = items[i]
+          // Hidden or deleted in the admin: skip it once the catalog has loaded.
+          if (data && !s) return null
           const photo = servicePhotos[id]
           const badge = serviceBadges[id]
           return (

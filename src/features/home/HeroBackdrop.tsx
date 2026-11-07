@@ -65,8 +65,14 @@ export function HeroBackdrop({ coverRef }: { coverRef: RefObject<Element | null>
   useEffect(() => {
     const v = videoRef.current
     if (!v || !src) return
-    if (shouldPlay) v.play().catch(() => undefined)
-    else v.pause()
+    if (!shouldPlay) return v.pause()
+    // play() can be refused (autoplay rules) or, in some browsers and test DOMs,
+    // return nothing instead of a promise: never let that break the page.
+    try {
+      void v.play()?.catch(() => undefined)
+    } catch {
+      /* the poster stays visible */
+    }
   }, [shouldPlay, src])
 
   return (

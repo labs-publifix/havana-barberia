@@ -37,7 +37,10 @@ function RowText({ title, subtitle }: { title: string; subtitle: string }) {
 export function HeroBarberPicker() {
   const { data: staff } = useStaff()
   // One slot per barber from the start (skeleton until data arrives) so nothing shifts.
-  const barbers = teamOrder.map((id) => ({ id, s: staff?.find((x) => x.id === id) }))
+  const barbers = teamOrder
+    .map((id) => ({ id, s: staff?.find((x) => x.id === id) }))
+    // Deactivated in the admin: drop it once the team has loaded (skeletons only while loading).
+    .filter((p) => !staff || p.s)
 
   return (
     <div className="grid gap-2.5">

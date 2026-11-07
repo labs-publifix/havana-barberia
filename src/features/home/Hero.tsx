@@ -16,10 +16,13 @@ const delay = (ms: number) => ({ '--d': `${ms}ms` }) as CSSProperties
 function InfoLine() {
   const { data } = useCatalog()
   const status = useOpenStatus()
-  const prices = business.heroPrices.map((p) => ({
-    ...p,
-    price: data?.services.find((s) => s.id === p.serviceId)?.price,
-  }))
+  const prices = business.heroPrices
+    .map((p) => ({
+      ...p,
+      price: data?.services.find((s) => s.id === p.serviceId)?.price,
+    }))
+    // Hidden or deleted in the admin: leave it out once the catalog has loaded.
+    .filter((p) => !data || p.price !== undefined)
   return (
     <p className="grid gap-1 text-[15px] text-gray-200 sm:flex sm:flex-wrap sm:items-center sm:gap-x-2.5 md:text-base">
       <span className="flex flex-wrap items-center gap-x-2.5">
