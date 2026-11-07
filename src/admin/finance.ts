@@ -324,3 +324,30 @@ export interface PayrollClose {
   /** staffId → when and who marked the receipt as paid. */
   paid: Record<ID, { at: string; by: string }>
 }
+
+/** Headline figures for a period (only appointments that already started count). */
+export function periodStats(appointments: Appointment[], sales: { total: number }[], now: string) {
+  const past = appointments.filter((a) => a.startsAt <= now)
+  const done = past.filter((a) => a.status === 'completed')
+  const noShows = past.filter((a) => a.status === 'no_show').length
+  const services = done.reduce((t, a) => t + (a.payment?.amount ?? a.totalPrice), 0)
+  const products =
+    done.reduce((t, a) => t + (a.payment?.products ?? []).reduce((x, i) => x + i.price * i.qty, 0), 0) +
+    sales.reduce((t, x) => t + x.total, 0)
+  return {
+    sales: services + products,
+    products,
+    done: done.length,
+    avgTicket: done.length ? Math.round(services / done.length) : 0,
+    noShows,
+    started: past.length,
+    noShowRate: past.length ? Math.round((noShows / past.length) * 100) : 0,
+  }
+}
+
+/** "+12 % vs. semana anterior", or null when there is nothing to compare with. */
+export function comparison(current: number, previous: number, label: string) {
+  if (!previous) return null
+  const pct = Math.round(((current - previous) / previous) * 100)
+  return `${pct > 0 ? '+' : ''}${pct} % vs. ${label}`
+}

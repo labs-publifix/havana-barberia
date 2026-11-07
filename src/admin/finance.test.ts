@@ -3,6 +3,8 @@ import { createSeed } from '@/data/mock/seed'
 import type { Appointment, StaffCommission } from '@/domain/types'
 import { zonedInstant } from '@/lib/time'
 import {
+  comparison,
+  periodStats,
   cardFee,
   dailySales,
   defaultFinanceSettings,
@@ -147,5 +149,20 @@ describe('finance', () => {
     })
     // $280 × 40% + $280 × 50%.
     expect(rows[0]!.commission).toBe(112 + 140)
+  })
+
+  it('summarizes a period and compares it with the previous one', () => {
+    const s = periodStats(
+      [
+        appt('a', 'isaac', '2026-11-02', ['corte-adulto']),
+        appt('b', 'isaac', '2026-11-03', ['corte-adulto'], 0, 'no_show'),
+      ],
+      [{ total: 260 }],
+      '2026-11-10T00:00:00.000Z',
+    )
+    expect(s).toMatchObject({ sales: 540, products: 260, done: 1, avgTicket: 280, noShowRate: 50 })
+    expect(comparison(120, 100, 'la semana anterior')).toBe('+20 % vs. la semana anterior')
+    expect(comparison(80, 100, 'x')).toBe('-20 % vs. x')
+    expect(comparison(80, 0, 'x')).toBeNull()
   })
 })

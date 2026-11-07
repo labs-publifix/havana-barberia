@@ -67,9 +67,13 @@ Entregas, cada una publicada en la vista previa para revisión:
    configurable; el corte gratis no se cobra ni paga comisión; la comisión de la terminal la absorbe la barbería;
    ticket de 80 mm en PDF al completar y cobrar.
 
-   **Pendiente para la fase 2:** pagos mixtos en un ticket, servicios y productos en una misma cuenta, descuentos
-   con autorización, salidas de caja y corte diario con arqueo, cerrar la semana (bloquearla y marcar recibos
-   pagados), reglas de comisión con vigencias, comparativos y exportación en reportes.
+   **Completado antes del backend:** ticket completo al cobrar (servicios y productos, corte gratis también en combos
+   cobrando la diferencia, descuentos con autorización del dueño o gerente, pago mixto), caja del día (fondo,
+   entradas y salidas, arqueo y cierre), cierre de la semana de nómina (recibos congelados y marcados como pagados),
+   vigencias de comisión y comparativos con exportación a Excel (CSV) en Reportes.
+
+   **Para el backend (hito 1C):** guardar todo en Supabase con permisos por rol, bitácora de cambios, y la
+   autorización de descuentos con reautenticación real.
 
 Permisos que la UI debe reflejar: el barbero solo ve su agenda y sus comisiones;
 finanzas solo dueño y gerente; recepción opera agenda, clientes y ventas.
