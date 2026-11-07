@@ -10,14 +10,14 @@ import { buttonClass } from '@/components/ui/buttonClass'
 import { Dialog } from '@/components/ui/Dialog'
 import { TextArea } from '@/components/ui/Field'
 import { usePolicy } from '@/app/queries'
-import { rewardAvailable, rewardServiceFor } from '@/lib/loyalty'
+import { rewardAvailable, rewardFor } from '@/lib/loyalty'
 import { printTicket, ticketFromAppointment } from '../ticket'
 import { TicketButtons } from '../ui/TicketButtons'
 import { formatMxPhone } from '@/lib/phone'
 import { capitalize, durationLabel, formatDateLong, formatTime12, localDate, localTime, money } from '@/lib/time'
-import { useAdminAuth } from '../auth/AdminAuth'
+import { useAdminAuth, useAdminSession } from '../auth/AdminAuth'
 import type { PaymentInput, StaffStatusChange } from '../domain'
-import { methodLabels, methodPhrases } from '../cash'
+import { methodLabels, productsTotalOf, methodPhrases } from '../cash'
 import { CompleteDialog } from './CompleteDialog'
 import { DatePicker } from '../ui/DatePicker'
 import { Select } from '../ui/Select'
@@ -168,6 +168,12 @@ export function AppointmentPanel({
   }
 
   const { toleranceMin } = usePolicy()
+  const { user } = useAdminSession()
+  const { data: productsOnSale } = useQuery({
+    queryKey: ['admin', 'products'],
+    queryFn: () => repo.listProducts(),
+    enabled: charging,
+  })
   const { data: card } = useQuery({
     queryKey: ['admin', 'day', 'loyalty', a?.customerId],
     queryFn: () => repo.getLoyaltyForCustomer(a!.customerId),
@@ -208,7 +214,9 @@ export function AppointmentPanel({
             toast('No se pudo generar el ticket. Usa «Imprimir ticket» en la cita.', 'danger'),
           )
         const p = r.appointment.payment
-        const paid = p ? ` · ${money(p.amount + p.tip)} ${methodPhrases[p.method]}` : ''
+        const paid = p
+          ? ` · ${money(p.amount + productsTotalOf(p) + p.tip)}${p.splits?.length ? ' (pago mixto)' : ` ${methodPhrases[p.method]}`}`
+          : ''
         const l = r.loyalty
         toast(
           `Cita completada${paid}` +
@@ -324,9 +332,26 @@ export function AppointmentPanel({
               <Section title="Pago">
                 <dl className="grid gap-1 rounded-md border border-line px-3 py-2.5 text-sm">
                   <div className="flex justify-between gap-3">
-                    <dt className="text-fg-muted">Servicios · {methodLabels[a.payment.method]}</dt>
+                    <dt className="text-fg-muted">Servicios</dt>
                     <dd className="tabular">{money(a.payment.amount)}</dd>
                   </div>
+                  {a.payment.rewardAmount ? (
+                    <p className="text-[13px] text-fg-muted">
+                      Incluye corte gratis de lealtad (−{money(a.payment.rewardAmount)}).
+                    </p>
+                  ) : null}
+                  {a.payment.discount && (
+                    <p className="text-[13px] text-fg-muted">
+                      Descuento de {money(a.payment.discount.amount)} · {a.payment.discount.reason} · autorizó{' '}
+                      {a.payment.discount.authorizedByName}
+                    </p>
+                  )}
+                  {(a.payment.products ?? []).map((p) => (
+                    <div key={p.productId} className="flex justify-between gap-3">
+                      <dt className="text-fg-muted">{p.qty > 1 ? `${p.qty} × ${p.name}` : p.name}</dt>
+                      <dd className="tabular">{money(p.price * p.qty)}</dd>
+                    </div>
+                  ))}
                   <div className="flex justify-between gap-3">
                     <dt className="text-fg-muted">
                       Propina{a.payment.tip > 0 ? ` · ${methodLabels[a.payment.tipMethod]}` : ''}
@@ -335,8 +360,13 @@ export function AppointmentPanel({
                   </div>
                   <div className="flex justify-between gap-3 border-t border-line pt-1.5 font-semibold">
                     <dt>Total cobrado · {formatTime12(localTime(a.payment.paidAt, timeZone))}</dt>
-                    <dd className="tabular">{money(a.payment.amount + a.payment.tip)}</dd>
+                    <dd className="tabular">{money(a.payment.amount + productsTotalOf(a.payment) + a.payment.tip)}</dd>
                   </div>
+                  <p className="text-[13px] text-fg-muted">
+                    {a.payment.splits?.length
+                      ? `Pago mixto: ${a.payment.splits.map((x) => `${methodLabels[x.method]} ${money(x.amount)}`).join(' + ')}`
+                      : `Pagó con ${methodLabels[a.payment.method].toLowerCase()}`}
+                  </p>
                 </dl>
                 <TicketButtons ticket={() => ticketFromAppointment(a, services, barber?.name, card)} />
               </Section>
@@ -491,7 +521,9 @@ export function AppointmentPanel({
         error={chargeError}
         onCancel={() => setCharging(false)}
         onConfirm={finish}
-        reward={rewardAvailable(card, now) ? rewardServiceFor(a.serviceIds, services) : null}
+        reward={rewardAvailable(card, now) ? rewardFor(a.serviceIds, services) : null}
+        products={productsOnSale ?? []}
+        canAuthorize={user.role === 'owner' || user.role === 'manager'}
       />
     </>
   )

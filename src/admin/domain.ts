@@ -82,8 +82,17 @@ export interface PaymentInput {
   /** 0 when no tip. */
   tip: number
   tipMethod: PaymentMethod
-  /** Redeem the loyalty free cut (the haircut is not charged and pays no commission). */
+  /** Redeem the loyalty free cut (a haircut is not charged and pays no commission). */
   useReward?: boolean
+  /** Mixed payment (sums to services + products, without the tip). */
+  splits?: { method: PaymentMethod; amount: number }[]
+  /** Products sold in the same ticket. */
+  products?: { productId: ID; qty: number }[]
+  /**
+   * Discount on the services. Owner and manager authorize their own; anyone
+   * else needs an owner's or manager's email and password (Supabase: re-auth).
+   */
+  discount?: { amount: number; reason: string; authorizer?: { email: string; password: string } }
 }
 
 export interface StatusChangeResult {

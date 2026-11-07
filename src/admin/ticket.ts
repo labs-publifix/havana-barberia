@@ -15,7 +15,10 @@ export interface TicketData {
   customer?: string
   staff?: string
   items: { name: string; qty: number; price: number }[]
-  discount?: { label: string; amount: number }
+  /** Free cut, authorized discount… shown as negative lines. */
+  discounts?: { label: string; amount: number }[]
+  /** Mixed payment, when it was split. */
+  splits?: { method: PaymentMethod; amount: number }[]
   tip: number
   method: PaymentMethod
   tipMethod: PaymentMethod
@@ -37,18 +40,26 @@ export function ticketFromAppointment(
   loyalty?: { stamps: number; goal: number } | null,
 ): TicketData {
   const p = a.payment!
-  const items = a.serviceIds.map((id) => {
-    const s = services.find((x) => x.id === id)
-    return { name: s?.name ?? 'Servicio', qty: 1, price: s?.price ?? 0 }
-  })
+  const items = [
+    ...a.serviceIds.map((id) => {
+      const s = services.find((x) => x.id === id)
+      return { name: s?.name ?? 'Servicio', qty: 1, price: s?.price ?? 0 }
+    }),
+    ...(p.products ?? []).map((i) => ({ name: i.name, qty: i.qty, price: i.price })),
+  ]
   const reward = p.rewardServiceId ? services.find((s) => s.id === p.rewardServiceId) : undefined
+  const discounts = [
+    ...(reward ? [{ label: 'Corte gratis (lealtad)', amount: p.rewardAmount ?? reward.price }] : []),
+    ...(p.discount ? [{ label: `Descuento: ${p.discount.reason}`, amount: p.discount.amount }] : []),
+  ]
   return {
     folio: folioOf(a.id),
     at: p.paidAt,
     customer: a.customer.name,
     staff: staffName,
     items,
-    discount: reward ? { label: 'Corte gratis (lealtad)', amount: reward.price } : undefined,
+    discounts: discounts.length ? discounts : undefined,
+    splits: p.splits,
     tip: p.tip,
     method: p.method,
     tipMethod: p.tipMethod,
@@ -71,7 +82,7 @@ export function ticketFromSale(s: ProductSale, staffName?: string): TicketData {
 /** Totals shown on the ticket. */
 export function ticketTotals(t: TicketData) {
   const subtotal = t.items.reduce((sum, i) => sum + i.price * i.qty, 0)
-  const charged = subtotal - (t.discount?.amount ?? 0)
+  const charged = subtotal - (t.discounts ?? []).reduce((sum, d) => sum + d.amount, 0)
   return { subtotal, charged, total: charged + t.tip }
 }
 
@@ -122,15 +133,17 @@ export async function ticketPdf(t: TicketData) {
     if (t.staff) row(`Atendió: ${t.staff}`, '', 8)
     rule()
     for (const i of t.items) row(i.qty > 1 ? `${i.qty} × ${i.name}` : i.name, money(i.price * i.qty))
-    if (t.discount) row(t.discount.label, `-${money(t.discount.amount)}`)
+    for (const d of t.discounts ?? []) row(d.label, `-${money(d.amount)}`)
     rule()
     const totals = ticketTotals(t)
-    if (t.discount || t.tip) row('Subtotal', money(totals.charged))
+    if (t.discounts?.length || t.tip) row('Subtotal', money(totals.charged))
     if (t.tip) row(`Propina (${methodLabels[t.tipMethod].toLowerCase()})`, money(t.tip))
     y += 0.5
     row('TOTAL', money(totals.total), 11, true)
     y += 0.5
-    row(`Pago: ${methodLabels[t.method]}`, '', 8)
+    if (t.splits?.length)
+      for (const x of t.splits) row(`Pago ${methodLabels[x.method].toLowerCase()}`, money(x.amount), 8)
+    else row(`Pago: ${methodLabels[t.method]}`, '', 8)
     if (t.loyalty) {
       rule()
       center(`Tarjeta de lealtad: ${t.loyalty.stamps} de ${t.loyalty.goal} sellos`, 8, true)

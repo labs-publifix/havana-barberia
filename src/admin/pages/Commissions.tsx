@@ -29,9 +29,14 @@ export default function Commissions() {
   const { data } = useQuery({ queryKey: ['admin', 'finance', from, to], queryFn: () => repo.getFinance(from, to) })
 
   const rows = data
-    ? earnings({ ...data, from, to, timeZone: tz }).filter(
-        (r) => r.services > 0 || data.staff.find((s) => s.id === r.staffId)?.active,
-      )
+    ? earnings({
+        ...data,
+        bonusRules: data.settings.bonuses,
+        discountCommission: data.settings.discountCommission,
+        from,
+        to,
+        timeZone: tz,
+      }).filter((r) => r.services > 0 || data.staff.find((s) => s.id === r.staffId)?.active)
     : null
 
   return (

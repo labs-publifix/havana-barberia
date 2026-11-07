@@ -296,8 +296,26 @@ export class MockAdminRepository implements AdminRepository {
     return this.booking.adminSlots(query)
   }
 
-  completeAppointment(id: ID, payment: PaymentInput): Promise<StatusChangeResult> {
-    return this.booking.adminSetStatus(id, 'completed', payment)
+  async completeAppointment(id: ID, payment: PaymentInput): Promise<StatusChangeResult> {
+    const { discount, ...rest } = payment
+    if (!discount) return this.booking.adminSetStatus(id, 'completed', rest)
+    const by = await this.authorizer(discount.authorizer)
+    return this.booking.adminSetStatus(id, 'completed', {
+      ...rest,
+      discount: { amount: discount.amount, reason: discount.reason, authorizedBy: by.id, authorizedByName: by.name },
+    })
+  }
+
+  /** Who authorizes a discount: the signed-in owner/manager, or one who types their credentials. */
+  private async authorizer(creds?: { email: string; password: string }): Promise<AdminUser> {
+    const me = (await this.getSession())?.user
+    if (me && (me.role === 'owner' || me.role === 'manager')) return me
+    const u = this.users().find(
+      (x) => x.active && (x.role === 'owner' || x.role === 'manager') && x.email === creds?.email.trim().toLowerCase(),
+    )
+    if (!u || creds?.password !== DEMO_PASSWORD)
+      throw new InvalidRequestError('La autorización no es válida: usa el correo y la contraseña del dueño o gerente.')
+    return u
   }
 
   setAppointmentStatus(id: ID, status: StaffStatusChange): Promise<StatusChangeResult> {

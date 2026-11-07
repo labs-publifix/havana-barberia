@@ -21,7 +21,7 @@ describe('cashSummary', () => {
       appt('completed', { method: 'card', amount: 280, tip: 30, tipMethod: 'cash' }),
       appt('completed', { method: 'transfer', amount: 430 }),
     ])
-    expect(s.services).toEqual({ cash: 280, card: 780, transfer: 430 })
+    expect(s.charges).toEqual({ cash: 280, card: 780, transfer: 430 })
     expect(s.tips).toEqual({ cash: 30, card: 50, transfer: 0 })
     expect(s.inByMethod).toEqual({ cash: 310, card: 830, transfer: 430 })
     expect(s).toMatchObject({ servicesTotal: 1490, tipsTotal: 80, total: 1570, paidCount: 4, unpaidCount: 0 })
@@ -30,5 +30,24 @@ describe('cashSummary', () => {
   it('ignores appointments that were not completed and counts completed ones without payment apart', () => {
     const s = cashSummary([appt('confirmed'), appt('no_show'), appt('cancelled'), appt('completed')])
     expect(s).toMatchObject({ total: 0, paidCount: 0, unpaidCount: 1 })
+  })
+
+  it('splits mixed payments and adds products and counter sales', () => {
+    const s = cashSummary(
+      [
+        appt('completed', {
+          method: 'card',
+          amount: 500,
+          products: [{ productId: 'p', name: 'Cera', qty: 2, price: 150, commission: null }],
+          splits: [
+            { method: 'cash', amount: 300 },
+            { method: 'card', amount: 500 },
+          ],
+        }),
+      ],
+      [{ method: 'transfer', total: 260 }],
+    )
+    expect(s.charges).toEqual({ cash: 300, card: 500, transfer: 260 })
+    expect(s).toMatchObject({ servicesTotal: 500, productsTotal: 560, total: 1060 })
   })
 })

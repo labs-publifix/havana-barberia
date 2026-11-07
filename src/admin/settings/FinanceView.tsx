@@ -46,12 +46,13 @@ export function FinanceView() {
   const qc = useQueryClient()
   const toast = useToast()
   const { data } = useQuery({ queryKey: ['admin', 'finance-settings'], queryFn: () => repo.getFinanceSettings() })
-  const [form, setForm] = useState<{ weekStartDay: string; fee: string; bonuses: Row[] } | null>(null)
+  const [form, setForm] = useState<{ weekStartDay: string; fee: string; discount: string; bonuses: Row[] } | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   const base = data && {
     weekStartDay: String(data.weekStartDay),
     fee: data.cardFeePercent?.toString() ?? '',
+    discount: data.discountCommission ?? 'list',
     bonuses: toRows(data),
   }
   const f = form ?? base
@@ -62,6 +63,7 @@ export function FinanceView() {
       repo.saveFinanceSettings({
         weekStartDay: Number(f!.weekStartDay),
         cardFeePercent: f!.fee === '' ? null : Number(f!.fee),
+        discountCommission: f!.discount === 'net' ? 'net' : 'list',
         bonuses: f!.bonuses.map((b) => ({
           id: b.id,
           name: b.name,
@@ -105,6 +107,16 @@ export function FinanceView() {
             value={f.fee}
             onChange={(e) => set({ fee: e.target.value.replace(/[^\d.]/g, '').slice(0, 5) })}
             hint="La absorbe la barbería: las propinas con tarjeta llegan completas al barbero."
+          />
+          <Select
+            label="Comisión cuando hay descuento"
+            value={f.discount}
+            onValueChange={(discount) => set({ discount })}
+            options={[
+              { value: 'list', label: 'Sobre el precio de lista (la barbería absorbe el descuento)' },
+              { value: 'net', label: 'Sobre lo que se cobró (el barbero comparte el descuento)' },
+            ]}
+            hint="El corte gratis nunca paga comisión."
           />
         </div>
       </Card>

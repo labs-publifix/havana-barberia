@@ -10,7 +10,7 @@ import { addDays, capitalize, formatDay, formatTime12, localDate, localTime, mon
 import { useFinanceWeek } from '../useFinanceWeek'
 import { useAdminAuth } from '../auth/AdminAuth'
 import { errorMessage } from '../agenda/useAgendaActions'
-import { methodLabels } from '../cash'
+import { methodLabels, productsTotalOf } from '../cash'
 import { printTicket, ticketFromAppointment, ticketFromSale, type TicketData } from '../ticket'
 import { Segmented, Switch } from '../ui/controls'
 import { Card, PageHeader, StatCard } from '../ui/Panel'
@@ -64,7 +64,7 @@ export default function Sales() {
         detail: a.serviceIds.map(svcName).join(' + ') + (a.payment!.tip ? ` · propina ${money(a.payment!.tip)}` : ''),
         staff: name(a.staffId),
         method: a.payment!.method,
-        total: a.payment!.amount + a.payment!.tip,
+        total: a.payment!.amount + productsTotalOf(a.payment!) + a.payment!.tip,
         ticket: () => ticketFromAppointment(a, data.services, name(a.staffId)),
       })),
     ...data.sales.map((s) => ({

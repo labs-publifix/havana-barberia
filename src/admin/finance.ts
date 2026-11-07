@@ -35,6 +35,8 @@ export interface FinanceSettings {
   /** Card terminal fee in percent (absorbed by the shop, never by the barber); null until captured. */
   cardFeePercent: number | null
   bonuses: BonusRule[]
+  /** Commission with a discount: on the list price (the shop absorbs it) or on the price charged. */
+  discountCommission: 'list' | 'net'
 }
 
 /** A manual bonus marked for a barber in a payroll week. */
@@ -47,6 +49,7 @@ export interface BonusAward {
 export const defaultFinanceSettings = (): FinanceSettings => ({
   weekStartDay: 1,
   cardFeePercent: null,
+  discountCommission: 'list',
   // Amounts are captured by the shop (never real figures in this public repository).
   bonuses: [
     { id: 'puntualidad', name: 'Puntualidad', kind: 'manual', threshold: null, amount: null, active: true },
@@ -148,6 +151,11 @@ export interface Advance {
   note: string
 }
 
+/** A commission rule in force from a date (changes never rewrite past weeks). */
+export interface CommissionVersion extends StaffCommission {
+  validFrom: LocalDate
+}
+
 /** Each barber's completed work between `from` and `to` (local dates, inclusive). */
 export function earnings(input: {
   appointments: Appointment[]
@@ -158,25 +166,45 @@ export function earnings(input: {
   sales?: ProductSale[]
   bonusRules?: BonusRule[]
   bonusAwards?: BonusAward[]
+  /** 'list' (default): commission on the list price, the shop absorbs discounts; 'net': on the price charged. */
+  discountCommission?: 'list' | 'net'
+  /** Commission rules over time; the one in force on each appointment's date applies. */
+  commissionHistory?: CommissionVersion[]
   from: LocalDate
   to: LocalDate
   timeZone: string
 }): BarberEarnings[] {
   const { from, to, timeZone } = input
   const inRange = (d: LocalDate) => d >= from && d <= to
+  const ruleAt = (staffId: ID, date: LocalDate) => {
+    const versions = (input.commissionHistory ?? [])
+      .filter((v) => v.staffId === staffId && v.validFrom <= date)
+      .sort((x, y) => y.validFrom.localeCompare(x.validFrom))
+    return versions[0] ?? input.commissions.find((c) => c.staffId === staffId)
+  }
   return input.staff.map((s) => {
-    const rule = input.commissions.find((c) => c.staffId === s.id)
     const lines: EarningLine[] = input.appointments
       .filter((a) => a.staffId === s.id && a.status === 'completed' && inRange(localDate(a.startsAt, timeZone)))
       .sort((a, b) => a.startsAt.localeCompare(b.startsAt))
       .map((a) => {
+        const p = a.payment
+        // With a discount, commissions follow the setting: list price (the shop absorbs it) or the price charged.
+        const listTotal = a.serviceIds.reduce((t, id) => t + (input.services.find((x) => x.id === id)?.price ?? 0), 0)
+        const factor =
+          p?.discount && input.discountCommission === 'net' && listTotal > 0
+            ? Math.max(0, 1 - p.discount.amount / (listTotal - (p.rewardAmount ?? 0) || 1))
+            : 1
         const services = a.serviceIds.map((id) => {
           const svc = input.services.find((x) => x.id === id)
-          const price = svc?.price ?? 0
-          // The loyalty free cut is not charged and pays no commission.
-          if (a.payment?.rewardServiceId === id)
-            return { id, name: `${svc?.name ?? 'Servicio'} (corte gratis)`, price: 0, commission: 0 }
-          return { id, name: svc?.name ?? 'Servicio', price, commission: commissionOn({ id, price }, rule) }
+          const list = svc?.price ?? 0
+          // The loyalty free cut is not charged and pays no commission; on a combo only the haircut part is free.
+          const free = p?.rewardServiceId === id ? (p.rewardAmount ?? list) : 0
+          const price = list - free
+          const name = free
+            ? `${svc?.name ?? 'Servicio'} (corte gratis${price ? ' aplicado' : ''})`
+            : (svc?.name ?? 'Servicio')
+          const c = price > 0 ? commissionOn({ id, price }, ruleAt(s.id, localDate(a.startsAt, timeZone))) : 0
+          return { id, name, price, commission: c === null ? null : Math.round(c * factor) }
         })
         return {
           appointmentId: a.id,
@@ -190,9 +218,15 @@ export function earnings(input: {
     const all = lines.flatMap((l) => l.services)
     const commission = all.reduce((t, x) => t + (x.commission ?? 0), 0)
     const tips = lines.reduce((t, l) => t + l.tip, 0)
-    const sold = (input.sales ?? [])
-      .filter((x) => x.staffId === s.id && inRange(localDate(x.at, timeZone)))
-      .flatMap((x) => x.items)
+    // Products: counter sales by this barber plus products sold in their appointments' tickets.
+    const sold = [
+      ...(input.sales ?? [])
+        .filter((x) => x.staffId === s.id && inRange(localDate(x.at, timeZone)))
+        .flatMap((x) => x.items),
+      ...input.appointments
+        .filter((a) => a.staffId === s.id && a.status === 'completed' && inRange(localDate(a.startsAt, timeZone)))
+        .flatMap((a) => a.payment?.products ?? []),
+    ]
     const productCommission = sold.reduce((t, i) => t + (i.commission ?? 0) * i.qty, 0)
     const advances = (input.advances ?? [])
       .filter((x) => x.staffId === s.id && inRange(x.date))

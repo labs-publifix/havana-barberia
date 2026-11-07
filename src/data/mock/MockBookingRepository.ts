@@ -1,5 +1,7 @@
 import type {
   Appointment,
+  AppointmentPayment,
+  SoldProduct,
   AppointmentSource,
   Customer,
   ID,
@@ -22,7 +24,7 @@ import { addDays, localDate, toMinutes, weekdayOf, zonedInstant } from '@/lib/ti
 import { normalizeMxPhone } from '@/lib/phone'
 import { DAY_NAMES, outsideSchedule, scheduleErrors } from '@/lib/schedule'
 import { policyError } from '@/lib/policy'
-import { rewardAvailable, rewardServiceFor } from '@/lib/loyalty'
+import { rewardAvailable, rewardFor } from '@/lib/loyalty'
 import {
   defaultFinanceSettings,
   financeSettingsError,
@@ -42,6 +44,17 @@ import {
 import { createSeed, DEMO_APPOINTMENT_TOKEN, MOCK_DB_VERSION, type MockDb } from './seed'
 
 const STORAGE_KEY = 'havana:mock-db'
+
+/** What the panel sends when completing an appointment (discount already authorized). */
+export interface CompletePayment {
+  method: PaymentMethod
+  tip: number
+  tipMethod: PaymentMethod
+  useReward?: boolean
+  splits?: { method: PaymentMethod; amount: number }[]
+  products?: { productId: ID; qty: number }[]
+  discount?: { amount: number; reason: string; authorizedBy: ID; authorizedByName: string }
+}
 
 /** Accent-insensitive lowercase, for searching names. */
 const fold = (s: string) =>
@@ -356,7 +369,7 @@ export class MockBookingRepository implements BookingRepository {
   async adminSetStatus(
     id: ID,
     status: 'confirmed' | 'completed' | 'no_show' | 'cancelled',
-    payment?: { method: PaymentMethod; tip: number; tipMethod: PaymentMethod; useReward?: boolean },
+    payment?: CompletePayment,
   ): Promise<{ appointment: Appointment; loyalty: LoyaltyCard | null; stampAdded: boolean }> {
     await this.delay()
     return this.exclusive(() => {
@@ -371,36 +384,7 @@ export class MockBookingRepository implements BookingRepository {
         throw new InvalidRequestError('Solo puedes completar una cita cuando ya empezó.')
       if (status === 'no_show' && now < start + this.policy.toleranceMin * 60000)
         throw new InvalidRequestError(`Marca no-show después de ${this.policy.toleranceMin} minutos de tolerancia.`)
-      if (status === 'completed') {
-        const methods: PaymentMethod[] = ['cash', 'card', 'transfer']
-        if (!payment || !methods.includes(payment.method)) throw new InvalidRequestError('Elige cómo pagó.')
-        if (!Number.isInteger(payment.tip) || payment.tip < 0 || payment.tip > 100000)
-          throw new InvalidRequestError('Escribe la propina en pesos, sin centavos.')
-        if (payment.tip > 0 && !methods.includes(payment.tipMethod))
-          throw new InvalidRequestError('Elige cómo dejó la propina.')
-        let amount = a.totalPrice
-        let rewardServiceId: ID | undefined
-        if (payment.useReward) {
-          const card = this.db.loyalty.find((c) => c.customerId === a.customerId)
-          if (!rewardAvailable(card, this.now()))
-            throw new InvalidRequestError('Este cliente no tiene un corte gratis vigente.')
-          const svc = rewardServiceFor(a.serviceIds, this.db.services)
-          if (!svc) throw new InvalidRequestError('El corte gratis aplica solo a un corte de cabello.')
-          amount -= svc.price
-          rewardServiceId = svc.id
-          // Redeemed: the card starts over. The free visit does not add a stamp.
-          card!.stamps = 0
-          card!.rewardExpiresAt = null
-        }
-        a.payment = {
-          method: payment.method,
-          ...(rewardServiceId ? { rewardServiceId } : {}),
-          amount,
-          tip: payment.tip,
-          tipMethod: payment.tip > 0 ? payment.tipMethod : payment.method,
-          paidAt: this.now().toISOString(),
-        }
-      }
+      if (status === 'completed') a.payment = this.buildPayment(a, payment)
       a.status = status
 
       // The stamp is earned when the appointment is completed, if a service counts.
@@ -425,6 +409,80 @@ export class MockBookingRepository implements BookingRepository {
       this.save()
       return { appointment: clone(a), loyalty: card ? clone(card) : null, stampAdded }
     })
+  }
+
+  /**
+   * The ticket of a completed appointment: services (minus the free cut and an
+   * authorized discount), products sold with it, the tip and how it was paid
+   * (one method or split). Validates everything before touching the loyalty card.
+   */
+  private buildPayment(a: Appointment, payment: CompletePayment | undefined): AppointmentPayment {
+    const methods: PaymentMethod[] = ['cash', 'card', 'transfer']
+    if (!payment || !methods.includes(payment.method)) throw new InvalidRequestError('Elige cómo pagó.')
+    if (!Number.isInteger(payment.tip) || payment.tip < 0 || payment.tip > 100000)
+      throw new InvalidRequestError('Escribe la propina en pesos, sin centavos.')
+    if (payment.tip > 0 && !methods.includes(payment.tipMethod))
+      throw new InvalidRequestError('Elige cómo dejó la propina.')
+
+    let amount = a.totalPrice
+    let reward: { service: Service; amount: number } | null = null
+    const card = this.db.loyalty.find((c) => c.customerId === a.customerId)
+    if (payment.useReward) {
+      if (!rewardAvailable(card, this.now())) throw new InvalidRequestError('Este cliente no tiene un corte gratis vigente.')
+      reward = rewardFor(a.serviceIds, this.db.services)
+      if (!reward) throw new InvalidRequestError('No hay un servicio al que aplicar el corte gratis.')
+      amount -= reward.amount
+    }
+
+    const d = payment.discount
+    if (d) {
+      if (!Number.isInteger(d.amount) || d.amount <= 0) throw new InvalidRequestError('Escribe el descuento en pesos, sin centavos.')
+      if (d.amount > amount) throw new InvalidRequestError('El descuento no puede ser mayor a lo que se cobra.')
+      if (!d.reason.trim()) throw new InvalidRequestError('Escribe el motivo del descuento.')
+      if (!d.authorizedBy) throw new InvalidRequestError('El descuento necesita la autorización del dueño o gerente.')
+      amount -= d.amount
+    }
+
+    const products: SoldProduct[] = (payment.products ?? [])
+      .filter((i) => i.qty > 0)
+      .map((i) => {
+        const p = this.db.products.find((x) => x.id === i.productId && x.active)
+        if (!p) throw new InvalidRequestError('Alguno de los productos ya no está a la venta.')
+        if (!Number.isInteger(i.qty) || i.qty > 99) throw new InvalidRequestError('Revisa las cantidades.')
+        return { productId: p.id, name: p.name, qty: i.qty, price: p.price, commission: p.commission }
+      })
+    const charge = amount + products.reduce((t, i) => t + i.price * i.qty, 0)
+
+    let method = payment.method
+    let splits: { method: PaymentMethod; amount: number }[] | undefined
+    if (payment.splits?.length) {
+      splits = payment.splits.filter((x) => x.amount > 0)
+      if (splits.length < 2) throw new InvalidRequestError('Un pago mixto necesita al menos dos formas de pago.')
+      if (new Set(splits.map((x) => x.method)).size !== splits.length)
+        throw new InvalidRequestError('Usa cada forma de pago una sola vez.')
+      if (splits.some((x) => !methods.includes(x.method) || !Number.isInteger(x.amount)))
+        throw new InvalidRequestError('Revisa los montos del pago mixto.')
+      if (splits.reduce((t, x) => t + x.amount, 0) !== charge)
+        throw new InvalidRequestError(`El pago mixto debe sumar ${charge} pesos.`)
+      method = [...splits].sort((x, y) => y.amount - x.amount)[0]!.method
+    }
+
+    // Everything checked: redeem the reward (the card starts over; this visit adds no stamp).
+    if (reward && card) {
+      card.stamps = 0
+      card.rewardExpiresAt = null
+    }
+    return {
+      method,
+      amount,
+      tip: payment.tip,
+      tipMethod: payment.tip > 0 ? payment.tipMethod : method,
+      paidAt: this.now().toISOString(),
+      ...(reward ? { rewardServiceId: reward.service.id, rewardAmount: reward.amount } : {}),
+      ...(splits ? { splits } : {}),
+      ...(products.length ? { products } : {}),
+      ...(d ? { discount: { amount: d.amount, reason: d.reason.trim(), authorizedBy: d.authorizedBy, authorizedByName: d.authorizedByName } } : {}),
+    }
   }
 
   async adminCreateAppointment(input: {
@@ -746,7 +804,7 @@ export class MockBookingRepository implements BookingRepository {
       staff: [...this.db.staff].sort((a, b) => a.order - b.order),
       commissions: this.db.commissions,
       advances: (this.db.advances ?? []).filter((x) => x.date >= from && x.date <= to),
-      settings: this.db.finance ?? defaultFinanceSettings(),
+      settings: { ...defaultFinanceSettings(), ...this.db.finance },
       bonusAwards: (this.db.bonusAwards ?? []).filter((x) => x.weekStart >= from && x.weekStart <= to),
       sales: (this.db.sales ?? []).filter((x) => {
         const d = localDate(x.at, tz)
@@ -810,6 +868,7 @@ export class MockBookingRepository implements BookingRepository {
       const settings: FinanceSettings = {
         weekStartDay: input.weekStartDay,
         cardFeePercent: input.cardFeePercent,
+        discountCommission: input.discountCommission === 'net' ? 'net' : 'list',
         bonuses: input.bonuses.map((b) => ({
           ...b,
           name: b.name.trim(),

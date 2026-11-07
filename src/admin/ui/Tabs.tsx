@@ -36,7 +36,11 @@ export function Tabs<T extends string>({
     document.getElementById(`${idBase}-tab-${tabs[next]!.value}`)?.focus()
   }
   return (
-    <div role="tablist" aria-label={label} className="flex gap-1 overflow-x-auto border-b border-line [scrollbar-width:none]">
+    <div
+      role="tablist"
+      aria-label={label}
+      className="flex gap-1 overflow-x-auto border-b border-line [scrollbar-width:none]"
+    >
       {tabs.map((t, i) => {
         const on = t.value === value
         return (

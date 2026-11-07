@@ -70,13 +70,15 @@ export default function Payroll() {
     )
   }
 
-  const cash = cashSummary(data.appointments)
-  const prod: Record<PaymentMethod, number> = { cash: 0, card: 0, transfer: 0 }
-  for (const x of data.sales) prod[x.method] += x.total
-  const prodTotal = prod.cash + prod.card + prod.transfer
-  const rows = earnings({ ...data, bonusRules: data.settings.bonuses, from, to, timeZone: tz }).filter(
-    (r) => r.services > 0 || r.advances > 0 || data.staff.find((s) => s.id === r.staffId)?.active,
-  )
+  const cash = cashSummary(data.appointments, data.sales)
+  const rows = earnings({
+    ...data,
+    bonusRules: data.settings.bonuses,
+    discountCommission: data.settings.discountCommission,
+    from,
+    to,
+    timeZone: tz,
+  }).filter((r) => r.services > 0 || r.advances > 0 || data.staff.find((s) => s.id === r.staffId)?.active)
   const total = rows.reduce(
     (t, r) => ({
       commission: t.commission + r.commission,
@@ -88,7 +90,7 @@ export default function Payroll() {
     { commission: 0, tips: 0, advances: 0, bonuses: 0, pay: 0 },
   )
   const fee = data.settings.cardFeePercent
-  const cardIn = cash.inByMethod.card + prod.card
+  const cardIn = cash.inByMethod.card
   const manualBonuses = data.settings.bonuses.filter((b) => b.active && b.kind === 'manual')
   const awarded = (staffId: string, bonusId: string) =>
     data.bonusAwards.some((w) => w.staffId === staffId && w.bonusId === bonusId && w.weekStart === from)
@@ -107,11 +109,11 @@ export default function Payroll() {
 
       <Card
         title="Entradas por forma de pago"
-        description={`${cash.paidCount} citas cobradas en la semana.`}
+        description={`${cash.paidCount} citas cobradas · servicios ${money(cash.servicesTotal)} · productos ${money(cash.productsTotal)}. Los pagos mixtos cuentan en cada forma de pago.`}
         className="min-w-0"
         bodyClassName="relative overflow-x-auto"
       >
-        <table className="w-full min-w-[560px] text-sm">
+        <table className="w-full min-w-[460px] text-sm">
           <caption className="sr-only">Entradas por forma de pago</caption>
           <thead>
             <tr className="text-left">
@@ -119,10 +121,7 @@ export default function Payroll() {
                 Forma de pago
               </th>
               <th scope="col" className={`${th} text-right`}>
-                Servicios
-              </th>
-              <th scope="col" className={`${th} text-right`}>
-                Productos
+                Cobros
               </th>
               <th scope="col" className={`${th} text-right`}>
                 Propinas
@@ -138,22 +137,20 @@ export default function Payroll() {
                 <th scope="row" className="px-5 py-2.5 text-left font-medium">
                   {methodLabels[m]}
                 </th>
-                <td className="tabular px-3 py-2.5 text-right">{money(cash.services[m])}</td>
-                <td className="tabular px-3 py-2.5 text-right">{money(prod[m])}</td>
+                <td className="tabular px-3 py-2.5 text-right">{money(cash.charges[m])}</td>
                 <td className="tabular px-3 py-2.5 text-right">{money(cash.tips[m])}</td>
-                <td className="tabular px-5 py-2.5 text-right font-semibold">{money(cash.inByMethod[m] + prod[m])}</td>
+                <td className="tabular px-5 py-2.5 text-right font-semibold">{money(cash.inByMethod[m])}</td>
               </tr>
             ))}
             <tr className="bg-surface">
               <th scope="row" className="px-5 py-2.5 text-left font-semibold">
                 Total
               </th>
-              <td className="tabular px-3 py-2.5 text-right font-semibold">{money(cash.servicesTotal)}</td>
-              <td className="tabular px-3 py-2.5 text-right font-semibold">{money(prodTotal)}</td>
-              <td className="tabular px-3 py-2.5 text-right font-semibold">{money(cash.tipsTotal)}</td>
-              <td className="tabular px-5 py-2.5 text-right text-base font-semibold">
-                {money(cash.total + prodTotal)}
+              <td className="tabular px-3 py-2.5 text-right font-semibold">
+                {money(cash.servicesTotal + cash.productsTotal)}
               </td>
+              <td className="tabular px-3 py-2.5 text-right font-semibold">{money(cash.tipsTotal)}</td>
+              <td className="tabular px-5 py-2.5 text-right text-base font-semibold">{money(cash.total)}</td>
             </tr>
           </tbody>
         </table>

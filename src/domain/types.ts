@@ -156,6 +156,23 @@ export interface AppointmentPayment {
   paidAt: Instant
   /** Service covered by the loyalty free cut (not charged, no commission). */
   rewardServiceId?: ID
+  /** How much of that service the free cut covered (a haircut's price; the rest is charged). */
+  rewardAmount?: number
+  /** Mixed payment: how the charge (services + products, without the tip) was split. */
+  splits?: { method: PaymentMethod; amount: number }[]
+  /** Products sold in the same ticket. */
+  products?: SoldProduct[]
+  /** Discount on the services, authorized by the owner or a manager. */
+  discount?: { amount: number; reason: string; authorizedBy: ID; authorizedByName: string }
+}
+
+export interface SoldProduct {
+  productId: ID
+  name: string
+  qty: number
+  price: number
+  /** Fixed commission per unit for whoever sold it (null if not captured). */
+  commission: number | null
 }
 
 export type AppointmentSource = 'online' | 'panel' | 'walk_in'

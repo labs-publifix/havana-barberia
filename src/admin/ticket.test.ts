@@ -18,7 +18,7 @@ describe('ticket', () => {
     const t = ticketFromAppointment(appt, seed.services, 'Isaac Fuentes', { stamps: 0, goal: 10 })
     expect(t.folio).toBe('BC123XYZ')
     expect(t.items.map((i) => i.price)).toEqual([280, 150])
-    expect(t.discount).toEqual({ label: 'Corte gratis (lealtad)', amount: 280 })
+    expect(t.discounts).toEqual([{ label: 'Corte gratis (lealtad)', amount: 280 }])
     expect(ticketTotals(t)).toEqual({ subtotal: 430, charged: 150, total: 200 })
   })
 

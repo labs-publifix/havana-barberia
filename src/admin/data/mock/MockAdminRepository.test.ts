@@ -140,3 +140,40 @@ describe('MockAdminRepository · users', () => {
     ).rejects.toThrow(/Solo la persona dueña/)
   })
 })
+
+describe('MockAdminRepository · discount authorization', () => {
+  it('reception needs an owner or manager password; a barber login does not authorize', async () => {
+    const { MockBookingRepository } = await import('@/data/mock/MockBookingRepository')
+    const { createSeed } = await import('@/data/mock/seed')
+    const { zonedInstant } = await import('@/lib/time')
+    let now = zonedInstant('2026-11-02', '09:00', 'America/Mexico_City')
+    const booking = new MockBookingRepository({
+      storage: null,
+      initial: { ...createSeed(now), appointments: [], blocks: [] },
+      now: () => now,
+    })
+    const a = await booking.createAppointment({
+      serviceIds: ['corte-adulto'],
+      staffId: 'isaac',
+      startsAt: zonedInstant('2026-11-02', '10:00', 'America/Mexico_City').toISOString(),
+      customer: { name: 'Ana Ríos', phone: '4421112233', email: 'ana@ejemplo.com' },
+      notes: '',
+      privacyAccepted: true,
+    })
+    now = zonedInstant('2026-11-02', '11:00', 'America/Mexico_City')
+    const repo = new MockAdminRepository({ storage: null, booking })
+    await repo.demo.switchTo('u-reception')
+    const pay = (email: string, password: string) => ({
+      method: 'cash' as const,
+      tip: 0,
+      tipMethod: 'cash' as const,
+      discount: { amount: 30, reason: 'Promo', authorizer: { email, password } },
+    })
+    await expect(repo.completeAppointment(a.id, pay('isaac@havana.test', DEMO_PASSWORD))).rejects.toThrow(
+      /autorización no es válida/,
+    )
+    await expect(repo.completeAppointment(a.id, pay('gerencia@havana.test', 'mal'))).rejects.toThrow(/autorización/)
+    const r = await repo.completeAppointment(a.id, pay('gerencia@havana.test', DEMO_PASSWORD))
+    expect(r.appointment.payment?.discount).toMatchObject({ authorizedBy: 'u-manager', authorizedByName: 'Gerente' })
+  })
+})

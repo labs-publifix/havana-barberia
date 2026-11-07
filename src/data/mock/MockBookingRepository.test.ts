@@ -875,3 +875,54 @@ describe('MockBookingRepository · free cut', () => {
     expect(stampAdded).toBe(false)
   })
 })
+
+describe('MockBookingRepository · full ticket', () => {
+  const setup = async (serviceIds = ['corte-barba']) => {
+    let now = zonedInstant(MONDAY, '09:00', TZ)
+    const r = new MockBookingRepository({ storage: null, initial: emptyDb(), now: () => now })
+    const a = await r.createAppointment(booking(iso(MONDAY, '10:00'), 1, 'isaac', serviceIds))
+    now = zonedInstant(MONDAY, '11:30', TZ)
+    return { r, a }
+  }
+  const base = { method: 'cash' as const, tip: 0, tipMethod: 'cash' as const }
+
+  it('on a combo the free cut discounts a haircut and the difference is charged', async () => {
+    const { r, a } = await setup()
+    const db = (r as unknown as { db: MockDb }).db
+    const card = db.loyalty.find((c) => c.customerId === a.customerId)!
+    card.stamps = card.goal
+    card.rewardExpiresAt = iso('2026-12-31', '23:59')
+    const { appointment } = await r.adminSetStatus(a.id, 'completed', { ...base, useReward: true })
+    // Combo $500 − haircut $280.
+    expect(appointment.payment).toMatchObject({ amount: 220, rewardServiceId: 'corte-barba', rewardAmount: 280 })
+  })
+
+  it('adds products, an authorized discount and a mixed payment that must add up', async () => {
+    const { r, a } = await setup(['corte-adulto'])
+    const [p] = r.snapshot().products.filter((x) => x.active)
+    const discount = { amount: 30, reason: 'Cliente frecuente', authorizedBy: 'u-owner', authorizedByName: 'Dueño' }
+    const charge = 280 - 30 + p!.price
+    await expect(
+      r.adminSetStatus(a.id, 'completed', {
+        ...base,
+        discount,
+        products: [{ productId: p!.id, qty: 1 }],
+        splits: [
+          { method: 'cash', amount: 100 },
+          { method: 'card', amount: 100 },
+        ],
+      }),
+    ).rejects.toThrow(`El pago mixto debe sumar ${charge} pesos.`)
+    const { appointment } = await r.adminSetStatus(a.id, 'completed', {
+      ...base,
+      discount,
+      products: [{ productId: p!.id, qty: 1 }],
+      splits: [
+        { method: 'cash', amount: 100 },
+        { method: 'card', amount: charge - 100 },
+      ],
+    })
+    expect(appointment.payment).toMatchObject({ amount: 250, method: 'card', discount: { amount: 30 } })
+    expect(appointment.payment!.products).toHaveLength(1)
+  })
+})
