@@ -16,6 +16,8 @@ import {
   defaultFinanceSettings,
   type Advance,
   type BonusAward,
+  type CashMove,
+  type DailyClose,
   type FinanceSettings,
   type ProductSale,
 } from '@/admin/finance'
@@ -51,6 +53,10 @@ export interface MockDb {
   finance: FinanceSettings
   /** Manual bonuses marked per barber and week. */
   bonusAwards: BonusAward[]
+  /** Cash taken out or put in the drawer. */
+  cashMoves: CashMove[]
+  /** Daily cash counts. */
+  dailyCloses: DailyClose[]
 }
 
 /** Bump when the demo data changes shape or content; stored demos refresh, keeping real bookings. */
@@ -464,5 +470,7 @@ export function createSeed(now: Date): MockDb {
     sales: [],
     finance: defaultFinanceSettings(),
     bonusAwards: [],
+    cashMoves: [],
+    dailyCloses: [],
   }
 }

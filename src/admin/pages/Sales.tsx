@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useId, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Minus, Package, Plus, Printer, ShoppingBag } from 'lucide-react'
 import { Alert } from '@/components/ui/Alert'
@@ -18,6 +19,8 @@ import { Select } from '../ui/Select'
 import { SidePanel } from '../ui/SidePanel'
 import { useToast } from '../ui/Toast'
 import { WeekPicker } from '../ui/WeekPicker'
+import { TabPanel, Tabs } from '../ui/Tabs'
+import { CashDayView } from '../sales/CashDayView'
 
 const tz = business.hours.timeZone
 
@@ -34,7 +37,7 @@ interface Ticket {
 }
 
 /** Ventas (phase-2 preview): every ticket of the week (paid appointments and counter sales of products). */
-export default function Sales() {
+function TicketsView() {
   const { repo } = useAdminAuth()
   const { from, setFrom, current } = useFinanceWeek()
   const to = addDays(from, 6)
@@ -286,5 +289,41 @@ function SalePanel({
         </div>
       </div>
     </SidePanel>
+  )
+}
+
+type SalesTab = 'tickets' | 'caja'
+
+/** Ventas in two tabs: the week's tickets and the day's cash drawer (?vista=caja). */
+export default function Sales() {
+  const [params, setParams] = useSearchParams()
+  const tab: SalesTab = params.get('vista') === 'caja' ? 'caja' : 'tickets'
+  const idBase = useId().replace(/:/g, '')
+  return (
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-6">
+      <Tabs<SalesTab>
+        label="Ventas"
+        idBase={idBase}
+        value={tab}
+        onChange={(v) =>
+          setParams(
+            (p) => {
+              const next = new URLSearchParams(p)
+              if (v === 'caja') next.set('vista', v)
+              else next.delete('vista')
+              return next
+            },
+            { replace: true },
+          )
+        }
+        tabs={[
+          { value: 'tickets', label: 'Tickets' },
+          { value: 'caja', label: 'Caja del día' },
+        ]}
+      />
+      <TabPanel idBase={idBase} value={tab}>
+        {tab === 'caja' ? <CashDayView /> : <TicketsView />}
+      </TabPanel>
+    </div>
   )
 }

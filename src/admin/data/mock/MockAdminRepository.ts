@@ -20,6 +20,7 @@ import { addDays, localDate, weekdayOf, zonedInstant } from '@/lib/time'
 import type {
   AdminCatalog,
   AdminFinance,
+  CashDay,
   AdminSettings,
   AdminTeam,
   AdminChange,
@@ -38,7 +39,7 @@ import type {
   UserInput,
 } from '../../domain'
 import { summarizeCustomers, type CustomerSummary } from '../../customers/model'
-import type { Advance, BonusAward, FinanceSettings, ProductSale } from '../../finance'
+import type { Advance, BonusAward, CashMove, DailyClose, FinanceSettings, ProductSale } from '../../finance'
 import { InvalidRequestError } from '@/data/errors'
 import { InvalidCredentialsError, InvalidMfaCodeError, type AdminRepository } from '../AdminRepository'
 
@@ -236,6 +237,37 @@ export class MockAdminRepository implements AdminRepository {
     method: PaymentMethod
   }): Promise<ProductSale> {
     return this.booking.adminCreateSale(input)
+  }
+
+  async getCashDay(date: LocalDate): Promise<CashDay> {
+    await this.delay()
+    return this.booking.adminCashDay(date)
+  }
+
+  async addCashMove(input: {
+    date: LocalDate
+    kind: 'out' | 'in'
+    amount: number
+    concept: string
+  }): Promise<CashMove> {
+    const me = (await this.getSession())?.user
+    return this.booking.adminAddCashMove({ ...input, by: me?.name ?? 'Panel' })
+  }
+
+  deleteCashMove(id: ID): Promise<void> {
+    return this.booking.adminDeleteCashMove(id)
+  }
+
+  async closeDay(input: { date: LocalDate; openingFund: number; counted: number; note: string }): Promise<DailyClose> {
+    const me = (await this.getSession())?.user
+    return this.booking.adminCloseDay({ ...input, closedBy: me?.name ?? 'Panel' })
+  }
+
+  async reopenDay(date: LocalDate): Promise<void> {
+    const me = (await this.getSession())?.user
+    if (me?.role !== 'owner' && me?.role !== 'manager')
+      throw new InvalidRequestError('Solo el dueño o el gerente pueden reabrir una caja cerrada.')
+    return this.booking.adminReopenDay(date)
   }
 
   async getFinanceSettings(): Promise<FinanceSettings> {

@@ -25,11 +25,15 @@ import { normalizeMxPhone } from '@/lib/phone'
 import { DAY_NAMES, outsideSchedule, scheduleErrors } from '@/lib/schedule'
 import { policyError } from '@/lib/policy'
 import { rewardAvailable, rewardFor } from '@/lib/loyalty'
+import { cashSummary } from '@/admin/cash'
 import {
   defaultFinanceSettings,
+  expectedCash,
   financeSettingsError,
   type Advance,
   type BonusAward,
+  type CashMove,
+  type DailyClose,
   type FinanceSettings,
   type ProductSale,
 } from '@/admin/finance'
@@ -428,7 +432,8 @@ export class MockBookingRepository implements BookingRepository {
     let reward: { service: Service; amount: number } | null = null
     const card = this.db.loyalty.find((c) => c.customerId === a.customerId)
     if (payment.useReward) {
-      if (!rewardAvailable(card, this.now())) throw new InvalidRequestError('Este cliente no tiene un corte gratis vigente.')
+      if (!rewardAvailable(card, this.now()))
+        throw new InvalidRequestError('Este cliente no tiene un corte gratis vigente.')
       reward = rewardFor(a.serviceIds, this.db.services)
       if (!reward) throw new InvalidRequestError('No hay un servicio al que aplicar el corte gratis.')
       amount -= reward.amount
@@ -436,7 +441,8 @@ export class MockBookingRepository implements BookingRepository {
 
     const d = payment.discount
     if (d) {
-      if (!Number.isInteger(d.amount) || d.amount <= 0) throw new InvalidRequestError('Escribe el descuento en pesos, sin centavos.')
+      if (!Number.isInteger(d.amount) || d.amount <= 0)
+        throw new InvalidRequestError('Escribe el descuento en pesos, sin centavos.')
       if (d.amount > amount) throw new InvalidRequestError('El descuento no puede ser mayor a lo que se cobra.')
       if (!d.reason.trim()) throw new InvalidRequestError('Escribe el motivo del descuento.')
       if (!d.authorizedBy) throw new InvalidRequestError('El descuento necesita la autorización del dueño o gerente.')
@@ -481,7 +487,16 @@ export class MockBookingRepository implements BookingRepository {
       ...(reward ? { rewardServiceId: reward.service.id, rewardAmount: reward.amount } : {}),
       ...(splits ? { splits } : {}),
       ...(products.length ? { products } : {}),
-      ...(d ? { discount: { amount: d.amount, reason: d.reason.trim(), authorizedBy: d.authorizedBy, authorizedByName: d.authorizedByName } } : {}),
+      ...(d
+        ? {
+            discount: {
+              amount: d.amount,
+              reason: d.reason.trim(),
+              authorizedBy: d.authorizedBy,
+              authorizedByName: d.authorizedByName,
+            },
+          }
+        : {}),
     }
   }
 
@@ -856,6 +871,104 @@ export class MockBookingRepository implements BookingRepository {
       ;(this.db.sales ??= []).push(sale)
       this.save()
       return clone(sale)
+    })
+  }
+
+  // ── Daily cash (caja del día) ──────────────────────────────────────────────
+
+  adminCashDay(date: string) {
+    const tz = businessHours.timeZone
+    return clone({
+      date,
+      appointments: this.db.appointments.filter(
+        (a) => a.status === 'completed' && a.payment && localDate(a.payment.paidAt, tz) === date,
+      ),
+      sales: (this.db.sales ?? []).filter((s) => localDate(s.at, tz) === date),
+      moves: (this.db.cashMoves ?? []).filter((m) => m.date === date),
+      close: (this.db.dailyCloses ?? []).find((c) => c.date === date) ?? null,
+    })
+  }
+
+  private assertDayOpen(date: string) {
+    if ((this.db.dailyCloses ?? []).some((c) => c.date === date))
+      throw new InvalidRequestError('La caja de ese día ya está cerrada. Reábrela para hacer cambios.')
+  }
+
+  async adminAddCashMove(input: Omit<CashMove, 'id' | 'at'>): Promise<CashMove> {
+    await this.delay()
+    return this.exclusive(() => {
+      this.assertDayOpen(input.date)
+      if (!Number.isInteger(input.amount) || input.amount <= 0 || input.amount > 1000000)
+        throw new InvalidRequestError('Escribe el monto en pesos, sin centavos.')
+      if (!input.concept.trim()) throw new InvalidRequestError('Escribe el concepto.')
+      const move: CashMove = {
+        ...input,
+        concept: input.concept.trim(),
+        id: `mov-${randomToken()}`,
+        at: this.now().toISOString(),
+      }
+      ;(this.db.cashMoves ??= []).push(move)
+      this.save()
+      return clone(move)
+    })
+  }
+
+  async adminDeleteCashMove(id: ID): Promise<void> {
+    await this.delay()
+    return this.exclusive(() => {
+      const m = (this.db.cashMoves ?? []).find((x) => x.id === id)
+      if (!m) return
+      this.assertDayOpen(m.date)
+      this.db.cashMoves = this.db.cashMoves.filter((x) => x.id !== id)
+      this.save()
+    })
+  }
+
+  /** Close the drawer: the expected cash is worked out here, never trusted from the screen. */
+  async adminCloseDay(input: {
+    date: string
+    openingFund: number
+    counted: number
+    note: string
+    closedBy: string
+  }): Promise<DailyClose> {
+    await this.delay()
+    return this.exclusive(() => {
+      this.assertDayOpen(input.date)
+      for (const [v, label] of [
+        [input.openingFund, 'el fondo inicial'],
+        [input.counted, 'el efectivo contado'],
+      ] as const)
+        if (!Number.isInteger(v) || v < 0 || v > 1000000) throw new InvalidRequestError(`Revisa ${label}.`)
+      const day = this.adminCashDay(input.date)
+      const cash = cashSummary(day.appointments, day.sales)
+      const { expected } = expectedCash({
+        openingFund: input.openingFund,
+        cashCharges: cash.charges.cash,
+        cashTips: cash.tips.cash,
+        moves: day.moves,
+      })
+      const close: DailyClose = {
+        date: input.date,
+        openingFund: input.openingFund,
+        expected,
+        counted: input.counted,
+        difference: input.counted - expected,
+        note: input.note.trim(),
+        closedBy: input.closedBy,
+        closedAt: this.now().toISOString(),
+      }
+      ;(this.db.dailyCloses ??= []).push(close)
+      this.save()
+      return clone(close)
+    })
+  }
+
+  async adminReopenDay(date: string): Promise<void> {
+    await this.delay()
+    return this.exclusive(() => {
+      this.db.dailyCloses = (this.db.dailyCloses ?? []).filter((c) => c.date !== date)
+      this.save()
     })
   }
 
@@ -1292,6 +1405,8 @@ function keepCatalog(
   | 'sales'
   | 'finance'
   | 'bonusAwards'
+  | 'cashMoves'
+  | 'dailyCloses'
 > {
   return {
     // Products arrived in demo v4; older stored demos start from the seed's.
@@ -1313,6 +1428,8 @@ function keepCatalog(
     sales: stored.sales ?? [],
     finance: stored.finance ?? fresh.finance,
     bonusAwards: stored.bonusAwards ?? [],
+    cashMoves: stored.cashMoves ?? [],
+    dailyCloses: stored.dailyCloses ?? [],
   }
 }
 

@@ -926,3 +926,28 @@ describe('MockBookingRepository · full ticket', () => {
     expect(appointment.payment!.products).toHaveLength(1)
   })
 })
+
+describe('MockBookingRepository · daily cash', () => {
+  it('works out the expected cash, closes the day and refuses changes until reopened', async () => {
+    let now = zonedInstant(MONDAY, '09:00', TZ)
+    const r = new MockBookingRepository({ storage: null, initial: emptyDb(), now: () => now })
+    const a = await r.createAppointment(booking(iso(MONDAY, '10:00')))
+    now = zonedInstant(MONDAY, '11:00', TZ)
+    await r.adminSetStatus(a.id, 'completed', { method: 'cash', tip: 50, tipMethod: 'cash' })
+    await r.adminAddCashMove({ date: MONDAY, kind: 'out', amount: 100, concept: 'Toallas', by: 'Recepción' })
+    const close = await r.adminCloseDay({
+      date: MONDAY,
+      openingFund: 500,
+      counted: 720,
+      note: '',
+      closedBy: 'Recepción',
+    })
+    // 500 fund + 280 corte + 50 tip − 100 out = 730 expected.
+    expect(close).toMatchObject({ expected: 730, counted: 720, difference: -10 })
+    await expect(
+      r.adminAddCashMove({ date: MONDAY, kind: 'in', amount: 10, concept: 'Cambio', by: 'Recepción' }),
+    ).rejects.toThrow(/ya está cerrada/)
+    await r.adminReopenDay(MONDAY)
+    expect(r.adminCashDay(MONDAY).close).toBeNull()
+  })
+})

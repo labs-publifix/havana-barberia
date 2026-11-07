@@ -273,3 +273,39 @@ export function dailySales(appointments: Appointment[], from: LocalDate, to: Loc
   }
   return days
 }
+
+/** Money taken out of (or put into) the drawer during the day. */
+export interface CashMove {
+  id: ID
+  date: LocalDate
+  at: string
+  kind: 'out' | 'in'
+  amount: number
+  concept: string
+  by: string
+}
+
+/** The day's cash count (arqueo), saved when the drawer is closed. */
+export interface DailyClose {
+  date: LocalDate
+  openingFund: number
+  expected: number
+  counted: number
+  /** counted − expected: positive is extra cash, negative is missing cash. */
+  difference: number
+  note: string
+  closedBy: string
+  closedAt: string
+}
+
+/** Cash that should be in the drawer: opening fund + cash charges + cash tips + cash in − cash out. */
+export function expectedCash(input: {
+  openingFund: number
+  cashCharges: number
+  cashTips: number
+  moves: Pick<CashMove, 'kind' | 'amount'>[]
+}) {
+  const ins = input.moves.filter((m) => m.kind === 'in').reduce((t, m) => t + m.amount, 0)
+  const outs = input.moves.filter((m) => m.kind === 'out').reduce((t, m) => t + m.amount, 0)
+  return { ins, outs, expected: input.openingFund + input.cashCharges + input.cashTips + ins - outs }
+}

@@ -16,7 +16,7 @@ import type {
   TimeRange,
   WeeklySchedule,
 } from '@/domain/types'
-import type { Advance, BonusAward, FinanceSettings, ProductSale } from './finance'
+import type { Advance, BonusAward, CashMove, DailyClose, FinanceSettings, ProductSale } from './finance'
 
 /**
  * Admin domain. Roles come from the project fundamentals:
@@ -193,6 +193,15 @@ export interface UserInput {
   /** Required for barbers: their profile in Equipo. */
   staffId: ID | null
   active: boolean
+}
+
+/** One day of the drawer: what was charged, cash moves and the count if closed. */
+export interface CashDay {
+  date: LocalDate
+  appointments: Appointment[]
+  sales: ProductSale[]
+  moves: CashMove[]
+  close: DailyClose | null
 }
 
 /** A period of finance data (phase-2 preview). */

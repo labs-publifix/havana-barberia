@@ -17,6 +17,7 @@ import type { SlotQuery } from '@/data'
 import type {
   AdminCatalog,
   AdminFinance,
+  CashDay,
   AdminSettings,
   AdminTeam,
   AdminChange,
@@ -35,7 +36,7 @@ import type {
   UserInput,
 } from '../domain'
 import type { CustomerSummary } from '../customers/model'
-import type { Advance, BonusAward, FinanceSettings, ProductSale } from '../finance'
+import type { Advance, BonusAward, CashMove, DailyClose, FinanceSettings, ProductSale } from '../finance'
 
 export class InvalidCredentialsError extends Error {
   constructor() {
@@ -113,6 +114,14 @@ export interface AdminRepository {
   addAdvance(input: { staffId: ID; date: LocalDate; amount: number; note: string }): Promise<Advance>
   deleteAdvance(id: ID): Promise<void>
   getFinanceSettings(): Promise<FinanceSettings>
+  // Daily cash (desk roles). Changes are refused once the day is closed.
+  getCashDay(date: LocalDate): Promise<CashDay>
+  addCashMove(input: { date: LocalDate; kind: 'out' | 'in'; amount: number; concept: string }): Promise<CashMove>
+  deleteCashMove(id: ID): Promise<void>
+  /** Save the count; the expected cash is computed on the server. */
+  closeDay(input: { date: LocalDate; openingFund: number; counted: number; note: string }): Promise<DailyClose>
+  /** Owner and manager only. */
+  reopenDay(date: LocalDate): Promise<void>
   /** Owner and manager. Errors: InvalidRequestError. */
   saveFinanceSettings(input: FinanceSettings): Promise<FinanceSettings>
   setBonusAward(award: BonusAward, on: boolean): Promise<void>
