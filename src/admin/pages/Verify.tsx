@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { ShieldCheck } from 'lucide-react'
 import { routes } from '@/app/routes'
@@ -20,6 +20,22 @@ export default function Verify() {
   const [code, setCode] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  // First time (real accounts): set up the authenticator app with a QR code.
+  const [setup, setSetup] = useState<{ qrCode: string; secret: string } | null | undefined>(
+    repo.mfaEnrollment ? undefined : null,
+  )
+  const needsStep = !!session && !isSessionComplete(session)
+  useEffect(() => {
+    if (!needsStep || !repo.mfaEnrollment) return
+    let alive = true
+    repo
+      .mfaEnrollment()
+      .then((r) => alive && setSetup(r))
+      .catch(() => alive && setSetup(null))
+    return () => {
+      alive = false
+    }
+  }, [needsStep, repo])
 
   if (session === undefined) return null
   if (!session) return <Navigate to={routes.adminLogin} replace />
@@ -47,11 +63,40 @@ export default function Verify() {
       <span className="grid size-12 place-items-center rounded-full bg-fg/[0.06]" aria-hidden>
         <ShieldCheck className="size-6" strokeWidth={1.75} />
       </span>
-      <h1 className="mt-5 text-[28px] font-semibold leading-tight tracking-[-0.03em]">Verificación en dos pasos</h1>
-      <p className="mt-2 text-fg-muted">
-        Escribe el código de 6 dígitos de tu app de autenticación para{' '}
-        <span className="font-medium text-fg">{session.user.email}</span>.
-      </p>
+      <h1 className="mt-5 text-[28px] font-semibold leading-tight tracking-[-0.03em]">
+        {setup ? 'Activa la verificación en dos pasos' : 'Verificación en dos pasos'}
+      </h1>
+      {setup === undefined ? (
+        <p className="mt-2 text-fg-muted" aria-busy="true">
+          Preparando…
+        </p>
+      ) : setup ? (
+        <div className="mt-2 grid gap-4 text-fg-muted">
+          <p>
+            Tu rol ve las finanzas, así que tu cuenta se protege con un código que cambia cada 30 segundos. Abre Google
+            Authenticator, Microsoft Authenticator o 1Password en tu teléfono y escanea este código:
+          </p>
+          <img
+            src={setup.qrCode}
+            alt="Código QR para tu app de autenticación"
+            width={176}
+            height={176}
+            className="justify-self-center rounded-lg border border-line bg-white p-2"
+          />
+          <p className="text-[13px]">
+            ¿No puedes escanear? Escribe esta clave en la app:{' '}
+            <code className="select-all break-all rounded bg-fg/[0.06] px-1.5 py-0.5 font-mono text-[13px] text-fg">
+              {setup.secret}
+            </code>
+          </p>
+          <p>Luego escribe aquí el código de 6 dígitos que te muestra la app.</p>
+        </div>
+      ) : (
+        <p className="mt-2 text-fg-muted">
+          Escribe el código de 6 dígitos de tu app de autenticación para{' '}
+          <span className="font-medium text-fg">{session.user.email}</span>.
+        </p>
+      )}
 
       <form onSubmit={submit} noValidate className="mt-8 grid gap-5">
         <div className="grid gap-1.5">
@@ -82,7 +127,7 @@ export default function Verify() {
           </p>
         </div>
         <button type="submit" disabled={busy} className={buttonClass({ size: 'lg', block: true })}>
-          {busy ? 'Verificando…' : 'Verificar y entrar'}
+          {busy ? 'Verificando…' : setup ? 'Activar y entrar' : 'Verificar y entrar'}
         </button>
         <button
           type="button"

@@ -7,14 +7,25 @@ begin
   raise notice 'ok · %', what;
 end $$;
 
--- Fixtures (as the database owner).
+-- The first user in the system becomes the owner.
+insert into auth.users (id, email) values ('00000000-0000-0000-0000-000000000001', 'Dueno@Havana.test');
+select pg_temp.check(
+  (select role || ' ' || email from public.profiles) = 'owner dueno@havana.test',
+  'la primera persona invitada queda como dueña'
+);
+-- (the guard keeps an active owner; set fixtures up from scratch)
+alter table public.profiles disable trigger profiles_guard;
+delete from public.profiles;
+alter table public.profiles enable trigger profiles_guard;
+
+-- Fixtures (as the database owner). The owner's profile goes first, so later users are not taken as the first one.
+insert into public.profiles (id, name, email, role) values
+  ('00000000-0000-0000-0000-000000000001', 'Dueño', 'dueno@havana.test', 'owner');
 insert into auth.users (id, email) values
-  ('00000000-0000-0000-0000-000000000001', 'dueno@havana.test'),
   ('00000000-0000-0000-0000-000000000002', 'recepcion@havana.test'),
   ('00000000-0000-0000-0000-000000000003', 'leonardo@havana.test'),
   ('00000000-0000-0000-0000-000000000004', 'gerencia@havana.test');
 insert into public.profiles (id, name, email, role, staff_id) values
-  ('00000000-0000-0000-0000-000000000001', 'Dueño', 'dueno@havana.test', 'owner', null),
   ('00000000-0000-0000-0000-000000000002', 'Recepción', 'recepcion@havana.test', 'reception', null),
   ('00000000-0000-0000-0000-000000000003', 'Leonardo Gómez', 'leonardo@havana.test', 'barber', 'leonardo'),
   ('00000000-0000-0000-0000-000000000004', 'Gerente', 'gerencia@havana.test', 'manager', null);
@@ -116,3 +127,9 @@ update public.appointments set status = 'cancelled' where id = 'a-leo';
 insert into public.appointments (customer_id, staff_id, service_ids, starts_at, ends_at, duration_min, total_price)
 values ('c-luis', 'leonardo', '{bigote}', '2026-11-10 16:30+00', '2026-11-10 16:45+00', 15, 150);
 select pg_temp.check(true, 'una cita cancelada libera el horario');
+
+insert into auth.users (id, email) values ('00000000-0000-0000-0000-000000000005', 'nuevo@havana.test');
+select pg_temp.check(
+  not exists (select 1 from public.profiles where id = '00000000-0000-0000-0000-000000000005'),
+  'después del dueño, nadie entra solo como dueño'
+);

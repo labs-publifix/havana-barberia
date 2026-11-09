@@ -13,3 +13,7 @@ sql_paths = ["./seed.sql"]
 # No public sign-up: the owner invites panel users.
 enable_signup = false
 site_url = "https://labs-publifix.github.io/havana-barberia/"
+
+[functions.invite-user]
+# The function checks the caller's session itself (owner only).
+verify_jwt = true

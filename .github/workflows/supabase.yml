@@ -60,6 +60,8 @@ jobs:
             # --remote: the linked Supabase project (never a local database).
             supabase db push --remote --include-seed --password "$SUPABASE_DB_PASSWORD" --yes
           fi
+      - name: Deploy Edge Functions
+        run: supabase functions deploy --remote="$SUPABASE_PROJECT_REF" --use-api --yes
       - name: Server-side secrets for Edge Functions
         if: env.RESEND_API_KEY != ''
         run: supabase secrets set --remote="$SUPABASE_PROJECT_REF" --yes RESEND_API_KEY="$RESEND_API_KEY"
