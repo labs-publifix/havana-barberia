@@ -32,8 +32,20 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
+      # The real system (Supabase) under /app/, for the owner to start capturing
+      # data. Only the public (publishable) key reaches the browser.
+      - name: Build the real system at /app/
+        env:
+          VITE_BASE: /havana-barberia/app/
+          VITE_DATA_SOURCE: supabase
+          VITE_UI_GALLERY: 'false'
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
+        run: npx vite build --outDir dist/app --emptyOutDir
       # Pages has no rewrites: serve the SPA for any deep link (/cita/:token…).
-      - run: cp dist/index.html dist/404.html
+      # Deep links under /app/ go to the real build, keeping the path and #hash.
+      - name: 404 fallback for both builds
+        run: node scripts/pages-404.mjs /havana-barberia/app/
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

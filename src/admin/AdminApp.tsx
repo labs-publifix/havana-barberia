@@ -8,6 +8,7 @@ import { createAdminRepository, type AdminRepository } from './data'
 import { AdminLayout } from './layout/AdminLayout'
 import Login from './pages/Login'
 import SectionPage from './pages/SectionPage'
+import SetPassword from './pages/SetPassword'
 import Verify from './pages/Verify'
 import { ToastProvider } from './ui/Toast'
 import { TooltipProvider } from './ui/Tooltip'
@@ -26,6 +27,7 @@ export default function AdminApp({ repository }: { repository?: AdminRepository 
           <Routes>
             <Route path="entrar" element={<Login />} />
             <Route path="verificar" element={<Verify />} />
+            <Route path="contrasena" element={<SetPassword />} />
             <Route
               element={
                 <RequireSession>

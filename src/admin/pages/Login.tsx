@@ -113,12 +113,14 @@ export default function Login() {
           >
             ¿Olvidaste tu contraseña?
           </button>
-          {forgot && (
-            <p className="mt-2 text-sm text-fg-muted">
-              Te enviaremos un enlace a tu correo para crear una nueva. Se activa al conectar el correo del panel;
-              mientras tanto, pide a la persona dueña que te reenvíe la invitación.
-            </p>
-          )}
+          {forgot &&
+            (repo.requestPasswordReset ? (
+              <ForgotPassword send={repo.requestPasswordReset.bind(repo)} />
+            ) : (
+              <p className="mt-2 text-sm text-fg-muted">
+                En la demostración no se envían correos. Entra con la contraseña de demostración.
+              </p>
+            ))}
         </div>
       </form>
 
@@ -154,5 +156,40 @@ export default function Login() {
         </section>
       )}
     </AuthLayout>
+  )
+}
+
+/** Send a link to set a new password (always says the same, whether or not the e-mail exists). */
+function ForgotPassword({ send }: { send: (email: string) => Promise<void> }) {
+  const [email, setEmail] = useState('')
+  const [sent, setSent] = useState(false)
+  const [busy, setBusy] = useState(false)
+  if (sent)
+    return (
+      <p className="mt-2 text-sm text-fg-muted" role="status">
+        Si ese correo tiene acceso al panel, te llegará un enlace para crear una contraseña nueva.
+      </p>
+    )
+  return (
+    <div className="mt-3 grid gap-2">
+      <TextField
+        label="Correo para recuperar el acceso"
+        type="email"
+        autoComplete="email"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+      />
+      <button
+        type="button"
+        disabled={busy || !email.includes('@')}
+        onClick={() => {
+          setBusy(true)
+          void send(email).finally(() => setSent(true))
+        }}
+        className={buttonClass({ variant: 'secondary', size: 'sm', className: 'justify-self-start' })}
+      >
+        Enviar enlace
+      </button>
+    </div>
   )
 }

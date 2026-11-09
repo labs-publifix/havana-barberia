@@ -51,11 +51,17 @@ La UI nunca importa datos directamente: pide todo a `BookingRepository` mediante
 - **Pruebas:** `scripts/test-db.sh` levanta un Postgres local, aplica migraciones y semilla, y corre `supabase/tests/*.test.sql` (quién ve y cambia qué).
 - **Despliegue:** `.github/workflows/supabase.yml` corre esas pruebas en cada PR y, desde `main`, aplica las migraciones al proyecto con los secretos `SUPABASE_ACCESS_TOKEN`, `SUPABASE_DB_PASSWORD` y `SUPABASE_PROJECT_REF`; `RESEND_API_KEY` se guarda como secreto de las Edge Functions.
 
+**Entrega 1 (conectado):** `VITE_DATA_SOURCE=supabase` usa `SupabaseBookingRepository` (catálogo, equipo y políticas; la reserva en línea muestra «abre muy pronto» hasta la entrega 3) y `SupabaseAdminRepository` (sesión, verificación en dos pasos, usuarios, catálogo y productos, equipo con vigencias de comisión y ausencias, ajustes y finanzas). Las secciones aún no conectadas lo dicen (`AdminRepository.available`).
+
+- **Acceso:** Supabase Auth sin registro público. La primera persona del sistema queda como dueña (migración `first_owner`); se invita desde Supabase › Authentication › Users › Invite user. Las demás las invita la dueña desde Ajustes › Usuarios (Edge Function `invite-user`, que crea el perfil con su rol). El enlace del correo lleva a `/admin/contrasena`; dueño y gerente activan la verificación en dos pasos con un código QR la primera vez.
+- **Publicación:** GitHub Pages publica la demo en `/havana-barberia/` y el sistema real en `/havana-barberia/app/` (variables `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY`). `scripts/pages-404.mjs` manda los enlaces profundos de `/app/` a su build conservando el `#hash` (ahí viajan los tokens de los correos) y `src/main.tsx` restaura la ruta.
+- **Correos:** remitente `EMAIL_FROM` y copia oculta a `EMAIL_BCC` (variables de GitHub) para los correos de la barbería; los de acceso los envía Supabase Auth por el SMTP de Resend.
+
 **Sigue:**
 
-1. `SupabaseBookingRepository` y `SupabaseAdminRepository` que implementen las mismas interfaces (filas `snake_case` → tipos de `src/domain`; errores de `src/data/errors.ts`), y `VITE_DATA_SOURCE=supabase` con `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY` (solo la llave anon es pública).
-2. Edge Functions para reservar, cancelar y reprogramar desde el sitio (Turnstile, límites y la llave de servicio), cobrar y cerrar caja/semana (cálculos en el servidor) e invitar usuarios.
-3. Correos con Resend y recordatorios con `pg_cron`; tiempo real con Supabase Realtime.
+1. Agenda, clientes, cobros, caja y nómina contra Supabase (cálculos de caja y cierre en el servidor) y tiempo real.
+2. Edge Functions para reservar, cancelar y reprogramar desde el sitio (Turnstile y límites).
+3. Correos con Resend y recordatorios con `pg_cron`; fotos en Storage.
 
 Ninguna pantalla debería cambiar.
 

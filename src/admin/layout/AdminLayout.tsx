@@ -9,7 +9,7 @@ import { business } from '@/config/business'
 import { SkipLink } from '@/features/site/SkipLink'
 import { capitalize, formatTime12, localTime } from '@/lib/time'
 import { cn } from '@/lib/cn'
-import { useAdminSession } from '../auth/AdminAuth'
+import { useAdminAuth, useAdminSession } from '../auth/AdminAuth'
 import { Kbd } from '../ui/controls'
 import { Tip } from '../ui/Tooltip'
 import { NotificationBell, NotificationsProvider } from '../realtime/Notifications'
@@ -36,10 +36,13 @@ function Clock() {
  */
 function BookButton() {
   const { user } = useAdminSession()
+  const { repo } = useAdminAuth()
   const booking = useNewAppointment()
+  // Data sources still connecting the agenda don't offer booking yet.
+  const off = user.role === 'barber' || (!!repo.available && !repo.available.includes('agenda'))
 
   useEffect(() => {
-    if (user.role === 'barber') return
+    if (off) return
     const onKey = (e: KeyboardEvent) => {
       if ((e.key !== 'n' && e.key !== 'N') || e.metaKey || e.ctrlKey || e.altKey) return
       const el = e.target as HTMLElement
@@ -51,9 +54,9 @@ function BookButton() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [user.role, booking])
+  }, [off, booking])
 
-  if (user.role === 'barber') return null
+  if (off) return null
   return (
     <button
       type="button"

@@ -4,7 +4,7 @@ import { Check, Lock } from 'lucide-react'
 import { routes } from '@/app/routes'
 import { useDocumentTitle } from '@/app/useDocumentTitle'
 import { buttonClass } from '@/components/ui/buttonClass'
-import { useAdminSession } from '../auth/AdminAuth'
+import { useAdminAuth, useAdminSession } from '../auth/AdminAuth'
 import { roleLabels } from '../domain'
 import { canAccess, isSectionId, sectionLabel, sections, showWorkbench, type Section } from '../sections'
 import { Card, EmptyState, PageHeader } from '../ui/Panel'
@@ -24,7 +24,7 @@ const Reports = lazy(() => import('./Reports'))
 const TOTAL_DELIVERIES = 8
 
 /** Until a section is built, it explains what it will do, when it arrives and who can open it. */
-function Upcoming({ section }: { section: Section }) {
+function Upcoming({ section, connecting }: { section: Section; connecting?: boolean }) {
   return (
     <div className="grid max-w-5xl grid-cols-[minmax(0,1fr)] gap-6">
       <PageHeader description={section.summary} />
@@ -45,9 +45,11 @@ function Upcoming({ section }: { section: Section }) {
           </div>
           <dl className="grid content-start gap-4 border-t border-line bg-surface p-6 text-sm md:rounded-r-lg md:border-l md:border-t-0">
             <div>
-              <dt className="text-fg-muted">Llega en</dt>
+              <dt className="text-fg-muted">{connecting ? 'Estado' : 'Llega en'}</dt>
               <dd className="tabular mt-0.5 font-semibold">
-                Entrega {section.delivery} de {TOTAL_DELIVERIES}
+                {connecting
+                  ? 'Se conecta a la base de datos en la siguiente entrega'
+                  : `Entrega ${section.delivery} de ${TOTAL_DELIVERIES}`}
               </dd>
             </div>
             <div>
@@ -64,6 +66,7 @@ function Upcoming({ section }: { section: Section }) {
 export default function SectionPage() {
   const { section } = useParams()
   const { user } = useAdminSession()
+  const { repo } = useAdminAuth()
   const valid = isSectionId(section) && (section !== 'componentes' || showWorkbench)
   useDocumentTitle(valid ? `${sectionLabel(section, user.role)} · Panel` : 'Panel', { noindex: true })
 
@@ -87,6 +90,10 @@ export default function SectionPage() {
       </Card>
     )
   }
+
+  // A data source still connecting some sections (Supabase, entrega por entrega).
+  if (repo.available && !repo.available.includes('agenda') && section === 'inicio') return <ConnectingWelcome />
+  if (repo.available && !repo.available.includes(section)) return <Upcoming section={sections[section]} connecting />
 
   if (section === 'inicio') {
     return (
@@ -177,4 +184,44 @@ export default function SectionPage() {
   }
 
   return <Upcoming section={sections[section]} />
+}
+
+/**
+ * Inicio while the agenda is not connected yet: what the owner can already
+ * capture in the real system.
+ */
+function ConnectingWelcome() {
+  const { user } = useAdminSession()
+  const steps = [
+    { id: 'catalogo', what: 'Servicios, precios y productos (con costo y comisión)' },
+    { id: 'equipo', what: 'Barberos: horarios, servicios que dan y comisión de cada uno' },
+    { id: 'ajustes', what: 'Políticas de reserva y lealtad, finanzas y usuarios del equipo' },
+  ] as const
+  return (
+    <div className="grid max-w-3xl grid-cols-[minmax(0,1fr)] gap-6">
+      <PageHeader
+        description={`Hola, ${user.name}. Este es el sistema real: lo que captures aquí se queda guardado.`}
+      />
+      <Card
+        title="Para empezar"
+        description="La agenda, los clientes y las finanzas se conectan en la siguiente entrega."
+      >
+        <ol className="grid gap-3">
+          {steps.map((s, i) => (
+            <li key={s.id} className="flex items-start gap-3">
+              <span className="tabular grid size-7 shrink-0 place-items-center rounded-full bg-fg/[0.06] text-sm font-semibold">
+                {i + 1}
+              </span>
+              <span className="min-w-0 flex-1 text-[15px]">
+                <Link to={routes.adminSection(s.id)} className="font-semibold underline underline-offset-4">
+                  {sections[s.id].label}
+                </Link>
+                <span className="block text-fg-muted">{s.what}</span>
+              </span>
+            </li>
+          ))}
+        </ol>
+      </Card>
+    </div>
+  )
 }

@@ -172,6 +172,21 @@ export interface AdminRepository {
    */
   subscribe(listener: (change: AdminChange) => void): () => void
 
+  /**
+   * Sections this data source already supports (others show "llega pronto").
+   * Undefined: every section (the demo).
+   */
+  available?: readonly string[]
+  /**
+   * Second step not set up yet: start it and return the QR code (SVG data URL)
+   * and the secret to type by hand; null when the account already has it.
+   */
+  mfaEnrollment?(): Promise<{ qrCode: string; secret: string } | null>
+  /** E-mail a link to set a new password. */
+  requestPasswordReset?(email: string): Promise<void>
+  /** Set the password of the signed-in account (after an invitation or reset link). */
+  setPassword?(password: string): Promise<void>
+
   /** Demo-only helpers; the Supabase implementation leaves this undefined. */
   demo?: {
     /** Book like a customer would on the public site (to try notifications with one tab). */

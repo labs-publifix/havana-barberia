@@ -483,7 +483,7 @@ export function StaffPanel({
                       {history.map((v) => (
                         <li key={v.validFrom} className="flex justify-between gap-3">
                           <span className="text-fg-muted">
-                            {v.validFrom === '0000-01-01'
+                            {v.validFrom < '1000'
                               ? 'Antes'
                               : `Desde ${formatDay(v.validFrom, "d 'de' MMM yyyy")}`}
                           </span>

@@ -11,6 +11,14 @@ const Legal = lazy(() => import('@/pages/Legal'))
 const NotFound = lazy(() => import('@/pages/NotFound'))
 const UiGallery = lazy(() => import('@/pages/UiGallery'))
 const AdminApp = lazy(() => import('@/admin/AdminApp'))
+const BookingSoon = lazy(() => import('@/pages/BookingSoon'))
+
+/**
+ * Online booking against the real database opens with its Edge Functions
+ * (hito 1C, entrega 3). Until then the real build shows "abre muy pronto";
+ * the demo keeps the full flow.
+ */
+const bookingOpen = import.meta.env.VITE_DATA_SOURCE !== 'supabase' || import.meta.env.VITE_BOOKING_OPEN === 'true'
 
 const galleryEnabled = import.meta.env.DEV || import.meta.env.VITE_UI_GALLERY === 'true'
 
@@ -32,10 +40,10 @@ export function AppRoutes() {
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/servicios" element={<Services />} />
-        <Route path="/reservar" element={<Booking />} />
-        <Route path="/confirmacion/:token" element={<Confirmation />} />
-        <Route path="/cita/:token" element={<ManageAppointment />} />
-        <Route path="/lealtad/:token" element={<Loyalty />} />
+        <Route path="/reservar" element={bookingOpen ? <Booking /> : <BookingSoon />} />
+        <Route path="/confirmacion/:token" element={bookingOpen ? <Confirmation /> : <BookingSoon />} />
+        <Route path="/cita/:token" element={bookingOpen ? <ManageAppointment /> : <BookingSoon />} />
+        <Route path="/lealtad/:token" element={bookingOpen ? <Loyalty /> : <BookingSoon />} />
         <Route path="/politicas" element={<Legal kind="policies" />} />
         <Route path="/privacidad" element={<Legal kind="privacy" />} />
         <Route path="/admin/*" element={<AdminApp />} />
