@@ -96,7 +96,8 @@ finanzas solo dueño y gerente; recepción opera agenda, clientes y ventas.
 
 ## Hito 1D · Lanzamiento
 
-Dominio `reservas.havanabarberia.com` (quitar la base `/havana-barberia/`), migración de
+Dominio `havanabarberia.com` (sitio, reservas y panel en `/admin`; `www` redirige al dominio;
+quitar la base `/havana-barberia/`), migración de
 clientes y sellos desde AgendaPro, aviso de privacidad, periodo en paralelo, cambio del
 enlace en Google y apagado de AgendaPro.
 
