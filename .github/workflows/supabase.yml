@@ -37,6 +37,11 @@ jobs:
       SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
       SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
       RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+      EMAIL_FROM: ${{ vars.EMAIL_FROM }}
+      EMAIL_BCC: ${{ vars.EMAIL_BCC }}
+      # Where e-mail links point (panel and, once open, the booking pages).
+      SITE_URL: ${{ vars.SITE_URL || 'https://labs-publifix.github.io/havana-barberia/app' }}
+      BOOKING_OPEN: ${{ vars.VITE_BOOKING_OPEN || 'false' }}
       # Optional: Session pooler connection string (IPv4). GitHub runners have no
       # IPv6, which the direct database host requires.
       SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
@@ -64,4 +69,18 @@ jobs:
         run: supabase functions deploy --remote="$SUPABASE_PROJECT_REF" --use-api --yes
       - name: Server-side secrets for Edge Functions
         if: env.RESEND_API_KEY != ''
-        run: supabase secrets set --remote="$SUPABASE_PROJECT_REF" --yes RESEND_API_KEY="$RESEND_API_KEY"
+        run: |
+          supabase secrets set --remote="$SUPABASE_PROJECT_REF" --yes \
+            RESEND_API_KEY="$RESEND_API_KEY" EMAIL_FROM="$EMAIL_FROM" EMAIL_BCC="$EMAIL_BCC" \
+            SITE_URL="$SITE_URL" BOOKING_OPEN="$BOOKING_OPEN"
+      - name: Connect the e-mail sender to pg_cron (new shared secret each deploy)
+        if: env.RESEND_API_KEY != '' && env.SUPABASE_DB_URL != ''
+        run: |
+          MAILER_SECRET=$(openssl rand -hex 32)
+          echo "::add-mask::$MAILER_SECRET"
+          supabase secrets set --remote="$SUPABASE_PROJECT_REF" --yes MAILER_SECRET="$MAILER_SECRET"
+          PGPASSWORD="$SUPABASE_DB_PASSWORD" psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -q \
+            -v url="https://$SUPABASE_PROJECT_REF.supabase.co/functions/v1/send-emails" -v secret="$MAILER_SECRET" <<'SQL'
+          insert into app.mailer_config (id, url, secret) values (1, :'url', :'secret')
+          on conflict (id) do update set url = excluded.url, secret = excluded.secret, updated_at = now();
+          SQL

@@ -20,3 +20,7 @@ verify_jwt = true
 
 [functions.authorize-discount]
 verify_jwt = true
+
+# Woken by pg_cron with its own shared secret (x-mailer-secret), not a user session.
+[functions.send-emails]
+verify_jwt = false

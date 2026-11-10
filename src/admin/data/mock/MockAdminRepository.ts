@@ -22,6 +22,7 @@ import type {
   AdminFinance,
   CashDay,
   AdminSettings,
+  EmailSettings,
   AdminTeam,
   AdminChange,
   AdminNewAppointment,
@@ -303,6 +304,21 @@ export class MockAdminRepository implements AdminRepository {
 
   saveFinanceSettings(input: FinanceSettings): Promise<FinanceSettings> {
     return this.booking.adminSaveFinanceSettings(input)
+  }
+
+  private customerEmails = false
+
+  /** The demo sends nothing: it only remembers the switch. */
+  async getEmailSettings(): Promise<EmailSettings> {
+    await this.delay()
+    return { customerEmails: this.customerEmails, recent: [] }
+  }
+
+  async setCustomerEmails(on: boolean): Promise<void> {
+    const me = (await this.getSession())?.user
+    if (me?.role !== 'owner' && me?.role !== 'manager')
+      throw new InvalidRequestError('Tu rol no permite hacer este cambio.')
+    this.customerEmails = on
   }
 
   setBonusAward(award: BonusAward, on: boolean): Promise<void> {

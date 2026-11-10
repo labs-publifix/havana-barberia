@@ -19,6 +19,7 @@ import type {
   AdminFinance,
   CashDay,
   AdminSettings,
+  EmailSettings,
   AdminTeam,
   AdminChange,
   AdminNewAppointment,
@@ -36,15 +37,7 @@ import type {
   UserInput,
 } from '../domain'
 import type { CustomerSummary } from '../customers/model'
-import type {
-  Advance,
-  BonusAward,
-  CashMove,
-  DailyClose,
-  FinanceSettings,
-  PayrollClose,
-  ProductSale,
-} from '../finance'
+import type { Advance, BonusAward, CashMove, DailyClose, FinanceSettings, PayrollClose, ProductSale } from '../finance'
 
 export class InvalidCredentialsError extends Error {
   constructor() {
@@ -138,6 +131,9 @@ export interface AdminRepository {
   /** Owner and manager. Errors: InvalidRequestError. */
   saveFinanceSettings(input: FinanceSettings): Promise<FinanceSettings>
   setBonusAward(award: BonusAward, on: boolean): Promise<void>
+  /** Owner and manager: e-mail test mode and the latest e-mails. */
+  getEmailSettings(): Promise<EmailSettings>
+  setCustomerEmails(on: boolean): Promise<void>
   /** Counter sale of products (prices and commissions from the catalog). */
   createSale(input: {
     items: { productId: ID; qty: number }[]
