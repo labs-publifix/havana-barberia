@@ -860,7 +860,7 @@ export class MockBookingRepository implements BookingRepository {
         return d >= from && d <= to
       }),
       services: this.db.services,
-      staff: [...this.db.staff].sort((a, b) => a.order - b.order),
+      staff: [...this.db.staff].filter((s) => !s.archived).sort((a, b) => a.order - b.order),
       commissions: this.db.commissions,
       commissionHistory: this.db.commissionHistory ?? [],
       advances: (this.db.advances ?? []).filter((x) => x.date >= from && x.date <= to),
@@ -1289,6 +1289,35 @@ export class MockBookingRepository implements BookingRepository {
   }
 
   /** Move a barber up or down (order on the site and in booking). */
+  /** Same rule as the database: delete without history, archive with it. */
+  async adminDeleteStaff(id: ID): Promise<'deleted' | 'archived'> {
+    await this.delay()
+    return this.exclusive(() => {
+      const staff = this.db.staff.find((s) => s.id === id)
+      if (!staff) throw new NotFoundError('ese barbero')
+      const now = this.now().getTime()
+      const upcoming = this.db.appointments.filter(
+        (a) => a.staffId === id && (a.status === 'booked' || a.status === 'confirmed') && Date.parse(a.endsAt) > now,
+      ).length
+      if (upcoming)
+        throw new InvalidRequestError(
+          `Tiene ${upcoming} cita(s) próxima(s). Muévelas a otro barbero o cancélalas antes de eliminarlo.`,
+        )
+      const history =
+        this.db.appointments.some((a) => a.staffId === id) || (this.db.sales ?? []).some((s) => s.staffId === id)
+      if (history) {
+        Object.assign(staff, { active: false, archived: true })
+        this.save()
+        return 'archived'
+      }
+      this.db.staff = this.db.staff.filter((s) => s.id !== id)
+      this.db.blocks = this.db.blocks.filter((b) => b.staffId !== id)
+      this.db.commissions = this.db.commissions.filter((c) => c.staffId !== id)
+      this.save()
+      return 'deleted'
+    })
+  }
+
   async adminMoveStaff(id: ID, dir: -1 | 1): Promise<void> {
     await this.delay()
     return this.exclusive(() => {

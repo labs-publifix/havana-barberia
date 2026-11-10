@@ -236,7 +236,12 @@ export default function ManageAppointment() {
                   <CalendarClock className="size-5" strokeWidth={1.75} aria-hidden />
                   Reprogramar
                 </Button>
-                <Button variant="ghost" size="lg" block onClick={() => addToCalendar(a, catalog.data?.services ?? [], policy.changeCutoffMin)}>
+                <Button
+                  variant="ghost"
+                  size="lg"
+                  block
+                  onClick={() => addToCalendar(a, catalog.data?.services ?? [], policy.changeCutoffMin)}
+                >
                   <CalendarPlus className="size-5" strokeWidth={1.75} aria-hidden />
                   Agregar al calendario
                 </Button>

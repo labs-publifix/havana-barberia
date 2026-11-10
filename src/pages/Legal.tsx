@@ -17,14 +17,14 @@ const contentFor = (p: BookingPolicy): Record<'policies' | 'privacy', { title: s
       <>
         <h2>Reservas</h2>
         <p>
-          Reservas sin crear cuenta, solo con tu nombre, teléfono y correo. Puedes agendar desde {durationText(p.minNoticeMin)}{' '}
-          antes y hasta {p.maxAdvanceDays} días después de hoy. Cada cliente puede tener hasta{' '}
-          {p.maxActiveAppointmentsPerCustomer} citas próximas activas.
+          Reservas sin crear cuenta, solo con tu nombre, teléfono y correo. Puedes agendar desde{' '}
+          {durationText(p.minNoticeMin)} antes y hasta {p.maxAdvanceDays} días después de hoy. Cada cliente puede tener
+          hasta {p.maxActiveAppointmentsPerCustomer} citas próximas activas.
         </p>
         <h2>Cancelaciones y cambios</h2>
         <p>
-          Puedes cancelar o reprogramar sin costo hasta {durationText(p.changeCutoffMin)} antes de tu cita, desde el enlace
-          de tu cita. Después de ese plazo, llámanos al {business.phoneDisplay}.
+          Puedes cancelar o reprogramar sin costo hasta {durationText(p.changeCutoffMin)} antes de tu cita, desde el
+          enlace de tu cita. Después de ese plazo, llámanos al {business.phoneDisplay}.
         </p>
         <h2>Puntualidad</h2>
         <p>

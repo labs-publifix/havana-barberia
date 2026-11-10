@@ -6,6 +6,7 @@ import { routes } from '@/app/routes'
 import { Alert } from '@/components/ui/Alert'
 import { Badge } from '@/components/ui/Badge'
 import { buttonClass } from '@/components/ui/buttonClass'
+import { Dialog } from '@/components/ui/Dialog'
 import { business } from '@/config/business'
 import type {
   Appointment,
@@ -242,6 +243,13 @@ export function StaffPanel({
     )
   }
 
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const remove = useMutation({
+    mutationFn: (id: string) => repo.deleteStaff(id),
+    onSuccess: () =>
+      Promise.all([['admin'], ['staff'], ['slots']].map((queryKey) => qc.invalidateQueries({ queryKey }))),
+  })
+
   const save = useMutation({
     mutationFn: (input: StaffInput) => repo.saveStaff(input),
     onSuccess: () =>
@@ -314,285 +322,341 @@ export function StaffPanel({
   ]
 
   return (
-    <SidePanel
-      open
-      wide
-      onOpenChange={(o) => !o && onClose()}
-      title={editing ? editing.name : 'Nuevo barbero'}
-      description={
-        canEdit
-          ? editing
-            ? 'Perfil, horario, servicios y comisión.'
-            : 'Aparecerá en la reserva cuando esté activo.'
-          : 'Solo lectura (salvo ausencias)'
-      }
-      footer={
-        canEdit && tab !== 'ausencias' ? (
-          <>
-            <button type="button" onClick={onClose} className={buttonClass({ variant: 'secondary', size: 'sm' })}>
-              {outside ? 'Cerrar' : 'Cancelar'}
-            </button>
-            <button type="button" onClick={submit} disabled={save.isPending} className={buttonClass({ size: 'sm' })}>
-              {save.isPending ? 'Guardando…' : editing ? 'Guardar cambios' : 'Agregar barbero'}
-            </button>
-          </>
-        ) : undefined
-      }
-    >
-      <div className="grid gap-5">
-        {error && <Alert tone="danger" title={error} />}
-        {outside && (
-          <Alert
-            tone="warning"
-            title={`${outside.length} ${outside.length === 1 ? 'cita próxima queda' : 'citas próximas quedan'} fuera de su horario o servicios`}
-          >
-            <p>Siguen agendadas; muévelas o avísale al cliente:</p>
-            <ul className="mt-2 grid gap-1">
-              {outside.map((a) => (
-                <li key={a.id}>
-                  <Link
-                    to={routes.adminAgenda({ fecha: localDate(a.startsAt, tz), cita: a.id })}
-                    className="underline underline-offset-2"
-                  >
-                    {capitalize(formatDay(localDate(a.startsAt, tz), "EEE d 'de' MMM"))},{' '}
-                    {formatTime12(localTime(a.startsAt, tz))} · {a.customer.name}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </Alert>
-        )}
-
-        <Tabs<Tab> label="Secciones del barbero" idBase={idBase} value={tab} onChange={setTab} tabs={tabs} />
-
-        <TabPanel idBase={idBase} value={tab}>
-          {tab === 'perfil' && (
-            <fieldset disabled={!canEdit} className="grid gap-5">
-              <ImageUploader
-                label="Foto"
-                value={form.photoUrl}
-                onChange={(photoUrl) => set({ photoUrl })}
-                onUpload={(blob) => repo.uploadStaffPhoto(blob)}
-                disabled={!canEdit}
-              />
-              <Input label="Nombre" value={form.name} onChange={(e) => set({ name: e.target.value })} />
-              <Input
-                label="Título"
-                hint="Opcional, por ejemplo «Barbero senior»."
-                value={form.title}
-                onChange={(e) => set({ title: e.target.value })}
-              />
-              <TextArea
-                label="Descripción en el sitio"
-                optional
-                maxLength={280}
-                value={form.bio}
-                onChange={(e) => set({ bio: e.target.value })}
-                placeholder="Una o dos frases: especialidad, años de experiencia…"
-              />
-              {seesFinance && (
-                <Input
-                  label="Correo para avisos de citas"
-                  type="email"
-                  inputMode="email"
-                  autoComplete="off"
-                  value={form.email}
-                  onChange={(e) => set({ email: e.target.value })}
-                  hint="Aquí le llegan sus citas nuevas y cancelaciones. No se muestra en el sitio."
-                />
+    <>
+      <SidePanel
+        open
+        wide
+        onOpenChange={(o) => !o && onClose()}
+        title={editing ? editing.name : 'Nuevo barbero'}
+        description={
+          canEdit
+            ? editing
+              ? 'Perfil, horario, servicios y comisión.'
+              : 'Aparecerá en la reserva cuando esté activo.'
+            : 'Solo lectura (salvo ausencias)'
+        }
+        footer={
+          canEdit && tab !== 'ausencias' ? (
+            <>
+              {editing && seesFinance && (
+                <button
+                  type="button"
+                  onClick={() => setConfirmDelete(true)}
+                  className={buttonClass({ variant: 'ghost', size: 'sm', className: 'text-fg-danger sm:mr-auto' })}
+                >
+                  <Trash2 className="size-4" strokeWidth={1.75} aria-hidden /> Eliminar barbero
+                </button>
               )}
-              <div className="rounded-md border border-line p-4">
-                <Switch
-                  label="Activo"
-                  description="Aparece en la reserva y se le pueden agendar citas."
-                  checked={form.active}
+              <button type="button" onClick={onClose} className={buttonClass({ variant: 'secondary', size: 'sm' })}>
+                {outside ? 'Cerrar' : 'Cancelar'}
+              </button>
+              <button type="button" onClick={submit} disabled={save.isPending} className={buttonClass({ size: 'sm' })}>
+                {save.isPending ? 'Guardando…' : editing ? 'Guardar cambios' : 'Agregar barbero'}
+              </button>
+            </>
+          ) : undefined
+        }
+      >
+        <div className="grid gap-5">
+          {error && <Alert tone="danger" title={error} />}
+          {outside && (
+            <Alert
+              tone="warning"
+              title={`${outside.length} ${outside.length === 1 ? 'cita próxima queda' : 'citas próximas quedan'} fuera de su horario o servicios`}
+            >
+              <p>Siguen agendadas; muévelas o avísale al cliente:</p>
+              <ul className="mt-2 grid gap-1">
+                {outside.map((a) => (
+                  <li key={a.id}>
+                    <Link
+                      to={routes.adminAgenda({ fecha: localDate(a.startsAt, tz), cita: a.id })}
+                      className="underline underline-offset-2"
+                    >
+                      {capitalize(formatDay(localDate(a.startsAt, tz), "EEE d 'de' MMM"))},{' '}
+                      {formatTime12(localTime(a.startsAt, tz))} · {a.customer.name}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </Alert>
+          )}
+
+          <Tabs<Tab> label="Secciones del barbero" idBase={idBase} value={tab} onChange={setTab} tabs={tabs} />
+
+          <TabPanel idBase={idBase} value={tab}>
+            {tab === 'perfil' && (
+              <fieldset disabled={!canEdit} className="grid gap-5">
+                <ImageUploader
+                  label="Foto"
+                  value={form.photoUrl}
+                  onChange={(photoUrl) => set({ photoUrl })}
+                  onUpload={(blob) => repo.uploadStaffPhoto(blob)}
                   disabled={!canEdit}
-                  onChange={(active) => set({ active })}
+                />
+                <Input label="Nombre" value={form.name} onChange={(e) => set({ name: e.target.value })} />
+                <Input
+                  label="Título"
+                  hint="Opcional, por ejemplo «Barbero senior»."
+                  value={form.title}
+                  onChange={(e) => set({ title: e.target.value })}
+                />
+                <TextArea
+                  label="Descripción en el sitio"
+                  optional
+                  maxLength={280}
+                  value={form.bio}
+                  onChange={(e) => set({ bio: e.target.value })}
+                  placeholder="Una o dos frases: especialidad, años de experiencia…"
+                />
+                {seesFinance && (
+                  <Input
+                    label="Correo para avisos de citas"
+                    type="email"
+                    inputMode="email"
+                    autoComplete="off"
+                    value={form.email}
+                    onChange={(e) => set({ email: e.target.value })}
+                    hint="Aquí le llegan sus citas nuevas y cancelaciones. No se muestra en el sitio."
+                  />
+                )}
+                <div className="rounded-md border border-line p-4">
+                  <Switch
+                    label="Activo"
+                    description="Aparece en la reserva y se le pueden agendar citas."
+                    checked={form.active}
+                    disabled={!canEdit}
+                    onChange={(active) => set({ active })}
+                  />
+                </div>
+                <p className="text-[13px] text-fg-muted">
+                  El acceso al panel de cada barbero se da en Ajustes › Usuarios.
+                </p>
+              </fieldset>
+            )}
+
+            {tab === 'horario' && (
+              <div className="grid gap-3">
+                <p className="text-[13px] text-fg-muted">
+                  De aquí sale su disponibilidad en la reserva. Para la comida, divide el día en dos turnos.
+                </p>
+                <ScheduleEditor
+                  value={form.schedule}
+                  onChange={(schedule) => set({ schedule })}
+                  shop={shopHours.weekly}
+                  disabled={!canEdit}
                 />
               </div>
-              <p className="text-[13px] text-fg-muted">
-                El acceso al panel de cada barbero se da en Ajustes › Usuarios.
-              </p>
-            </fieldset>
-          )}
+            )}
 
-          {tab === 'horario' && (
-            <div className="grid gap-3">
-              <p className="text-[13px] text-fg-muted">
-                De aquí sale su disponibilidad en la reserva. Para la comida, divide el día en dos turnos.
-              </p>
-              <ScheduleEditor
-                value={form.schedule}
-                onChange={(schedule) => set({ schedule })}
-                shop={shopHours.weekly}
-                disabled={!canEdit}
-              />
-            </div>
-          )}
+            {tab === 'servicios' && (
+              <div className="grid gap-4">
+                {canEdit && (
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => set({ serviceIds: services.map((s) => s.id) })}
+                      className={buttonClass({ variant: 'secondary', size: 'sm' })}
+                    >
+                      Activar todos
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => set({ serviceIds: [] })}
+                      className={buttonClass({ variant: 'ghost', size: 'sm' })}
+                    >
+                      Desactivar todos
+                    </button>
+                  </div>
+                )}
+                {categories.map((c) => {
+                  const list = services.filter((s) => s.categoryId === c.id)
+                  if (!list.length) return null
+                  return (
+                    <section key={c.id} className="grid gap-2">
+                      <h3 className="text-[12px] font-semibold uppercase tracking-[0.08em] text-fg-muted">{c.name}</h3>
+                      <ul className="divide-y divide-line rounded-md border border-line">
+                        {list.map((s) => {
+                          const on = form.serviceIds.includes(s.id)
+                          return (
+                            <li key={s.id} className={cn('px-4 py-3', !on && 'bg-surface')}>
+                              <Switch
+                                label={s.name}
+                                description={`${durationLabel(s.durationMin)} · ${money(s.price)}${s.active ? '' : ' · oculto en el sitio'}`}
+                                checked={on}
+                                disabled={!canEdit}
+                                onChange={(v) =>
+                                  set({
+                                    serviceIds: v
+                                      ? [...form.serviceIds, s.id]
+                                      : form.serviceIds.filter((x) => x !== s.id),
+                                  })
+                                }
+                              />
+                            </li>
+                          )
+                        })}
+                      </ul>
+                    </section>
+                  )
+                })}
+              </div>
+            )}
 
-          {tab === 'servicios' && (
-            <div className="grid gap-4">
-              {canEdit && (
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={() => set({ serviceIds: services.map((s) => s.id) })}
-                    className={buttonClass({ variant: 'secondary', size: 'sm' })}
-                  >
-                    Activar todos
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => set({ serviceIds: [] })}
-                    className={buttonClass({ variant: 'ghost', size: 'sm' })}
-                  >
-                    Desactivar todos
-                  </button>
+            {tab === 'comision' && seesFinance && general && (
+              <div className="grid gap-5">
+                {editing && (
+                  <div className="grid gap-3 rounded-lg border border-line p-4">
+                    <Select
+                      label="Si cambias la comisión, aplica desde"
+                      value={commissionFrom ?? weekFrom}
+                      onValueChange={setCommissionFrom}
+                      options={[
+                        {
+                          value: weekFrom,
+                          label: `Esta semana de nómina (desde el ${formatDay(weekFrom, "EEE d 'de' MMM")})`,
+                        },
+                        ...(todayLocal !== weekFrom
+                          ? [{ value: todayLocal, label: `Hoy (${formatDay(todayLocal, "EEE d 'de' MMM")})` }]
+                          : []),
+                        {
+                          value: addDays(weekFrom, 7),
+                          label: `La próxima semana (desde el ${formatDay(addDays(weekFrom, 7), "EEE d 'de' MMM")})`,
+                        },
+                      ]}
+                      hint="Las semanas anteriores conservan la comisión que tenían."
+                    />
+                    {history.length > 0 && (
+                      <ul className="grid gap-1 text-[13px]" aria-label="Historial de comisión">
+                        {history.map((v) => (
+                          <li key={v.validFrom} className="flex justify-between gap-3">
+                            <span className="text-fg-muted">
+                              {v.validFrom < '1000' ? 'Antes' : `Desde ${formatDay(v.validFrom, "d 'de' MMM yyyy")}`}
+                            </span>
+                            <span>{commissionLabel(v)}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                )}
+                <p className="text-[13px] text-fg-muted">
+                  Solo la ven dueño y gerente. Las comisiones de productos se capturan en cada producto.
+                </p>
+                <div className="grid gap-3 rounded-lg border border-line p-4">
+                  <Segmented<StaffCommission['mode']>
+                    label="Tipo de comisión"
+                    value={form.mode}
+                    onChange={(mode) => set({ mode })}
+                    options={[
+                      { value: 'percent', label: '% del servicio' },
+                      { value: 'fixed', label: 'Monto fijo' },
+                    ]}
+                    className="max-w-full justify-self-start overflow-x-auto"
+                  />
+                  <div className="w-48">
+                    <Input
+                      label={form.mode === 'percent' ? 'Porcentaje general' : 'Monto general'}
+                      inputMode="numeric"
+                      placeholder="Sin capturar"
+                      value={form.value}
+                      onChange={(e) => set({ value: digits(e.target.value) })}
+                      {...unit}
+                    />
+                  </div>
                 </div>
-              )}
-              {categories.map((c) => {
-                const list = services.filter((s) => s.categoryId === c.id)
-                if (!list.length) return null
-                return (
-                  <section key={c.id} className="grid gap-2">
-                    <h3 className="text-[12px] font-semibold uppercase tracking-[0.08em] text-fg-muted">{c.name}</h3>
-                    <ul className="divide-y divide-line rounded-md border border-line">
-                      {list.map((s) => {
-                        const on = form.serviceIds.includes(s.id)
+                <section className="grid gap-2">
+                  <h3 className="text-[12px] font-semibold uppercase tracking-[0.08em] text-fg-muted">
+                    Por servicio (deja vacío para usar la general)
+                  </h3>
+                  <ul className="divide-y divide-line rounded-md border border-line">
+                    {services
+                      .filter((s) => form.serviceIds.includes(s.id))
+                      .map((s) => {
+                        const earn = commissionOn(s, general)
                         return (
-                          <li key={s.id} className={cn('px-4 py-3', !on && 'bg-surface')}>
-                            <Switch
-                              label={s.name}
-                              description={`${durationLabel(s.durationMin)} · ${money(s.price)}${s.active ? '' : ' · oculto en el sitio'}`}
-                              checked={on}
-                              disabled={!canEdit}
-                              onChange={(v) =>
-                                set({
-                                  serviceIds: v
-                                    ? [...form.serviceIds, s.id]
-                                    : form.serviceIds.filter((x) => x !== s.id),
-                                })
+                          <li
+                            key={s.id}
+                            className="grid grid-cols-[minmax(0,1fr)_88px_72px] items-center gap-2 px-3 py-2.5 text-sm sm:grid-cols-[minmax(0,1fr)_120px_96px] sm:gap-3 sm:px-4"
+                          >
+                            <span className="min-w-0">
+                              <span className="block truncate font-medium">{s.name}</span>
+                              <span className="text-[13px] text-fg-muted">{money(s.price)}</span>
+                            </span>
+                            <Input
+                              label={`Comisión en ${s.name}`}
+                              hideLabel
+                              inputMode="numeric"
+                              placeholder={form.value || '—'}
+                              value={form.overrides[s.id] ?? ''}
+                              onChange={(e) =>
+                                set({ overrides: { ...form.overrides, [s.id]: digits(e.target.value) } })
                               }
+                              {...unit}
                             />
+                            <span className="tabular text-right text-sm">
+                              {earn === null ? <span className="text-fg-muted">—</span> : money(earn)}
+                              {form.overrides[s.id] && (
+                                <Badge className="ml-1.5" tone="accent">
+                                  propia
+                                </Badge>
+                              )}
+                            </span>
                           </li>
                         )
                       })}
-                    </ul>
-                  </section>
-                )
-              })}
-            </div>
-          )}
-
-          {tab === 'comision' && seesFinance && general && (
-            <div className="grid gap-5">
-              {editing && (
-                <div className="grid gap-3 rounded-lg border border-line p-4">
-                  <Select
-                    label="Si cambias la comisión, aplica desde"
-                    value={commissionFrom ?? weekFrom}
-                    onValueChange={setCommissionFrom}
-                    options={[
-                      {
-                        value: weekFrom,
-                        label: `Esta semana de nómina (desde el ${formatDay(weekFrom, "EEE d 'de' MMM")})`,
-                      },
-                      ...(todayLocal !== weekFrom
-                        ? [{ value: todayLocal, label: `Hoy (${formatDay(todayLocal, "EEE d 'de' MMM")})` }]
-                        : []),
-                      {
-                        value: addDays(weekFrom, 7),
-                        label: `La próxima semana (desde el ${formatDay(addDays(weekFrom, 7), "EEE d 'de' MMM")})`,
-                      },
-                    ]}
-                    hint="Las semanas anteriores conservan la comisión que tenían."
-                  />
-                  {history.length > 0 && (
-                    <ul className="grid gap-1 text-[13px]" aria-label="Historial de comisión">
-                      {history.map((v) => (
-                        <li key={v.validFrom} className="flex justify-between gap-3">
-                          <span className="text-fg-muted">
-                            {v.validFrom < '1000' ? 'Antes' : `Desde ${formatDay(v.validFrom, "d 'de' MMM yyyy")}`}
-                          </span>
-                          <span>{commissionLabel(v)}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              )}
-              <p className="text-[13px] text-fg-muted">
-                Solo la ven dueño y gerente. Las comisiones de productos se capturan en cada producto.
-              </p>
-              <div className="grid gap-3 rounded-lg border border-line p-4">
-                <Segmented<StaffCommission['mode']>
-                  label="Tipo de comisión"
-                  value={form.mode}
-                  onChange={(mode) => set({ mode })}
-                  options={[
-                    { value: 'percent', label: '% del servicio' },
-                    { value: 'fixed', label: 'Monto fijo' },
-                  ]}
-                  className="max-w-full justify-self-start overflow-x-auto"
-                />
-                <div className="w-48">
-                  <Input
-                    label={form.mode === 'percent' ? 'Porcentaje general' : 'Monto general'}
-                    inputMode="numeric"
-                    placeholder="Sin capturar"
-                    value={form.value}
-                    onChange={(e) => set({ value: digits(e.target.value) })}
-                    {...unit}
-                  />
-                </div>
+                  </ul>
+                  <p className="text-[13px] text-fg-muted">La última columna es lo que gana por cada servicio.</p>
+                </section>
               </div>
-              <section className="grid gap-2">
-                <h3 className="text-[12px] font-semibold uppercase tracking-[0.08em] text-fg-muted">
-                  Por servicio (deja vacío para usar la general)
-                </h3>
-                <ul className="divide-y divide-line rounded-md border border-line">
-                  {services
-                    .filter((s) => form.serviceIds.includes(s.id))
-                    .map((s) => {
-                      const earn = commissionOn(s, general)
-                      return (
-                        <li
-                          key={s.id}
-                          className="grid grid-cols-[minmax(0,1fr)_88px_72px] items-center gap-2 px-3 py-2.5 text-sm sm:grid-cols-[minmax(0,1fr)_120px_96px] sm:gap-3 sm:px-4"
-                        >
-                          <span className="min-w-0">
-                            <span className="block truncate font-medium">{s.name}</span>
-                            <span className="text-[13px] text-fg-muted">{money(s.price)}</span>
-                          </span>
-                          <Input
-                            label={`Comisión en ${s.name}`}
-                            hideLabel
-                            inputMode="numeric"
-                            placeholder={form.value || '—'}
-                            value={form.overrides[s.id] ?? ''}
-                            onChange={(e) => set({ overrides: { ...form.overrides, [s.id]: digits(e.target.value) } })}
-                            {...unit}
-                          />
-                          <span className="tabular text-right text-sm">
-                            {earn === null ? <span className="text-fg-muted">—</span> : money(earn)}
-                            {form.overrides[s.id] && (
-                              <Badge className="ml-1.5" tone="accent">
-                                propia
-                              </Badge>
-                            )}
-                          </span>
-                        </li>
-                      )
-                    })}
-                </ul>
-                <p className="text-[13px] text-fg-muted">La última columna es lo que gana por cada servicio.</p>
-              </section>
-            </div>
-          )}
+            )}
 
-          {tab === 'ausencias' && editing && <Absences staff={editing} team={team} />}
-        </TabPanel>
-      </div>
-    </SidePanel>
+            {tab === 'ausencias' && editing && <Absences staff={editing} team={team} />}
+          </TabPanel>
+        </div>
+      </SidePanel>
+
+      {editing && (
+        <Dialog
+          open={confirmDelete}
+          onOpenChange={setConfirmDelete}
+          title={`¿Eliminar a ${editing.name}?`}
+          description="Si nunca tuvo citas, ventas ni nómina, se borra por completo. Si ya tiene historial, se archiva: deja de aparecer en Equipo, en el sitio y en la reserva, y sus citas y nómina pasadas se conservan. Las citas próximas hay que moverlas antes."
+          footer={
+            <>
+              <button
+                type="button"
+                onClick={() => setConfirmDelete(false)}
+                className={buttonClass({ variant: 'secondary', size: 'sm' })}
+              >
+                Volver
+              </button>
+              <button
+                type="button"
+                disabled={remove.isPending}
+                onClick={() =>
+                  remove.mutate(editing.id, {
+                    onSuccess: (how) => {
+                      toast(
+                        how === 'deleted'
+                          ? `${editing.name} eliminado`
+                          : `${editing.name} archivado; su historial se conserva`,
+                      )
+                      onClose()
+                    },
+                    onError: (e) => {
+                      setConfirmDelete(false)
+                      setError(errorMessage(e))
+                    },
+                  })
+                }
+                className={buttonClass({ variant: 'danger', size: 'sm' })}
+              >
+                {remove.isPending ? 'Eliminando…' : 'Eliminar barbero'}
+              </button>
+            </>
+          }
+        />
+      )}
+    </>
   )
 }

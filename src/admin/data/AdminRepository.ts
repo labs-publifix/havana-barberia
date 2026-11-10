@@ -108,6 +108,12 @@ export interface AdminRepository {
   getTeam(): Promise<AdminTeam>
   /** Create or update a barber; returns upcoming appointments the change leaves outside their shifts or services. */
   saveStaff(input: StaffInput): Promise<{ staff: Staff; outside: Appointment[] }>
+  /**
+   * Owner, developer and manager. Without history the barber is deleted; with
+   * history (appointments, sales, payroll, a panel user) archived. Refused while
+   * upcoming appointments remain.
+   */
+  deleteStaff(id: ID): Promise<'deleted' | 'archived'>
   moveStaff(id: ID, dir: -1 | 1): Promise<void>
   /** Store a barber photo (already resized) and return its URL. */
   uploadStaffPhoto(image: Blob): Promise<string>

@@ -81,6 +81,8 @@ export interface Staff {
   title?: string
   /** One or two sentences for the site's team section; optional. */
   bio?: string
+  /** Removed from the shop but kept for history (hidden from Equipo, the site and booking). */
+  archived?: boolean
 }
 
 /**

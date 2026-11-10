@@ -73,7 +73,12 @@ export default function Confirmation() {
             />
 
             <div className="grid gap-3">
-              <Button variant="primary" size="lg" block onClick={() => addToCalendar(a, catalog.data?.services ?? [], policy.changeCutoffMin)}>
+              <Button
+                variant="primary"
+                size="lg"
+                block
+                onClick={() => addToCalendar(a, catalog.data?.services ?? [], policy.changeCutoffMin)}
+              >
                 <CalendarPlus className="size-5" strokeWidth={1.75} aria-hidden />
                 Agregar al calendario
               </Button>
