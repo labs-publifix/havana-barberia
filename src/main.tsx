@@ -20,6 +20,17 @@ if (deepPath?.startsWith('/')) {
   )
 }
 
+// Account e-mails (invitation, password recovery) may land on the site root,
+// e.g. when sent from the Supabase dashboard. Send them, and their errors
+// (expired or used link), to the screen where the person sets a password.
+const hash = new URLSearchParams(window.location.hash.slice(1))
+const accountLink =
+  ['invite', 'recovery', 'signup', 'magiclink'].includes(hash.get('type') ?? '') || hash.has('error_code')
+const setPasswordPath = import.meta.env.BASE_URL + 'admin/contrasena'
+if (accountLink && window.location.pathname !== setPasswordPath) {
+  window.history.replaceState(null, '', setPasswordPath + window.location.hash)
+}
+
 const repository = createBookingRepository()
 
 createRoot(document.getElementById('root')!).render(

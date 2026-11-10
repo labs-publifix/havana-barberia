@@ -8,6 +8,7 @@ import { buttonClass } from '@/components/ui/buttonClass'
 import { TextField } from '@/components/ui/Field'
 import { useAdminAuth } from '../auth/AdminAuth'
 import { AuthLayout } from './AuthLayout'
+import { ForgotPassword } from './Login'
 
 /**
  * Where the invitation and "forgot password" e-mails lead: the link signs the
@@ -29,13 +30,17 @@ export default function SetPassword() {
   if (!session)
     return (
       <AuthLayout>
-        <h1 className="text-[28px] font-semibold leading-tight tracking-[-0.03em]">Enlace vencido</h1>
+        <h1 className="text-[28px] font-semibold leading-tight tracking-[-0.03em]">Este enlace ya no sirve</h1>
         <p className="mt-2 text-fg-muted">
-          Este enlace ya se usó o venció. Pide a la persona dueña que te reenvíe la invitación, o usa «¿Olvidaste tu
-          contraseña?» al entrar.
+          Los enlaces de los correos duran una hora y sirven una sola vez. Escribe tu correo y te mandamos uno nuevo
+          para crear tu contraseña.
         </p>
-        <a href={`${import.meta.env.BASE_URL}admin/entrar`} className={buttonClass({ className: 'mt-6' })}>
-          Ir a entrar
+        {repo.requestPasswordReset && <ForgotPassword send={repo.requestPasswordReset.bind(repo)} />}
+        <a
+          href={`${import.meta.env.BASE_URL}admin/entrar`}
+          className="mt-6 inline-block rounded text-sm font-medium text-fg underline decoration-line-strong underline-offset-4 hover:decoration-fg focus-visible:outline focus-visible:outline-2 focus-visible:outline-focus"
+        >
+          Ya tengo contraseña: entrar
         </a>
       </AuthLayout>
     )

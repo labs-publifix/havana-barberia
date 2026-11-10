@@ -184,6 +184,8 @@ export class MockAdminRepository implements AdminRepository {
     const email = input.email.trim().toLowerCase()
     if (!name) throw new InvalidRequestError('Escribe el nombre.')
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new InvalidRequestError('Revisa el correo.')
+    if (!input.id && input.password && input.password.length < 10)
+      throw new InvalidRequestError('La contraseña temporal necesita al menos 10 caracteres.')
     if (users.some((u) => u.id !== input.id && u.email === email))
       throw new InvalidRequestError('Ya hay un usuario con ese correo.')
     const existing = input.id ? users.find((u) => u.id === input.id) : undefined

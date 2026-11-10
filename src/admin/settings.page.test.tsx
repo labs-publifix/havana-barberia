@@ -96,12 +96,14 @@ describe('admin settings', () => {
     )
     await screen.findByRole('list', { name: 'Usuarios' })
     await user.click(await screen.findByRole('button', { name: 'Dar acceso a Mario Peña' }))
-    const panel = await screen.findByRole('dialog', { name: 'Invitar usuario' })
+    const panel = await screen.findByRole('dialog', { name: 'Nuevo usuario' })
     expect(within(panel).getByLabelText('Nombre')).toHaveValue('Mario Peña')
     expect(within(panel).getByRole('radio', { name: /Barbero/ })).toBeChecked()
     await user.type(within(panel).getByLabelText('Correo'), 'mario@havana.test')
-    await user.click(within(panel).getByRole('button', { name: 'Enviar invitación' }))
-    expect(await screen.findByText('Invitación lista para Mario Peña')).toBeInTheDocument()
+    // With a temporary password the account is created without an invitation e-mail.
+    await user.type(within(panel).getByLabelText(/Contraseña temporal/), 'Havana-2026!')
+    await user.click(within(panel).getByRole('button', { name: 'Crear usuario' }))
+    expect(await screen.findByText('Mario Peña ya puede entrar con su contraseña temporal')).toBeInTheDocument()
     const mario = (await admin.listUsers()).find((u) => u.email === 'mario@havana.test')
     expect(mario).toMatchObject({ role: 'barber', mfaRequired: false })
 

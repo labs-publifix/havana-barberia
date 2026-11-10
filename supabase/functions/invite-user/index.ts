@@ -25,7 +25,14 @@ Deno.serve(async (req) => {
   const { data: me } = await admin.from('profiles').select('role, active').eq('id', caller.user.id).maybeSingle()
   if (me?.role !== 'owner' || !me.active) return reply(403, { error: 'Solo la persona dueña administra usuarios.' })
 
-  let body: { name?: string; email?: string; role?: string; staffId?: string | null; redirectTo?: string }
+  let body: {
+    name?: string
+    email?: string
+    role?: string
+    staffId?: string | null
+    password?: string
+    redirectTo?: string
+  }
   try {
     body = await req.json()
   } catch {
@@ -39,6 +46,9 @@ Deno.serve(async (req) => {
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return reply(400, { error: 'Revisa el correo.' })
   if (!ROLES.includes(role)) return reply(400, { error: 'Elige el rol.' })
   if (role === 'barber' && !staffId) return reply(400, { error: 'Elige el perfil del barbero en Equipo.' })
+  const password = body.password ?? ''
+  if (password && password.length < 10)
+    return reply(400, { error: 'La contraseña temporal necesita al menos 10 caracteres.' })
   if (body.redirectTo && !isAllowedRedirect(body.redirectTo))
     return reply(400, { error: 'Dirección de regreso no permitida.' })
 
@@ -49,11 +59,17 @@ Deno.serve(async (req) => {
     if (linked) return reply(409, { error: 'Ese barbero ya tiene un usuario.' })
   }
 
-  const { data: invited, error } = await admin.auth.admin.inviteUserByEmail(email, {
-    data: { name },
-    redirectTo: body.redirectTo,
-  })
-  if (error || !invited.user) return reply(400, { error: 'No se pudo enviar la invitación. Revisa el correo.' })
+  // With a temporary password the account is confirmed right away (no e-mail);
+  // otherwise an invitation e-mail lets the person choose one.
+  const { data: invited, error } = password
+    ? await admin.auth.admin.createUser({ email, password, email_confirm: true, user_metadata: { name } })
+    : await admin.auth.admin.inviteUserByEmail(email, { data: { name }, redirectTo: body.redirectTo })
+  if (error || !invited.user)
+    return reply(400, {
+      error: password
+        ? 'No se pudo crear el usuario. Revisa el correo.'
+        : 'No se pudo enviar la invitación. Revisa el correo.',
+    })
 
   const profile = { id: invited.user.id, name, email, role, staff_id: staffId, active: true }
   const { error: saveError } = await admin.from('profiles').insert(profile)

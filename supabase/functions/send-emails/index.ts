@@ -102,6 +102,7 @@ Deno.serve(async (req) => {
         changeCutoffMin: settings?.change_cutoff_min ?? 240,
         manageUrl: bookingOpen ? `${site}/cita/${a.token}` : null,
         panelUrl: `${site}/admin/agenda`,
+        assetBase: site,
       })
 
       // Test mode: only the review copy, and it says who would have received it.

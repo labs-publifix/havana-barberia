@@ -220,6 +220,8 @@ export interface UserInput {
   /** Required for barbers: their profile in Equipo. */
   staffId: ID | null
   active: boolean
+  /** New users: create the account confirmed with this temporary password (no invitation e-mail). */
+  password?: string
 }
 
 /** One day of the drawer: what was charged, cash moves and the count if closed. */

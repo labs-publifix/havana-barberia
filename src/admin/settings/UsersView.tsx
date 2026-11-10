@@ -199,6 +199,8 @@ interface Form {
   role: AdminRole
   staffId: string
   active: boolean
+  /** New users only: create the account with this password instead of an e-mail invitation. */
+  password: string
 }
 
 function UserPanel({
@@ -217,7 +219,14 @@ function UserPanel({
   const { repo } = useAdminAuth()
   const qc = useQueryClient()
   const toast = useToast()
-  const [form, setForm] = useState<Form>({ name: '', email: '', role: 'reception', staffId: '', active: true })
+  const [form, setForm] = useState<Form>({
+    name: '',
+    email: '',
+    role: 'reception',
+    staffId: '',
+    active: true,
+    password: '',
+  })
   const [error, setError] = useState<string | null>(null)
   const editing = draft?.mode === 'edit' ? draft.user : null
   const self = editing?.id === meId
@@ -227,10 +236,17 @@ function UserPanel({
     setError(null)
     if (draft.mode === 'edit') {
       const u = draft.user
-      setForm({ name: u.name, email: u.email, role: u.role, staffId: u.staffId ?? '', active: u.active })
+      setForm({ name: u.name, email: u.email, role: u.role, staffId: u.staffId ?? '', active: u.active, password: '' })
     } else {
       const s = staff.find((x) => x.id === draft.staffId)
-      setForm({ name: s?.name ?? '', email: '', role: s ? 'barber' : 'reception', staffId: s?.id ?? '', active: true })
+      setForm({
+        name: s?.name ?? '',
+        email: '',
+        role: s ? 'barber' : 'reception',
+        staffId: s?.id ?? '',
+        active: true,
+        password: '',
+      })
     }
     // Only when the panel opens for someone else.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -251,10 +267,17 @@ function UserPanel({
         role: form.role,
         staffId: form.role === 'barber' ? form.staffId || null : null,
         active: form.active,
+        ...(!editing && form.password ? { password: form.password } : {}),
       }),
     onSuccess: async (u) => {
       await qc.invalidateQueries({ queryKey: ['admin', 'users'] })
-      toast(editing ? 'Usuario actualizado' : `Invitación lista para ${u.name}`)
+      toast(
+        editing
+          ? 'Usuario actualizado'
+          : form.password
+            ? `${u.name} ya puede entrar con su contraseña temporal`
+            : `Invitación enviada a ${u.name}`,
+      )
       onClose()
     },
     onError: (e) => setError(errorMessage(e)),
@@ -264,8 +287,12 @@ function UserPanel({
     <SidePanel
       open={!!draft}
       onOpenChange={(o) => !o && onClose()}
-      title={editing ? editing.name : 'Invitar usuario'}
-      description={editing ? editing.email : 'Le llega un correo para crear su contraseña.'}
+      title={editing ? editing.name : 'Nuevo usuario'}
+      description={
+        editing
+          ? editing.email
+          : 'Con una contraseña temporal entra de inmediato; sin ella, le llega un correo para crear la suya.'
+      }
       footer={
         <>
           <button type="button" onClick={onClose} className={buttonClass({ variant: 'secondary', size: 'sm' })}>
@@ -277,7 +304,13 @@ function UserPanel({
             disabled={save.isPending}
             className={buttonClass({ size: 'sm' })}
           >
-            {save.isPending ? 'Guardando…' : editing ? 'Guardar cambios' : 'Enviar invitación'}
+            {save.isPending
+              ? 'Guardando…'
+              : editing
+                ? 'Guardar cambios'
+                : form.password
+                  ? 'Crear usuario'
+                  : 'Enviar invitación'}
           </button>
         </>
       }
@@ -340,9 +373,24 @@ function UserPanel({
             hint="Verá solo su agenda y sus comisiones."
           />
         )}
+        {!editing && (
+          <Input
+            label="Contraseña temporal (opcional)"
+            type="text"
+            value={form.password}
+            onChange={(e) => set({ password: e.target.value })}
+            autoComplete="new-password"
+            spellCheck={false}
+            hint="Al menos 10 caracteres. Compártela en persona; después puede cambiarla con «¿Olvidaste tu contraseña?»."
+          />
+        )}
         <p className="flex items-start gap-2 text-[13px] text-fg-muted">
           <ShieldCheck className="mt-px size-4 shrink-0" aria-hidden />
-          Entra con su correo y una contraseña que crea al abrir la invitación.
+          {editing
+            ? 'Entra con su correo y su contraseña.'
+            : form.password
+              ? 'Entra de inmediato con su correo y esta contraseña. No se envía correo.'
+              : 'Le llega un correo para crear su contraseña (el enlace dura una hora).'}
         </p>
         {editing && (
           <div className="rounded-md border border-line p-4">
