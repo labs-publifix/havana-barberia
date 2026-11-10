@@ -40,6 +40,7 @@ import { SidePanel } from '../ui/SidePanel'
 import { TabPanel, Tabs } from '../ui/Tabs'
 import { useToast } from '../ui/Toast'
 import { TextArea } from '@/components/ui/Field'
+import { useBusinessHours } from '@/app/queries'
 import { commissionLabel, commissionOn } from './model'
 import { useFinanceWeek } from '../useFinanceWeek'
 import { ScheduleEditor } from './ScheduleEditor'
@@ -201,6 +202,8 @@ export function StaffPanel({
   const { repo } = useAdminAuth()
   const qc = useQueryClient()
   const toast = useToast()
+  // Shifts must fit the shop's hours (Ajustes › Horario).
+  const shopHours = useBusinessHours()
   const idBase = useId().replace(/:/g, '')
   const [tab, setTab] = useState<Tab>('perfil')
   const [form, setForm] = useState<Form | null>(null)
@@ -219,7 +222,7 @@ export function StaffPanel({
     setError(null)
     setOutside(null)
     setCommissionFrom(null)
-    const shop = business.hours.weekly
+    const shop = shopHours.weekly
     setForm(
       !draft
         ? null
@@ -267,7 +270,7 @@ export function StaffPanel({
     : []
   if (!draft || !form) return null
   const set = (patch: Partial<Form>) => setForm({ ...form, ...patch })
-  const scheduleProblems = Object.keys(scheduleErrors(form.schedule, business.hours.weekly)).length
+  const scheduleProblems = Object.keys(scheduleErrors(form.schedule, shopHours.weekly)).length
   const digits = (s: string) => s.replace(/[^\d]/g, '')
   const unit = form.mode === 'percent' ? { suffix: '%' } : { prefix: '$' }
 
@@ -421,7 +424,7 @@ export function StaffPanel({
               <ScheduleEditor
                 value={form.schedule}
                 onChange={(schedule) => set({ schedule })}
-                shop={business.hours.weekly}
+                shop={shopHours.weekly}
                 disabled={!canEdit}
               />
             </div>

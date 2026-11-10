@@ -3,6 +3,8 @@ import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { SiteNav } from './SiteNav'
+import { AppProviders } from '@/app/AppProviders'
+import { MockBookingRepository } from '@/data/mock/MockBookingRepository'
 import { ReviewsMarquee } from '@/features/home/Reviews'
 import { reviews } from '@/config/reviews'
 
@@ -41,9 +43,11 @@ afterEach(() => vi.unstubAllGlobals())
 describe('SiteNav', () => {
   const renderNav = (startFloating = false) =>
     render(
-      <MemoryRouter initialEntries={['/']}>
-        <SiteNav startFloating={startFloating} />
-      </MemoryRouter>,
+      <AppProviders repository={new MockBookingRepository({ latencyMs: 0, storage: null })}>
+        <MemoryRouter initialEntries={['/']}>
+          <SiteNav startFloating={startFloating} />
+        </MemoryRouter>
+      </AppProviders>,
     )
 
   it('starts transparent over the hero and floats after scrolling past the sentinel', () => {

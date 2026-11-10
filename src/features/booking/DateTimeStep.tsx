@@ -8,8 +8,8 @@ import { Button } from '@/components/ui/Button'
 import { LoadingRegion, Skeleton } from '@/components/ui/Skeleton'
 import { useSlots } from '@/app/queries'
 import { nearestAvailable } from '@/lib/availability'
-import { business } from '@/config/business'
 import { addDays, capitalize, formatDateLong, formatTime12, localDate, weekdayOf } from '@/lib/time'
+import { useBusinessHours } from '@/app/queries'
 
 const DAYS_SHOWN = 30
 
@@ -43,18 +43,19 @@ export function DateTimeStep({
   excludeAppointmentId?: string
   conflict?: Conflict | null
 }) {
-  const today = localDate(new Date(), business.hours.timeZone)
+  const hours = useBusinessHours()
+  const today = localDate(new Date(), hours.timeZone)
 
   const days: DayOption[] = useMemo(() => {
     const working = staffId === 'any' ? staff : staff.filter((s) => s.id === staffId)
     return Array.from({ length: DAYS_SHOWN }, (_, i) => {
       const d = addDays(today, i)
       const wd = weekdayOf(d)
-      const shopOpen = (business.hours.weekly[wd] ?? []).length > 0
+      const shopOpen = (hours.weekly[wd] ?? []).length > 0
       const someoneWorks = working.some((s) => (s.schedule[wd] ?? []).length > 0)
       return { date: d, disabled: !shopOpen || !someoneWorks }
     })
-  }, [today, staff, staffId])
+  }, [today, staff, staffId, hours.weekly])
 
   const firstOpen = days.find((d) => !d.disabled)?.date ?? null
   const autoPicked = useRef(0)

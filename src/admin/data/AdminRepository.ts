@@ -12,6 +12,7 @@ import type {
   Slot,
   Staff,
   TimeBlock,
+  WeeklySchedule,
 } from '@/domain/types'
 import type { SlotQuery } from '@/data'
 import type {
@@ -19,6 +20,7 @@ import type {
   AdminFinance,
   CashDay,
   AdminSettings,
+  BusinessHoursChange,
   EmailSettings,
   AdminTeam,
   AdminChange,
@@ -131,6 +133,8 @@ export interface AdminRepository {
   /** Owner and manager. Errors: InvalidRequestError. */
   saveFinanceSettings(input: FinanceSettings): Promise<FinanceSettings>
   setBonusAward(award: BonusAward, on: boolean): Promise<void>
+  /** Owner, developer and manager: the shop's opening hours (the frame for every barber). */
+  saveBusinessHours(weekly: WeeklySchedule): Promise<BusinessHoursChange>
   /** Owner and manager: e-mail test mode and the latest e-mails. */
   getEmailSettings(): Promise<EmailSettings>
   setCustomerEmails(on: boolean): Promise<void>

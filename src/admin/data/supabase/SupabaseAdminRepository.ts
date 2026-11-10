@@ -15,6 +15,7 @@ import type {
   Staff,
   StaffCommission,
   TimeBlock,
+  WeeklySchedule,
 } from '@/domain/types'
 import type { SlotQuery } from '@/data'
 import { InvalidRequestError, NotFoundError, SlotUnavailableError } from '@/data/errors'
@@ -33,7 +34,7 @@ import { addDays, localDate, toMinutes, weekdayOf, zonedInstant } from '@/lib/ti
 import { computeSlots, isActiveStatus, nearestAvailable, staffForServices, totalDuration } from '@/lib/availability'
 import { normalizeMxPhone } from '@/lib/phone'
 import { policyError } from '@/lib/policy'
-import { scheduleErrors, DAY_NAMES } from '@/lib/schedule'
+import { daysOutsideShop, outsideShopHours, scheduleErrors, shopHoursErrors, DAY_NAMES } from '@/lib/schedule'
 import { must, supabase } from '@/lib/supabase'
 import { business } from '@/config/business'
 import type {
@@ -47,6 +48,7 @@ import type {
   AdminTeam,
   AdminUser,
   AgendaDay,
+  BusinessHoursChange,
   CashDay,
   EmailSettings,
   NewBlock,
@@ -561,7 +563,7 @@ export class SupabaseAdminRepository implements AdminRepository {
   async saveStaff(input: StaffInput): Promise<{ staff: Staff; outside: Appointment[] }> {
     const name = input.name.trim().replace(/\s+/g, ' ')
     if (!name) throw new InvalidRequestError('Escribe el nombre.')
-    const errors = scheduleErrors(input.schedule, business.hours.weekly)
+    const errors = scheduleErrors(input.schedule, (await this.settingsRow()).business_hours)
     const first = Object.entries(errors)[0]
     if (first) throw new InvalidRequestError(`${DAY_NAMES[Number(first[0])]}: ${first[1]}`)
     const services = must<{ id: string }[]>(await this.db.from('services').select('id')).map((s) => s.id)
@@ -674,6 +676,42 @@ export class SupabaseAdminRepository implements AdminRepository {
   // ── Settings ────────────────────────────────────────────────────────────
   private async settingsRow(): Promise<SettingsRow> {
     return must<SettingsRow>(await this.db.from('settings').select('*').eq('id', 1).single())
+  }
+
+  async saveBusinessHours(weekly: WeeklySchedule): Promise<BusinessHoursChange> {
+    const clean = Array.from({ length: 7 }, (_, d) =>
+      [...(weekly[d] ?? [])].sort((a, b) => a.start.localeCompare(b.start)),
+    )
+    const errors = shopHoursErrors(clean)
+    const first = Object.entries(errors)[0]
+    if (first)
+      throw new InvalidRequestError(Number(first[0]) < 0 ? first[1] : `${DAY_NAMES[Number(first[0])]}: ${first[1]}`)
+    const res = await this.db
+      .from('settings')
+      .update({ business_hours: clean, updated_at: new Date().toISOString() })
+      .eq('id', 1)
+      .select('id')
+      .maybeSingle()
+    if (res.error) friendly(res.error)
+    if (!res.data) throw new InvalidRequestError('Tu rol no permite cambiar el horario.')
+    const now = new Date()
+    const [{ staff }, upcoming] = await Promise.all([
+      this.teamAndServices(),
+      this.db
+        .from('appointments')
+        .select(APPT)
+        .in('status', ['booked', 'confirmed'])
+        .gte('starts_at', now.toISOString())
+        .order('starts_at'),
+    ])
+    return {
+      weekly: clean,
+      staffOutside: staff
+        .filter((s) => s.active)
+        .map((s) => ({ id: s.id, name: s.name, days: daysOutsideShop(s.schedule, clean) }))
+        .filter((s) => s.days.length),
+      appointmentsOutside: outsideShopHours(must<AppointmentRow[]>(upcoming).map(toAppointment), clean, TZ, now),
+    }
   }
 
   async getSettings(): Promise<AdminSettings> {
@@ -845,15 +883,16 @@ export class SupabaseAdminRepository implements AdminRepository {
     const dayStart = zonedInstant(date, '00:00', TZ).toISOString()
     const dayEnd = zonedInstant(date, '23:59', TZ).toISOString()
     const next = zonedInstant(addDays(date, 1), '00:00', TZ).toISOString()
-    const [{ staff, services }, appointments, blocks] = await Promise.all([
+    const [{ staff, services }, appointments, blocks, row] = await Promise.all([
       this.teamAndServices(),
       this.appointmentsBetween(dayStart, next),
       this.blocksBetween(dayStart, next),
+      this.settingsRow(),
     ])
     return {
       date,
       timeZone: TZ,
-      hours: business.hours.weekly[weekdayOf(date)] ?? [],
+      hours: row.business_hours[weekdayOf(date)] ?? [],
       staff: staff.filter((s) => s.active),
       services,
       appointments,
@@ -882,7 +921,7 @@ export class SupabaseAdminRepository implements AdminRepository {
       date: q.date,
       durationMin: totalDuration(chosen),
       staff: q.staffId === 'any' ? candidates : candidates.filter((s) => s.id === q.staffId),
-      hours: business.hours,
+      hours: { timeZone: TZ, weekly: row.business_hours },
       policy: { ...toPolicy(row), minNoticeMin: 0, maxAdvanceDays: 90 },
       appointments,
       blocks,

@@ -1,6 +1,7 @@
 import type {
   Appointment,
   BookingPolicy,
+  BusinessHours,
   ID,
   LocalDate,
   LoyaltyCard,
@@ -40,4 +41,6 @@ export interface BookingRepository {
   getLoyaltyCardByToken(token: string): Promise<LoyaltyCard | null>
   /** Booking and loyalty rules (edited by the shop in the admin's Ajustes). */
   getPolicy(): Promise<BookingPolicy>
+  /** The shop's opening hours (Ajustes › Horario): the frame for every barber's shifts. */
+  getBusinessHours(): Promise<BusinessHours>
 }

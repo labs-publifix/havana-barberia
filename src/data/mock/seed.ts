@@ -47,6 +47,8 @@ export interface MockDb {
   commissions: StaffCommission[]
   /** Booking and loyalty rules, edited in Ajustes (defaults from config/business). */
   policy: BookingPolicy
+  /** Shop's hours edited in Ajustes › Horario (missing: config/business defaults). */
+  hours?: WeeklySchedule
   /** Advances (anticipos) given to barbers, discounted in the weekly payroll. */
   advances: Advance[]
   /** Product sales at the counter. */

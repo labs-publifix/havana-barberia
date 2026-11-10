@@ -7,6 +7,7 @@ import { Reveal } from '@/features/site/Reveal'
 import { useOpenStatus } from '@/features/site/useOpenStatus'
 import { cn } from '@/lib/cn'
 import { formatTime12, localDate, weekdayOf } from '@/lib/time'
+import { useBusinessHours } from '@/app/queries'
 
 const DAYS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
 
@@ -14,7 +15,8 @@ const DAYS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', '
 export function Location() {
   const now = useNow()
   const status = useOpenStatus()
-  const today = weekdayOf(localDate(now, business.hours.timeZone))
+  const hours = useBusinessHours()
+  const today = weekdayOf(localDate(now, hours.timeZone))
   return (
     <section
       id="ubicacion"
@@ -77,7 +79,7 @@ export function Location() {
             <caption className="sr-only">Horario de atención por día</caption>
             <tbody>
               {[1, 2, 3, 4, 5, 6, 0].map((wd) => {
-                const r = business.hours.weekly[wd] ?? []
+                const r = hours.weekly[wd] ?? []
                 const isToday = wd === today
                 return (
                   <tr

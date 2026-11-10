@@ -1,4 +1,12 @@
-import type { Appointment, BookingPolicy, LoyaltyCard, NewAppointment, Slot, Staff } from '@/domain/types'
+import type {
+  Appointment,
+  BookingPolicy,
+  BusinessHours,
+  LoyaltyCard,
+  NewAppointment,
+  Slot,
+  Staff,
+} from '@/domain/types'
 import { must, supabase } from '@/lib/supabase'
 import { computeSlots, staffForServices, totalDuration } from '@/lib/availability'
 import { addDays, zonedInstant } from '@/lib/time'
@@ -72,6 +80,13 @@ export class SupabaseBookingRepository implements BookingRepository {
 
   async getPolicy(): Promise<BookingPolicy> {
     return toPolicy(must<SettingsRow>(await supabase().from('settings').select('*').eq('id', 1).single()))
+  }
+
+  async getBusinessHours(): Promise<BusinessHours> {
+    const row = must<{ business_hours: BusinessHours['weekly']; time_zone: string }>(
+      await supabase().from('settings').select('business_hours, time_zone').eq('id', 1).single(),
+    )
+    return { timeZone: row.time_zone, weekly: row.business_hours }
   }
 
   /** Computed in the browser with the same engine the server checks against. */

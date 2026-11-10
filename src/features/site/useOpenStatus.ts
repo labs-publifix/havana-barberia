@@ -1,11 +1,12 @@
 import { useNow } from '@/app/useNow'
-import { business } from '@/config/business'
 import { formatDay, formatTime12, openState } from '@/lib/time'
+import { useBusinessHours } from '@/app/queries'
 
-/** Open/closed status computed from the configured hours (business time zone). */
+/** Open/closed status computed from the shop's hours (Ajustes › Horario; business time zone). */
 export function useOpenStatus() {
   const now = useNow()
-  const s = openState(business.hours, now)
+  const hours = useBusinessHours()
+  const s = openState(hours, now)
   if (s.open) {
     const closes = formatTime12(s.closesAt!)
     return {

@@ -12,6 +12,7 @@ import type {
   Slot,
   Staff,
   TimeBlock,
+  WeeklySchedule,
 } from '@/domain/types'
 import type { SlotQuery } from '@/data'
 import { businessHours } from '@/config/business'
@@ -29,6 +30,7 @@ import type {
   AdminSession,
   AdminUser,
   AgendaDay,
+  BusinessHoursChange,
   NewBlock,
   PaymentInput,
   PolicyInput,
@@ -340,16 +342,23 @@ export class MockAdminRepository implements AdminRepository {
     return this.booking.adminSavePolicy(input)
   }
 
+  async saveBusinessHours(weekly: WeeklySchedule): Promise<BusinessHoursChange> {
+    const me = (await this.getSession())?.user
+    if (!isFinanceRole(me?.role)) throw new InvalidRequestError('Tu rol no permite cambiar el horario.')
+    return this.booking.adminSaveBusinessHours(weekly)
+  }
+
   async getAgendaDay(date: LocalDate): Promise<AgendaDay> {
     await this.delay()
     const db = this.booking.snapshot()
+    const shop = await this.booking.getBusinessHours()
     const tz = businessHours.timeZone
     const dayStart = zonedInstant(date, '00:00', tz).toISOString()
     const dayEnd = zonedInstant(date, '23:59', tz).toISOString()
     return {
       date,
       timeZone: tz,
-      hours: businessHours.weekly[weekdayOf(date)] ?? [],
+      hours: shop.weekly[weekdayOf(date)] ?? [],
       staff: db.staff.filter((s) => s.active).sort((a, b) => a.order - b.order),
       services: db.services,
       appointments: db.appointments

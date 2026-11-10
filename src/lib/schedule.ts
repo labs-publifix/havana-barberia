@@ -66,3 +66,36 @@ export function outsideSchedule(
     return !ranges.some((r) => s >= toMinutes(r.start) && e <= toMinutes(r.end))
   })
 }
+
+// ── The shop's own hours (Ajustes › Horario) ─────────────────────────────────
+/** What the shop's hours may span: 6:00 a. m. to 11:00 p. m., any day. */
+export const SHOP_LIMITS: WeeklySchedule = Array.from({ length: 7 }, () => [{ start: '06:00', end: '23:00' }])
+
+/** Problems per weekday in the shop's hours, plus `-1` when it never opens. */
+export function shopHoursErrors(weekly: WeeklySchedule): Record<number, string> {
+  const errors = scheduleErrors(weekly, SHOP_LIMITS)
+  if (!weekly.some((d) => (d ?? []).length)) errors[-1] = 'La barbería debe abrir al menos un día.'
+  return errors
+}
+
+/** Upcoming active appointments that fall outside the shop's hours. */
+export function outsideShopHours(
+  appointments: Appointment[],
+  weekly: WeeklySchedule,
+  timeZone: string,
+  now: Date,
+): Appointment[] {
+  return appointments.filter((a) => {
+    if (a.status !== 'booked' && a.status !== 'confirmed') return false
+    if (Date.parse(a.startsAt) <= now.getTime()) return false
+    const ranges = weekly[weekdayOf(localDate(a.startsAt, timeZone))] ?? []
+    const s = toMinutes(localTime(a.startsAt, timeZone))
+    const e = toMinutes(localTime(a.endsAt, timeZone)) || 24 * 60
+    return !ranges.some((r) => s >= toMinutes(r.start) && e <= toMinutes(r.end))
+  })
+}
+
+/** Days on which a barber's shifts no longer fit the shop's hours. */
+export function daysOutsideShop(schedule: WeeklySchedule, weekly: WeeklySchedule): number[] {
+  return Object.keys(scheduleErrors(schedule, weekly)).map(Number)
+}

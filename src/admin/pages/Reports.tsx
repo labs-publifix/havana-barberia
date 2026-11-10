@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { FileSpreadsheet } from 'lucide-react'
 import { buttonClass } from '@/components/ui/buttonClass'
@@ -23,17 +23,20 @@ import {
 import { useFinanceWeek } from '../useFinanceWeek'
 import { Segmented } from '../ui/controls'
 import { Card, PageHeader } from '../ui/Panel'
+import { useBusinessHours } from '@/app/queries'
+import type { WeeklySchedule } from '@/domain/types'
 
 const tz = business.hours.timeZone
 type Period = 'semana' | 'pasada' | 'mes'
 
 /** Opening hours of the shop, as whole hours (columns of the demand map). */
-const HOURS = (() => {
-  const all = business.hours.weekly.flat()
+function hourColumns(weekly: WeeklySchedule): number[] {
+  const all = weekly.flat()
+  if (!all.length) return []
   const start = Math.floor(Math.min(...all.map((r) => toMinutes(r.start))) / 60)
   const end = Math.ceil(Math.max(...all.map((r) => toMinutes(r.end))) / 60)
   return Array.from({ length: end - start }, (_, i) => start + i)
-})()
+}
 
 /**
  * Reportes: how the business is doing for a period against the one before it
@@ -42,6 +45,8 @@ const HOURS = (() => {
  */
 export default function Reports() {
   const { repo } = useAdminAuth()
+  const shop = useBusinessHours()
+  const HOURS = useMemo(() => hourColumns(shop.weekly), [shop.weekly])
   const today = localDate(new Date(), tz)
   const [period, setPeriod] = useState<Period>('semana')
   const { current } = useFinanceWeek()

@@ -4,6 +4,7 @@ import { routes } from '@/app/routes'
 import { business } from '@/config/business'
 import { formatTime12 } from '@/lib/time'
 import { NAV_SECTIONS } from './nav'
+import { useBusinessHours } from '@/app/queries'
 
 const DAY = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
 const link =
@@ -11,8 +12,9 @@ const link =
 
 /** Dark footer of the public site (home, /servicios, legal, 404). */
 export function SiteFooter() {
+  const shop = useBusinessHours()
   const hours = [1, 2, 3, 4, 5, 6, 0].map((wd) => {
-    const r = business.hours.weekly[wd] ?? []
+    const r = shop.weekly[wd] ?? []
     return {
       wd,
       text: r.length ? r.map((x) => `${formatTime12(x.start)} – ${formatTime12(x.end)}`).join(', ') : 'Cerrado',

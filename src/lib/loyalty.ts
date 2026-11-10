@@ -14,9 +14,7 @@ export function rewardFor(serviceIds: ID[], services: Service[]): { service: Ser
   const mine = services.filter((s) => serviceIds.includes(s.id))
   const cuts = mine.filter((s) => s.categoryId === 'cortes').sort((a, b) => b.price - a.price)
   if (cuts[0]) return { service: cuts[0], amount: cuts[0].price }
-  const haircut = services
-    .filter((s) => s.categoryId === 'cortes')
-    .reduce((max, s) => Math.max(max, s.price), 0)
+  const haircut = services.filter((s) => s.categoryId === 'cortes').reduce((max, s) => Math.max(max, s.price), 0)
   const target = [...mine].sort((a, b) => b.price - a.price)[0]
   if (!target || !haircut) return null
   return { service: target, amount: Math.min(haircut, target.price) }
