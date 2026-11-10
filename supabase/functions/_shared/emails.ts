@@ -32,7 +32,7 @@ export interface Email {
 }
 
 /** The site's public files today; it changes with the domain at launch. */
-export const DEFAULT_SITE = 'https://labs-publifix.github.io/havana-barberia/app'
+export const DEFAULT_SITE = 'https://havanabarberia.com'
 
 export const shop = {
   name: 'Havana Barbería',

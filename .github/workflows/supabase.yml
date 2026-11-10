@@ -41,7 +41,7 @@ jobs:
       # Saved as a variable or as a secret: either works.
       EMAIL_BCC: ${{ vars.EMAIL_BCC || secrets.EMAIL_BCC }}
       # Where e-mail links point (panel and, once open, the booking pages).
-      SITE_URL: ${{ vars.SITE_URL || 'https://labs-publifix.github.io/havana-barberia/app' }}
+      SITE_URL: ${{ vars.SITE_URL || 'https://havanabarberia.com' }}
       BOOKING_OPEN: ${{ vars.VITE_BOOKING_OPEN || 'false' }}
       TURNSTILE_SECRET_KEY: ${{ secrets.TURNSTILE_SECRET_KEY }}
       # Optional: Session pooler connection string (IPv4). GitHub runners have no
