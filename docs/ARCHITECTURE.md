@@ -95,6 +95,7 @@ La UI nunca importa datos directamente: pide todo a `BookingRepository` mediante
   - **sin historial** (sin citas, ventas, anticipos, pagos de nómina ni usuario del panel): se borra por completo, junto con su horario, servicios, comisiones, ausencias y correo;
   - **con historial:** se archiva (`archived_at`). Desaparece de Equipo, del sitio y de la reserva, su acceso al panel termina, y los reportes y la nómina pasados siguen cuadrando;
   - **con citas próximas:** primero hay que moverlas o cancelarlas.
+- **Calendario suscrito** (Agenda › «Mi calendario»): `public.calendar_feed` da a cada usuario del panel un enlace privado, de toda la barbería o de un barbero (cada barbero, solo el suyo). La Edge Function `calendar` lo sirve como `.ics` con las citas de 30 días atrás a 90 adelante. Los teléfonos (iPhone, Google Calendar) se suscriben y lo vuelven a leer solos. El enlace deja de funcionar si la persona pierde acceso al panel o genera uno nuevo.
 - **El sitio muestra solo a los activos:** las pills del hero, la sección de equipo y la reserva salen de `listStaff()` (solo activos, en el orden de Equipo). La foto subida en el panel tiene prioridad; si no hay foto, se ven las iniciales.
 
 **Entrega 3 (conectado):** reserva en línea.

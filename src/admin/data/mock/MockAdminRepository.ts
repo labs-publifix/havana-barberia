@@ -342,6 +342,11 @@ export class MockAdminRepository implements AdminRepository {
     return this.booking.adminSavePolicy(input)
   }
 
+  /** The demo has no server to publish a calendar. */
+  async getCalendarLink(): Promise<string> {
+    throw new InvalidRequestError('En la demostración no hay calendario para suscribirse; está en el sistema real.')
+  }
+
   async saveBusinessHours(weekly: WeeklySchedule): Promise<BusinessHoursChange> {
     const me = (await this.getSession())?.user
     if (!isFinanceRole(me?.role)) throw new InvalidRequestError('Tu rol no permite cambiar el horario.')
