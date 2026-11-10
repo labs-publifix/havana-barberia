@@ -80,7 +80,21 @@ La UI nunca importa datos directamente: pide todo a `BookingRepository` mediante
 - **Fotos:** el bucket público `photos` de Storage (máx. 2 MB; WebP, JPEG o PNG). Solo el dueño y el gerente suben; `uploadProductImage` y `uploadStaffPhoto` guardan en `products/` y `staff/` y devuelven la URL pública.
 - **Pruebas:** `supabase/tests/emails.test.sql` (bandeja, recordatorios, permisos y fotos) y `src/test/emails.test.ts` (textos).
 
-**Sigue:** entrega 3, Edge Functions para reservar, cancelar y reprogramar desde el sitio (Turnstile y límites).
+**Entrega 3 (conectado):** reserva en línea.
+
+- **Horarios:** el navegador calcula los horarios libres con el mismo motor de siempre (`src/lib/availability`). Lee las citas y los bloqueos del día con `busy_slots`, que solo devuelve horarios, nunca datos de clientes.
+- **Reservar, cancelar y reprogramar:** pasan por la Edge Function `booking`.
+  - Reservar exige Cloudflare Turnstile: es una revisión invisible que solo muestra una casilla si Cloudflare la necesita (`src/lib/turnstile.ts`, sin cambiar las pantallas del flujo).
+  - Cancelar y reprogramar usan el token privado del enlace del cliente.
+  - Hay límites por IP (`rate_limit`): 6 reservas por hora y 20 cambios por hora.
+- **El servidor revisa con las mismas reglas que el sitio:** `supabase/functions/_shared/engine.js` es el motor de `src/lib` empaquetado para Deno (`npm run engine`; una prueba avisa si quedó desactualizado) y `_shared/booking.ts` decide (probado con Vitest).
+- **Reglas del servidor:**
+  - mismo teléfono o correo es el mismo cliente;
+  - máximo de citas activas;
+  - con 3 no-shows en 90 días se pide contactar a la barbería;
+  - cambios hasta `change_cutoff_min` antes;
+  - la restricción de exclusión evita dobles citas aunque dos personas reserven a la vez.
+- **Encendido:** la variable `VITE_BOOKING_OPEN=true` de GitHub abre `/reservar`, `/cita/:token`, `/confirmacion/:token` y `/lealtad/:token` en el sistema real, y agrega a los correos el enlace para cambiar o cancelar. Llaves: `VITE_TURNSTILE_SITE_KEY` (pública) y `TURNSTILE_SECRET_KEY` (secreto de la función).
 
 Ninguna pantalla debería cambiar.
 

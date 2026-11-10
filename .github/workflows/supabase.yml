@@ -43,6 +43,7 @@ jobs:
       # Where e-mail links point (panel and, once open, the booking pages).
       SITE_URL: ${{ vars.SITE_URL || 'https://labs-publifix.github.io/havana-barberia/app' }}
       BOOKING_OPEN: ${{ vars.VITE_BOOKING_OPEN || 'false' }}
+      TURNSTILE_SECRET_KEY: ${{ secrets.TURNSTILE_SECRET_KEY }}
       # Optional: Session pooler connection string (IPv4). GitHub runners have no
       # IPv6, which the direct database host requires.
       SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
@@ -76,7 +77,7 @@ jobs:
         run: |
           # Empty values are skipped (e.g. EMAIL_BCC not configured yet).
           args=()
-          for v in RESEND_API_KEY EMAIL_FROM EMAIL_BCC SITE_URL BOOKING_OPEN; do
+          for v in RESEND_API_KEY EMAIL_FROM EMAIL_BCC SITE_URL BOOKING_OPEN TURNSTILE_SECRET_KEY; do
             if [ -n "${!v}" ]; then args+=("$v=${!v}"); else echo "::warning::$v está vacío; no se guarda."; fi
           done
           supabase secrets set --remote="$SUPABASE_PROJECT_REF" --yes "${args[@]}"

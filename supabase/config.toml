@@ -24,3 +24,7 @@ verify_jwt = true
 # Woken by pg_cron with its own shared secret (x-mailer-secret), not a user session.
 [functions.send-emails]
 verify_jwt = false
+
+# Public: the site calls it without a session (Turnstile and limits per IP inside).
+[functions.booking]
+verify_jwt = false

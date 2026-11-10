@@ -41,6 +41,9 @@ jobs:
           VITE_UI_GALLERY: 'false'
           VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
+          # Public key (saved as a variable or a secret).
+          VITE_TURNSTILE_SITE_KEY: ${{ vars.VITE_TURNSTILE_SITE_KEY || secrets.VITE_TURNSTILE_SITE_KEY }}
+          VITE_BOOKING_OPEN: ${{ vars.VITE_BOOKING_OPEN || 'false' }}
         run: npx vite build --outDir dist/app --emptyOutDir
       # Pages has no rewrites: serve the SPA for any deep link (/cita/:token…).
       # Deep links under /app/ go to the real build, keeping the path and #hash.
