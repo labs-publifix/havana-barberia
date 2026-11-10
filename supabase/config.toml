@@ -17,3 +17,6 @@ site_url = "https://labs-publifix.github.io/havana-barberia/"
 [functions.invite-user]
 # The function checks the caller's session itself (owner only).
 verify_jwt = true
+
+[functions.authorize-discount]
+verify_jwt = true

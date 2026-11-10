@@ -57,11 +57,19 @@ La UI nunca importa datos directamente: pide todo a `BookingRepository` mediante
 - **Publicación:** GitHub Pages publica la demo en `/havana-barberia/` y el sistema real en `/havana-barberia/app/` (variables `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY`). `scripts/pages-404.mjs` manda los enlaces profundos de `/app/` a su build conservando el `#hash` (ahí viajan los tokens de los correos) y `src/main.tsx` restaura la ruta.
 - **Correos:** remitente `EMAIL_FROM` y copia oculta a `EMAIL_BCC` (variables de GitHub) para los correos de la barbería; los de acceso los envía Supabase Auth por el SMTP de Resend.
 
+**Entrega 2 (conectado):** todo el panel lee y escribe en Supabase: agenda (citas, sin cita, reprogramar, no-show), clientes y lealtad, cobro, ventas de mostrador, caja del día, anticipos, bonos, cierre semanal y reportes. Las citas, cobros y bloqueos llegan en tiempo real (Supabase Realtime) a todas las pantallas abiertas.
+
+- **Lo que no se deja al navegador** (migración `charging`, funciones `security definer` con validación de rol):
+  - `complete_appointment`: cobra a precios del catálogo, aplica corte gratis (en un combo descuenta el precio de un corte y cobra la diferencia), descuento, productos con su comisión, pago mixto que debe sumar, y sello o canje de la tarjeta.
+  - `close_day`: el efectivo esperado se calcula en la base (fondo + efectivo cobrado, mixtos repartidos, ventas, entradas − salidas).
+  - `record_sale`: venta de mostrador al precio y comisión del catálogo.
+- **Descuentos:** dueño y gerente descuentan directo. Si cobra otra persona, el dueño o gerente escribe su correo y contraseña en esa pantalla; la Edge Function `authorize-discount` los verifica en el servidor y deja una autorización de un solo uso, por ese monto, válida 10 minutos (tabla `discount_approvals`, sin acceso desde el navegador). El cobro guarda quién autorizó.
+- **Pruebas:** `supabase/tests/charging.test.sql` cubre cobro, descuento autorizado, pago mixto, corte gratis en combo, corte de caja y venta.
+
 **Sigue:**
 
-1. Agenda, clientes, cobros, caja y nómina contra Supabase (cálculos de caja y cierre en el servidor) y tiempo real.
-2. Edge Functions para reservar, cancelar y reprogramar desde el sitio (Turnstile y límites).
-3. Correos con Resend y recordatorios con `pg_cron`; fotos en Storage.
+1. Edge Functions para reservar, cancelar y reprogramar desde el sitio (Turnstile y límites).
+2. Correos con Resend y recordatorios con `pg_cron`; fotos en Storage.
 
 Ninguna pantalla debería cambiar.
 
@@ -188,4 +196,3 @@ Pantallas del panel ──▶ AdminRepository ──▶ MockAdminRepository     
 - **Cierre de semana** (`MockDb.payrollCloses`): congela los recibos calculados por el repositorio; Comisiones y Cierre muestran esas cifras; bloquea anticipos y bonos de esa semana; cada recibo se marca pagado. Solo el dueño reabre.
 - **Vigencias de comisión** (`MockDb.commissionHistory`): al cambiar la comisión se elige desde cuándo aplica (esta semana, hoy o la próxima); el primer cambio guarda la regla anterior como base. `earnings` usa la regla vigente en la fecha de cada cita. No se permite una fecha dentro de una semana cerrada.
 - **Reportes:** cada indicador se compara con el mismo tramo del periodo anterior (`periodStats`, `comparison`); «Exportar a Excel» descarga los tickets del periodo en CSV con BOM (`src/lib/csv.ts`).
-

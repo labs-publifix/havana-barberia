@@ -27,7 +27,7 @@ aprobada por el cliente; después la conexión a Supabase y Resend sin cambiar p
 | Hito 1A · Sitio público y flujo de reserva (mock)                | ✅ Aprobado por el cliente                       |
 | Rediseño del sitio público                                       | ✅ Aprobado y publicado                          |
 | Hito 1B · Panel administrativo (UI con datos de prueba)          | 🔨 En curso: entregas 1 a 8 listas para revisión |
-| Hito 1C · Backend: Supabase + conexión del panel y de la reserva | Pendiente                                        |
+| Hito 1C · Backend: Supabase + conexión del panel y de la reserva | 🔨 En curso: entregas 1 y 2 (panel) conectadas   |
 | Hito 1D · Lanzamiento (dominio, migración de AgendaPro, Google)  | Pendiente                                        |
 | Fase 3 · Crecimiento                                             | Pendiente                                        |
 
