@@ -38,7 +38,8 @@ jobs:
       SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
       RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
       EMAIL_FROM: ${{ vars.EMAIL_FROM }}
-      EMAIL_BCC: ${{ vars.EMAIL_BCC }}
+      # Saved as a variable or as a secret: either works.
+      EMAIL_BCC: ${{ vars.EMAIL_BCC || secrets.EMAIL_BCC }}
       # Where e-mail links point (panel and, once open, the booking pages).
       SITE_URL: ${{ vars.SITE_URL || 'https://labs-publifix.github.io/havana-barberia/app' }}
       BOOKING_OPEN: ${{ vars.VITE_BOOKING_OPEN || 'false' }}
@@ -53,6 +54,9 @@ jobs:
             if [ -z "${!v}" ]; then echo "::error::Falta el secreto $v en Settings › Secrets and variables › Actions"; exit 1; fi
           done
       - uses: supabase/setup-cli@v1
+        env:
+          # Authenticated GitHub API calls to resolve "latest" (avoids rate limits).
+          GITHUB_TOKEN: ${{ github.token }}
         with:
           version: latest
       - name: Link project
@@ -70,9 +74,12 @@ jobs:
       - name: Server-side secrets for Edge Functions
         if: env.RESEND_API_KEY != ''
         run: |
-          supabase secrets set --remote="$SUPABASE_PROJECT_REF" --yes \
-            RESEND_API_KEY="$RESEND_API_KEY" EMAIL_FROM="$EMAIL_FROM" EMAIL_BCC="$EMAIL_BCC" \
-            SITE_URL="$SITE_URL" BOOKING_OPEN="$BOOKING_OPEN"
+          # Empty values are skipped (e.g. EMAIL_BCC not configured yet).
+          args=()
+          for v in RESEND_API_KEY EMAIL_FROM EMAIL_BCC SITE_URL BOOKING_OPEN; do
+            if [ -n "${!v}" ]; then args+=("$v=${!v}"); else echo "::warning::$v está vacío; no se guarda."; fi
+          done
+          supabase secrets set --remote="$SUPABASE_PROJECT_REF" --yes "${args[@]}"
       - name: Connect the e-mail sender to pg_cron (new shared secret each deploy)
         if: env.RESEND_API_KEY != '' && env.SUPABASE_DB_URL != ''
         run: |
