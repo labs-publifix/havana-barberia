@@ -74,13 +74,12 @@ Deno.serve(async (req) => {
       if (isCustomerEmail(row.kind)) {
         to = customer?.email || null
       } else {
-        const { data: barber } = await db
-          .from('profiles')
-          .select('email')
-          .eq('staff_id', a.staff_id)
-          .eq('active', true)
-          .maybeSingle()
-        to = barber?.email ?? null
+        // The barber's e-mail from Equipo; otherwise the one they sign in with.
+        const { data: contact } = await db.from('staff_contacts').select('email').eq('staff_id', a.staff_id).maybeSingle()
+        const { data: barber } = contact?.email
+          ? { data: null }
+          : await db.from('profiles').select('email').eq('staff_id', a.staff_id).eq('active', true).maybeSingle()
+        to = contact?.email || barber?.email || null
       }
       if (!to) {
         await finish(row.id, { status: 'skipped', error: 'Sin correo de destino.' })

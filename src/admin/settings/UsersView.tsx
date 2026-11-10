@@ -15,8 +15,9 @@ import { Card } from '../ui/Panel'
 import { Select } from '../ui/Select'
 import { SidePanel } from '../ui/SidePanel'
 import { useToast } from '../ui/Toast'
+import { isFinanceRole, isOwnerRole } from '../domain'
 
-const ROLES: AdminRole[] = ['owner', 'manager', 'reception', 'barber']
+const ROLES: AdminRole[] = ['owner', 'developer', 'manager', 'reception', 'barber']
 
 type Draft = { mode: 'new'; staffId?: string } | { mode: 'edit'; user: AdminUser }
 
@@ -24,7 +25,7 @@ type Draft = { mode: 'new'; staffId?: string } | { mode: 'edit'; user: AdminUser
 export function UsersView() {
   const { repo } = useAdminAuth()
   const { user: me } = useAdminSession()
-  const canEdit = me.role === 'owner'
+  const canEdit = isOwnerRole(me.role)
   const { data: users } = useQuery({ queryKey: ['admin', 'users'], queryFn: () => repo.listUsers() })
   const { data: team } = useQuery({ queryKey: ['admin', 'team'], queryFn: () => repo.getTeam() })
   const [draft, setDraft] = useState<Draft | null>(null)
@@ -74,7 +75,7 @@ export function UsersView() {
                     </p>
                     <p className="truncate text-sm text-fg-muted">{u.email}</p>
                     <div className="mt-1.5 flex flex-wrap gap-1.5">
-                      <Badge tone={u.role === 'owner' || u.role === 'manager' ? 'accent' : 'neutral'}>
+                      <Badge tone={isFinanceRole(u.role) ? 'accent' : 'neutral'}>
                         {roleLabels[u.role]}
                         {barber ? ` · ${barber.name}` : ''}
                       </Badge>

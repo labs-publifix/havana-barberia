@@ -21,6 +21,7 @@ import { SearchInput, Segmented } from '../ui/controls'
 import { Card, EmptyState, PageHeader } from '../ui/Panel'
 import { useToast } from '../ui/Toast'
 import { Tip } from '../ui/Tooltip'
+import { isFinanceRole } from '../domain'
 
 type Visibility = 'all' | 'active' | 'hidden'
 
@@ -37,7 +38,7 @@ const iconBtn = cn(
 function ServicesView() {
   const { repo } = useAdminAuth()
   const { user } = useAdminSession()
-  const canEdit = user.role === 'owner' || user.role === 'manager'
+  const canEdit = isFinanceRole(user.role)
   const toast = useToast()
   const { moveService, moveCategory, deleteCategory } = useCatalogActions()
   const { data: catalog } = useQuery({ queryKey: ['admin', 'catalog'], queryFn: () => repo.getCatalog() })

@@ -46,7 +46,7 @@ Deno.serve(async (req) => {
     .select('id, name, role, active')
     .eq('id', signed.user.id)
     .maybeSingle()
-  if (!who?.active || (who.role !== 'owner' && who.role !== 'manager')) return invalid()
+  if (!who?.active || !['owner', 'developer', 'manager'].includes(who.role)) return invalid()
 
   const { data: approval, error: saveError } = await admin
     .from('discount_approvals')

@@ -2,9 +2,8 @@ import { Link } from 'react-router-dom'
 import { ChevronRight, Scissors } from 'lucide-react'
 import { useStaff } from '@/app/queries'
 import { routes } from '@/app/routes'
-import { teamOrder } from '@/config/team'
 import { cn } from '@/lib/cn'
-import { staffCards } from './media'
+import { barberPhoto, initials } from './media'
 
 const row = cn(
   'group flex h-14 w-auto shrink-0 snap-start items-center gap-3 rounded-full border border-white/[0.12] bg-ink-950/50 pl-1.5 pr-4 backdrop-blur-md',
@@ -36,11 +35,13 @@ function RowText({ title, subtitle }: { title: string; subtitle: string }) {
  */
 export function HeroBarberPicker() {
   const { data: staff } = useStaff()
-  // One slot per barber from the start (skeleton until data arrives) so nothing shifts.
-  const barbers = teamOrder
-    .map((id) => ({ id, s: staff?.find((x) => x.id === id) }))
-    // Deactivated in the admin: drop it once the team has loaded (skeletons only while loading).
-    .filter((p) => !staff || p.s)
+  // The active barbers from the panel (Equipo); two placeholders while loading.
+  const barbers = staff
+    ? staff.map((s) => ({ id: s.id, s }))
+    : [
+        { id: 'loading-1', s: undefined },
+        { id: 'loading-2', s: undefined },
+      ]
 
   return (
     <div className="grid gap-2.5">
@@ -52,7 +53,7 @@ export function HeroBarberPicker() {
         className="no-scrollbar -mx-4 flex snap-x scroll-px-4 gap-2 overflow-x-auto px-4 pb-1 lg:mx-0 lg:flex-col lg:overflow-visible lg:px-0 lg:pb-0"
       >
         {barbers.map(({ id, s: b }) => {
-          const photo = staffCards[id]
+          const photo = b ? barberPhoto(b, 'card') : null
           if (!b)
             return (
               <li key={id} aria-hidden className="shrink-0">
@@ -64,7 +65,7 @@ export function HeroBarberPicker() {
           return (
             <li key={id} className="shrink-0">
               <Link to={routes.bookWith({ staffId: id })} className={row}>
-                {photo && (
+                {photo ? (
                   <img
                     src={photo.src}
                     srcSet={photo.srcSet}
@@ -76,8 +77,15 @@ export function HeroBarberPicker() {
                     decoding="async"
                     className="size-11 shrink-0 rounded-full object-cover"
                   />
+                ) : (
+                  <span
+                    aria-hidden
+                    className="grid size-11 shrink-0 place-items-center rounded-full bg-white/[0.07] text-sm font-semibold text-gray-200"
+                  >
+                    {initials(b.name)}
+                  </span>
                 )}
-                <RowText title={b.name} subtitle="Barbero" />
+                <RowText title={b.name} subtitle={b.title || 'Barbero'} />
               </Link>
             </li>
           )

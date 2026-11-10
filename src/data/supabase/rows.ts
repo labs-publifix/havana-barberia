@@ -27,6 +27,7 @@ export interface StaffRow {
   sort: number
   schedule: WeeklySchedule
   all_services: boolean
+  bio?: string
 }
 export interface SettingsRow {
   slot_step_min: number
@@ -62,6 +63,7 @@ export const toStaff = (r: StaffRow, links: { staff_id: string; service_id: stri
   id: r.id,
   name: r.name,
   title: r.title || undefined,
+  bio: r.bio || undefined,
   role: 'barber',
   photoUrl: r.photo_url,
   active: r.active,

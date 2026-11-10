@@ -2376,6 +2376,7 @@ var toStaff = (r, links) => ({
   id: r.id,
   name: r.name,
   title: r.title || void 0,
+  bio: r.bio || void 0,
   role: "barber",
   photoUrl: r.photo_url,
   active: r.active,

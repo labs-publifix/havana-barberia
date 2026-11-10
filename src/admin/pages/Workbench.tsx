@@ -12,6 +12,7 @@ import { DataTable, type Column } from '../ui/DataTable'
 import { Card, PageHeader, StatCard } from '../ui/Panel'
 import { SidePanel } from '../ui/SidePanel'
 import { useToast } from '../ui/Toast'
+import { isFinanceRole } from '../domain'
 
 type RoleFilter = AdminRole | 'all'
 
@@ -32,7 +33,7 @@ function UserEditor({ user, onClose }: { user: AdminUser | null; onClose: () => 
     setShownFor(user?.id)
     setDraft(user)
   }
-  const mfaLocked = draft?.role === 'owner' || draft?.role === 'manager'
+  const mfaLocked = isFinanceRole(draft?.role)
 
   return (
     <SidePanel
@@ -73,7 +74,7 @@ function UserEditor({ user, onClose }: { user: AdminUser | null; onClose: () => 
             value={draft.role}
             onValueChange={(v) => {
               const role = v as AdminRole
-              setDraft({ ...draft, role, mfaRequired: role === 'owner' || role === 'manager' || draft.mfaRequired })
+              setDraft({ ...draft, role, mfaRequired: isFinanceRole(role) || draft.mfaRequired })
             }}
             options={(Object.keys(roleLabels) as AdminRole[]).map((r) => ({ value: r, label: roleLabels[r] }))}
           />
@@ -119,7 +120,7 @@ export default function Workbench() {
   const toast = useToast()
 
   const counts = useMemo(() => {
-    const c: Record<RoleFilter, number> = { all: 0, owner: 0, manager: 0, reception: 0, barber: 0 }
+    const c: Record<RoleFilter, number> = { all: 0, owner: 0, developer: 0, manager: 0, reception: 0, barber: 0 }
     users?.forEach((u) => {
       c.all++
       c[u.role]++

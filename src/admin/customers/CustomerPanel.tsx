@@ -18,6 +18,7 @@ import { SidePanel } from '../ui/SidePanel'
 import { useToast } from '../ui/Toast'
 import { errorMessage } from '../agenda/useAgendaActions'
 import { hasReward, isRestricted, NO_SHOW_LIMIT, NO_SHOW_WINDOW_DAYS } from './model'
+import { isFinanceRole } from '../domain'
 
 const HISTORY_STEP = 8
 
@@ -94,7 +95,7 @@ export function CustomerPanel({
   const booking = useNewAppointment()
   const qc = useQueryClient()
   const toast = useToast()
-  const seesMoney = user.role === 'owner' || user.role === 'manager'
+  const seesMoney = isFinanceRole(user.role)
   const [shown, setShown] = useState(HISTORY_STEP)
   const [form, setForm] = useState<{ name: string; phone: string; email: string; notes: string } | null>(null)
   const [formFor, setFormFor] = useState<string | null>(null)

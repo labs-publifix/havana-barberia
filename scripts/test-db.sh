@@ -15,7 +15,7 @@ if [ "$(id -u)" = 0 ]; then chown postgres "$DIR"; AS=(runuser -u postgres --); 
 export PGHOST=$DIR PGPORT=$PORT PGUSER=postgres
 PSQL="psql -v ON_ERROR_STOP=1 -q -X"
 $PSQL -c 'create database test' >/dev/null
-for f in supabase/tests/supabase-stub.sql supabase/migrations/*.sql supabase/seed.sql; do
+for f in supabase/tests/supabase-stub.sql supabase/migrations/*.sql supabase/seed.sql supabase/tests/fixtures.sql; do
   $PSQL -d test -f "$f" >/dev/null
 done
 for f in supabase/tests/*.test.sql; do

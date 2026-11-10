@@ -15,6 +15,7 @@ import { commissionLabel } from '../team/model'
 import { StaffPanel, type StaffDraft } from '../team/StaffPanel'
 import { PageHeader } from '../ui/Panel'
 import { useToast } from '../ui/Toast'
+import { isFinanceRole } from '../domain'
 
 const tz = business.hours.timeZone
 
@@ -26,7 +27,7 @@ const tz = business.hours.timeZone
 export default function Team() {
   const { repo } = useAdminAuth()
   const { user } = useAdminSession()
-  const canEdit = user.role === 'owner' || user.role === 'manager'
+  const canEdit = isFinanceRole(user.role)
   const seesFinance = canEdit
   const qc = useQueryClient()
   const toast = useToast()

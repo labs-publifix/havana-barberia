@@ -5,7 +5,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.118.0'
 import { cors, isAllowedRedirect } from '../_shared/cors.ts'
 
-const ROLES = ['owner', 'manager', 'reception', 'barber'] as const
+const ROLES = ['owner', 'developer', 'manager', 'reception', 'barber'] as const
 type Role = (typeof ROLES)[number]
 
 Deno.serve(async (req) => {
@@ -23,7 +23,8 @@ Deno.serve(async (req) => {
   const { data: caller } = await admin.auth.getUser(jwt)
   if (!caller.user) return reply(401, { error: 'Inicia sesión de nuevo.' })
   const { data: me } = await admin.from('profiles').select('role, active').eq('id', caller.user.id).maybeSingle()
-  if (me?.role !== 'owner' || !me.active) return reply(403, { error: 'Solo la persona dueña administra usuarios.' })
+  if ((me?.role !== 'owner' && me?.role !== 'developer') || !me.active)
+    return reply(403, { error: 'Solo la persona dueña administra usuarios.' })
 
   let body: {
     name?: string

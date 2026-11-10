@@ -39,6 +39,7 @@ import { Select } from '../ui/Select'
 import { SidePanel } from '../ui/SidePanel'
 import { TabPanel, Tabs } from '../ui/Tabs'
 import { useToast } from '../ui/Toast'
+import { TextArea } from '@/components/ui/Field'
 import { commissionLabel, commissionOn } from './model'
 import { useFinanceWeek } from '../useFinanceWeek'
 import { ScheduleEditor } from './ScheduleEditor'
@@ -49,6 +50,8 @@ type Tab = 'perfil' | 'horario' | 'servicios' | 'comision' | 'ausencias'
 interface Form {
   name: string
   title: string
+  bio: string
+  email: string
   photoUrl: string | null
   active: boolean
   schedule: WeeklySchedule
@@ -223,6 +226,8 @@ export function StaffPanel({
         : {
             name: editing?.name ?? '',
             title: editing?.title ?? '',
+            bio: editing?.bio ?? '',
+            email: (editing && team.emails?.[editing.id]) ?? '',
             photoUrl: editing?.photoUrl ?? null,
             active: editing?.active ?? true,
             schedule: editing?.schedule ?? shop.map((d) => d.map((r) => ({ ...r }))),
@@ -274,6 +279,8 @@ export function StaffPanel({
         id: editing?.id,
         name: form.name,
         title: form.title,
+        bio: form.bio,
+        ...(seesFinance ? { email: form.email } : {}),
         photoUrl: form.photoUrl,
         active: form.active,
         schedule: form.schedule,
@@ -372,6 +379,25 @@ export function StaffPanel({
                 value={form.title}
                 onChange={(e) => set({ title: e.target.value })}
               />
+              <TextArea
+                label="Descripción en el sitio"
+                optional
+                maxLength={280}
+                value={form.bio}
+                onChange={(e) => set({ bio: e.target.value })}
+                placeholder="Una o dos frases: especialidad, años de experiencia…"
+              />
+              {seesFinance && (
+                <Input
+                  label="Correo para avisos de citas"
+                  type="email"
+                  inputMode="email"
+                  autoComplete="off"
+                  value={form.email}
+                  onChange={(e) => set({ email: e.target.value })}
+                  hint="Aquí le llegan sus citas nuevas y cancelaciones. No se muestra en el sitio."
+                />
+              )}
               <div className="rounded-md border border-line p-4">
                 <Switch
                   label="Activo"

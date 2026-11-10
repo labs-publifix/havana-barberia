@@ -32,7 +32,12 @@ import type {
  * owner and manager see finances; reception runs the day; a barber only sees
  * their own agenda and commissions.
  */
-export type AdminRole = 'owner' | 'manager' | 'reception' | 'barber'
+export type AdminRole = 'owner' | 'developer' | 'manager' | 'reception' | 'barber'
+
+/** Owner, or the developer (same access, to verify everything with a real account). */
+export const isOwnerRole = (role: AdminRole | null | undefined) => role === 'owner' || role === 'developer'
+/** Owner, developer and manager: money, commissions, costs and corrections. */
+export const isFinanceRole = (role: AdminRole | null | undefined) => isOwnerRole(role) || role === 'manager'
 
 export interface AdminUser {
   id: ID
@@ -54,6 +59,7 @@ export interface AdminSession {
 
 export const roleLabels: Record<AdminRole, string> = {
   owner: 'Dueño',
+  developer: 'Desarrollador',
   manager: 'Gerente',
   reception: 'Recepción',
   barber: 'Barbero',
@@ -61,6 +67,7 @@ export const roleLabels: Record<AdminRole, string> = {
 
 export const roleSummaries: Record<AdminRole, string> = {
   owner: 'Acceso completo',
+  developer: 'Acceso completo, para revisar que todo funcione',
   manager: 'Operación y finanzas',
   reception: 'Agenda, clientes y ventas',
   barber: 'Su agenda y comisiones',
@@ -257,6 +264,8 @@ export interface AdminTeam {
   commissionHistory: CommissionVersion[]
   /** Upcoming time off (per barber and shop-wide). */
   blocks: TimeBlock[]
+  /** Where each barber receives notices of their appointments (owner, developer and manager only). */
+  emails?: Record<ID, string>
 }
 
 export interface StaffInput {
@@ -264,6 +273,10 @@ export interface StaffInput {
   id?: ID
   name: string
   title: string
+  /** Shown on the site under the name. */
+  bio: string
+  /** Notices of their appointments; undefined leaves it as it was (roles that can't see it). */
+  email?: string
   photoUrl: string | null
   /** Shows in booking and on the site. */
   active: boolean
