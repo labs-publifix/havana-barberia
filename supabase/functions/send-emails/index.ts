@@ -75,7 +75,11 @@ Deno.serve(async (req) => {
         to = customer?.email || null
       } else {
         // The barber's e-mail from Equipo; otherwise the one they sign in with.
-        const { data: contact } = await db.from('staff_contacts').select('email').eq('staff_id', a.staff_id).maybeSingle()
+        const { data: contact } = await db
+          .from('staff_contacts')
+          .select('email')
+          .eq('staff_id', a.staff_id)
+          .maybeSingle()
         const { data: barber } = contact?.email
           ? { data: null }
           : await db.from('profiles').select('email').eq('staff_id', a.staff_id).eq('active', true).maybeSingle()

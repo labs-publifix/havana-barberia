@@ -495,6 +495,12 @@ export class MockAdminRepository implements AdminRepository {
     return { ...this.booking.adminTeam(), emails: isFinanceRole(me?.role) ? { ...this.staffEmails } : {} }
   }
 
+  async deleteStaff(id: ID): Promise<'deleted' | 'archived'> {
+    const me = (await this.getSession())?.user
+    if (!isFinanceRole(me?.role)) throw new InvalidRequestError('Tu rol no permite eliminar barberos.')
+    return this.booking.adminDeleteStaff(id)
+  }
+
   async saveStaff(input: StaffInput): Promise<{ staff: Staff; outside: Appointment[] }> {
     const email = input.email?.trim().toLowerCase()
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))

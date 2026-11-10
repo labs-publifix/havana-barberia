@@ -546,7 +546,10 @@ export class SupabaseAdminRepository implements AdminRepository {
         commissions.push({ staffId: id, mode: current.mode, value: current.value, overrides: current.overrides })
     }
     return {
-      staff: must<StaffRow[]>(staff).map((r) => toStaff(r, l)),
+      // Archived barbers stay in the database for history but leave Equipo.
+      staff: must<StaffRow[]>(staff)
+        .map((r) => toStaff(r, l))
+        .filter((s) => !s.archived),
       commissions,
       commissionHistory: history,
       blocks: must<BlockRow[]>(blocks).map(toBlock),
@@ -558,6 +561,12 @@ export class SupabaseAdminRepository implements AdminRepository {
         ]),
       ),
     }
+  }
+
+  async deleteStaff(id: ID): Promise<'deleted' | 'archived'> {
+    const { data, error } = await this.db.rpc('delete_staff', { p_id: id })
+    if (error) friendly(error)
+    return data as 'deleted' | 'archived'
   }
 
   async saveStaff(input: StaffInput): Promise<{ staff: Staff; outside: Appointment[] }> {

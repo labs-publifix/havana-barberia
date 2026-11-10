@@ -91,6 +91,10 @@ La UI nunca importa datos directamente: pide todo a `BookingRepository` mediante
 
   Cada barbero trabaja dentro de ese marco: una hora se puede reservar solo si la barbería está abierta y el barbero tiene turno. Al guardar, el panel avisa qué barberos quedaron con turnos fuera y qué citas próximas caen fuera. `config/business` solo es el valor de respaldo mientras carga.
 
+- **Eliminar barberos** (Equipo › barbero › «Eliminar barbero», función `delete_staff`):
+  - **sin historial** (sin citas, ventas, anticipos, pagos de nómina ni usuario del panel): se borra por completo, junto con su horario, servicios, comisiones, ausencias y correo;
+  - **con historial:** se archiva (`archived_at`). Desaparece de Equipo, del sitio y de la reserva, su acceso al panel termina, y los reportes y la nómina pasados siguen cuadrando;
+  - **con citas próximas:** primero hay que moverlas o cancelarlas.
 - **El sitio muestra solo a los activos:** las pills del hero, la sección de equipo y la reserva salen de `listStaff()` (solo activos, en el orden de Equipo). La foto subida en el panel tiene prioridad; si no hay foto, se ven las iniciales.
 
 **Entrega 3 (conectado):** reserva en línea.
