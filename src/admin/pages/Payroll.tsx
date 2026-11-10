@@ -20,6 +20,7 @@ import { Select } from '../ui/Select'
 import { SidePanel } from '../ui/SidePanel'
 import { useToast } from '../ui/Toast'
 import { WeekPicker } from '../ui/WeekPicker'
+import { isOwnerRole } from '../domain'
 
 const tz = business.hours.timeZone
 const METHODS: PaymentMethod[] = ['cash', 'card', 'transfer']
@@ -144,7 +145,7 @@ export default function Payroll() {
         >
           Los recibos quedaron guardados tal como estaban y ya no cambian. {Object.keys(closed.paid).length} de{' '}
           {closed.rows.length} pagados.
-          {user.role === 'owner' && (
+          {isOwnerRole(user.role) && (
             <button
               type="button"
               onClick={() => reopen.mutate()}

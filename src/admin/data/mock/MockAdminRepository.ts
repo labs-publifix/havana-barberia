@@ -51,6 +51,7 @@ import type {
 } from '../../finance'
 import { InvalidRequestError } from '@/data/errors'
 import { InvalidCredentialsError, InvalidMfaCodeError, type AdminRepository } from '../AdminRepository'
+import { isFinanceRole, isOwnerRole } from '../../domain'
 
 /**
  * Demo users. Generic, fictitious accounts (reserved .test domain); the barber
@@ -178,7 +179,7 @@ export class MockAdminRepository implements AdminRepository {
   async saveUser(input: UserInput): Promise<AdminUser> {
     await this.delay()
     const actor = (await this.getSession())?.user
-    if (actor?.role !== 'owner') throw new InvalidRequestError('Solo la persona dueña administra usuarios.')
+    if (!isOwnerRole(actor?.role)) throw new InvalidRequestError('Solo la persona dueña administra usuarios.')
     const users = this.users()
     const name = input.name.trim().replace(/\s+/g, ' ')
     const email = input.email.trim().toLowerCase()
@@ -264,7 +265,7 @@ export class MockAdminRepository implements AdminRepository {
 
   async reopenWeek(weekStart: LocalDate): Promise<void> {
     const me = (await this.getSession())?.user
-    if (me?.role !== 'owner') throw new InvalidRequestError('Solo el dueño puede reabrir una semana cerrada.')
+    if (!isOwnerRole(me?.role)) throw new InvalidRequestError('Solo el dueño puede reabrir una semana cerrada.')
     return this.booking.adminReopenWeek(weekStart)
   }
 
@@ -294,7 +295,7 @@ export class MockAdminRepository implements AdminRepository {
 
   async reopenDay(date: LocalDate): Promise<void> {
     const me = (await this.getSession())?.user
-    if (me?.role !== 'owner' && me?.role !== 'manager')
+    if (!isFinanceRole(me?.role))
       throw new InvalidRequestError('Solo el dueño o el gerente pueden reabrir una caja cerrada.')
     return this.booking.adminReopenDay(date)
   }
@@ -318,8 +319,7 @@ export class MockAdminRepository implements AdminRepository {
 
   async setCustomerEmails(on: boolean): Promise<void> {
     const me = (await this.getSession())?.user
-    if (me?.role !== 'owner' && me?.role !== 'manager')
-      throw new InvalidRequestError('Tu rol no permite hacer este cambio.')
+    if (!isFinanceRole(me?.role)) throw new InvalidRequestError('Tu rol no permite hacer este cambio.')
     this.customerEmails = on
   }
 
@@ -385,9 +385,9 @@ export class MockAdminRepository implements AdminRepository {
   /** Who authorizes a discount: the signed-in owner/manager, or one who types their credentials. */
   private async authorizer(creds?: { email: string; password: string }): Promise<AdminUser> {
     const me = (await this.getSession())?.user
-    if (me && (me.role === 'owner' || me.role === 'manager')) return me
+    if (me && isFinanceRole(me.role)) return me
     const u = this.users().find(
-      (x) => x.active && (x.role === 'owner' || x.role === 'manager') && x.email === creds?.email.trim().toLowerCase(),
+      (x) => x.active && isFinanceRole(x.role) && x.email === creds?.email.trim().toLowerCase(),
     )
     if (!u || creds?.password !== DEMO_PASSWORD)
       throw new InvalidRequestError('La autorización no es válida: usa el correo y la contraseña del dueño o gerente.')
@@ -477,13 +477,22 @@ export class MockAdminRepository implements AdminRepository {
     return this.booking.adminDeleteCategory(id)
   }
 
+  /** Barbers' notice e-mails (the demo keeps them only in memory). */
+  private staffEmails: Record<string, string> = {}
+
   async getTeam(): Promise<AdminTeam> {
     await this.delay()
-    return this.booking.adminTeam()
+    const me = (await this.getSession())?.user
+    return { ...this.booking.adminTeam(), emails: isFinanceRole(me?.role) ? { ...this.staffEmails } : {} }
   }
 
-  saveStaff(input: StaffInput): Promise<{ staff: Staff; outside: Appointment[] }> {
-    return this.booking.adminSaveStaff(input)
+  async saveStaff(input: StaffInput): Promise<{ staff: Staff; outside: Appointment[] }> {
+    const email = input.email?.trim().toLowerCase()
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+      throw new InvalidRequestError('Revisa el correo del barbero.')
+    const saved = await this.booking.adminSaveStaff(input)
+    if (email !== undefined) this.staffEmails[saved.staff.id] = email
+    return saved
   }
 
   moveStaff(id: ID, dir: -1 | 1): Promise<void> {

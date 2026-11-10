@@ -15,6 +15,7 @@ import { expectedCash } from '../finance'
 import { Input, Segmented } from '../ui/controls'
 import { Card } from '../ui/Panel'
 import { useToast } from '../ui/Toast'
+import { isFinanceRole } from '../domain'
 
 const tz = business.hours.timeZone
 const digits = (v: string) => v.replace(/\D/g, '').slice(0, 7)
@@ -27,7 +28,7 @@ const digits = (v: string) => v.replace(/\D/g, '').slice(0, 7)
 export function CashDayView() {
   const { repo } = useAdminAuth()
   const { user } = useAdminSession()
-  const canReopen = user.role === 'owner' || user.role === 'manager'
+  const canReopen = isFinanceRole(user.role)
   const qc = useQueryClient()
   const toast = useToast()
   const today = localDate(new Date(), tz)

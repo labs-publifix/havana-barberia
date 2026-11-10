@@ -77,6 +77,7 @@ import {
   type ProductSale,
 } from '../../finance'
 import { InvalidCredentialsError, InvalidMfaCodeError, type AdminRepository } from '../AdminRepository'
+import { isFinanceRole, isOwnerRole } from '../../domain'
 
 /** Sections connected to Supabase. */
 const AVAILABLE = [
@@ -526,11 +527,12 @@ export class SupabaseAdminRepository implements AdminRepository {
 
   // ── Team ────────────────────────────────────────────────────────────────
   async getTeam(): Promise<AdminTeam> {
-    const [staff, links, versions, blocks] = await Promise.all([
+    const [staff, links, versions, blocks, contacts] = await Promise.all([
       this.db.from('staff').select('*').order('sort'),
       this.db.from('staff_services').select('staff_id, service_id'),
       this.db.from('commission_versions').select('*').order('valid_from'),
       this.db.from('time_blocks').select('*').gte('ends_at', new Date().toISOString()).order('starts_at'),
+      this.db.from('staff_contacts').select('staff_id, email'),
     ])
     const l = must<{ staff_id: string; service_id: string }[]>(links)
     const history = (versions.error ? [] : (versions.data as CommissionRow[])).map(toVersion)
@@ -546,6 +548,13 @@ export class SupabaseAdminRepository implements AdminRepository {
       commissions,
       commissionHistory: history,
       blocks: must<BlockRow[]>(blocks).map(toBlock),
+      // Only owner, developer and manager can read them (RLS); others get none.
+      emails: Object.fromEntries(
+        (contacts.error ? [] : (contacts.data as { staff_id: string; email: string }[])).map((c) => [
+          c.staff_id,
+          c.email,
+        ]),
+      ),
     }
   }
 
@@ -560,9 +569,15 @@ export class SupabaseAdminRepository implements AdminRepository {
     if (input.active && !chosen.length)
       throw new InvalidRequestError('Un barbero activo necesita al menos un servicio.')
     const all = services.every((id) => chosen.includes(id))
+    const email = input.email?.trim().toLowerCase()
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+      throw new InvalidRequestError('Revisa el correo del barbero.')
+    const bio = input.bio.trim()
+    if (bio.length > 280) throw new InvalidRequestError('La descripción admite hasta 280 caracteres.')
     const row = {
       name,
       title: input.title.trim(),
+      bio,
       photo_url: input.photoUrl,
       active: input.active,
       schedule: input.schedule,
@@ -586,6 +601,12 @@ export class SupabaseAdminRepository implements AdminRepository {
       if (res.error) friendly(res.error)
       saved = res.data!
     }
+    if (email !== undefined)
+      must(
+        await this.db
+          .from('staff_contacts')
+          .upsert({ staff_id: saved.id, email, updated_at: new Date().toISOString() }),
+      )
     must(await this.db.from('staff_services').delete().eq('staff_id', saved.id))
     if (!all && chosen.length)
       must(await this.db.from('staff_services').insert(chosen.map((id) => ({ staff_id: saved.id, service_id: id }))))
@@ -1243,7 +1264,7 @@ export class SupabaseAdminRepository implements AdminRepository {
 
   async reopenWeek(weekStart: LocalDate): Promise<void> {
     const me = (await this.getSession())?.user
-    if (me?.role !== 'owner') throw new InvalidRequestError('Solo el dueño puede reabrir una semana cerrada.')
+    if (!isOwnerRole(me?.role)) throw new InvalidRequestError('Solo el dueño puede reabrir una semana cerrada.')
     const res = await this.db.from('payroll_closes').delete().eq('week_start', weekStart)
     if (res.error) friendly(res.error)
   }
@@ -1308,7 +1329,7 @@ export class SupabaseAdminRepository implements AdminRepository {
 
   async reopenDay(date: LocalDate): Promise<void> {
     const me = (await this.getSession())?.user
-    if (me?.role !== 'owner' && me?.role !== 'manager')
+    if (!isFinanceRole(me?.role))
       throw new InvalidRequestError('Solo el dueño o el gerente pueden reabrir una caja cerrada.')
     const res = await this.db.from('daily_closes').delete().eq('date', date)
     if (res.error) friendly(res.error)

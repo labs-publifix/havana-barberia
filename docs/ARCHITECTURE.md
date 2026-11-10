@@ -80,6 +80,12 @@ La UI nunca importa datos directamente: pide todo a `BookingRepository` mediante
 - **Fotos:** el bucket público `photos` de Storage (máx. 2 MB; WebP, JPEG o PNG). Solo el dueño y el gerente suben; `uploadProductImage` y `uploadStaffPhoto` guardan en `products/` y `staff/` y devuelven la URL pública.
 - **Pruebas:** `supabase/tests/emails.test.sql` (bandeja, recordatorios, permisos y fotos) y `src/test/emails.test.ts` (textos).
 
+**Ajustes previos al lanzamiento:**
+
+- **Rol Desarrollador:** tiene el mismo acceso que el dueño, incluidos usuarios y bitácora (`app.is_owner()`, `isOwnerRole`/`isFinanceRole` en el panel). Sirve para revisar cada módulo con una cuenta real. Siempre debe quedar al menos un dueño activo.
+- **Barberos desde el panel:** el dueño los da de alta en Equipo con nombre, título, descripción para el sitio, foto y un correo para avisos de citas (`staff_contacts`, privado; solo dueño, desarrollador y gerente). El aviso al barbero va a ese correo y, si no hay, al de su usuario. La semilla ya no crea barberos, para que un despliegue no regrese a alguien dado de baja; las pruebas usan `supabase/tests/fixtures.sql`.
+- **El sitio muestra solo a los activos:** las pills del hero, la sección de equipo y la reserva salen de `listStaff()` (solo activos, en el orden de Equipo). La foto subida en el panel tiene prioridad; si no hay foto, se ven las iniciales.
+
 **Entrega 3 (conectado):** reserva en línea.
 
 - **Horarios:** el navegador calcula los horarios libres con el mismo motor de siempre (`src/lib/availability`). Lee las citas y los bloqueos del día con `busy_slots`, que solo devuelve horarios, nunca datos de clientes.

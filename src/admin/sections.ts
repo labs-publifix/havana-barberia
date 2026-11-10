@@ -41,9 +41,9 @@ export interface Section {
   features: string[]
 }
 
-const all: AdminRole[] = ['owner', 'manager', 'reception', 'barber']
-const desk: AdminRole[] = ['owner', 'manager', 'reception']
-const finance: AdminRole[] = ['owner', 'manager']
+const all: AdminRole[] = ['owner', 'developer', 'manager', 'reception', 'barber']
+const desk: AdminRole[] = ['owner', 'developer', 'manager', 'reception']
+const finance: AdminRole[] = ['owner', 'developer', 'manager']
 
 export const sections: Record<SectionId, Section> = {
   inicio: {
@@ -122,7 +122,7 @@ export const sections: Record<SectionId, Section> = {
     label: 'Comisiones y bonos',
     barberLabel: 'Mis comisiones',
     icon: HandCoins,
-    roles: ['owner', 'manager', 'barber'],
+    roles: ['owner', 'developer', 'manager', 'barber'],
     delivery: 8,
     summary: 'Lo que gana cada barbero por semana, según su comisión.',
     features: [

@@ -27,6 +27,7 @@ import { AdminStatusBadge } from '../ui/AdminStatusBadge'
 import { isLive, sourceLabel } from '../ui/appointmentStyle'
 import { canComplete, canMarkNoShow, isOpen } from './model'
 import { errorMessage, useAgendaActions } from './useAgendaActions'
+import { isFinanceRole } from '../domain'
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -523,7 +524,7 @@ export function AppointmentPanel({
         onConfirm={finish}
         reward={rewardAvailable(card, now) ? rewardFor(a.serviceIds, services) : null}
         products={productsOnSale ?? []}
-        canAuthorize={user.role === 'owner' || user.role === 'manager'}
+        canAuthorize={isFinanceRole(user.role)}
       />
     </>
   )

@@ -1144,6 +1144,7 @@ export class MockBookingRepository implements BookingRepository {
     id?: ID
     name: string
     title: string
+    bio?: string
     photoUrl: string | null
     active: boolean
     schedule: WeeklySchedule
@@ -1171,6 +1172,7 @@ export class MockBookingRepository implements BookingRepository {
       const fields = {
         name,
         title: input.title.trim(),
+        bio: (input.bio ?? '').trim().slice(0, 280),
         photoUrl: input.photoUrl,
         active: input.active,
         schedule: input.schedule.map((d) => [...(d ?? [])].sort((a, b) => a.start.localeCompare(b.start))),

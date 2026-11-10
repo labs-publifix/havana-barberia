@@ -30,16 +30,8 @@ insert into public.services (id, category_id, name, description, duration_min, p
   ('tinte-barba', 'color', 'Tinte de barba', 'Color natural para tu barba.', 30, 220, false, 14)
 on conflict (id) do nothing;
 
-insert into public.staff (id, name, sort, schedule) values
-  ('leonardo', 'Leonardo Gómez', 1, '[[{"start": "10:00", "end": "15:00"}], [{"start": "10:00", "end": "20:30"}], [{"start": "10:00", "end": "20:30"}], [{"start": "10:00", "end": "20:30"}], [{"start": "10:00", "end": "20:30"}], [{"start": "10:00", "end": "20:30"}], [{"start": "10:00", "end": "18:00"}]]'::jsonb),
-  ('isaac', 'Isaac Fuentes', 2, '[[{"start": "10:00", "end": "15:00"}], [{"start": "10:00", "end": "20:30"}], [{"start": "10:00", "end": "20:30"}], [{"start": "10:00", "end": "20:30"}], [{"start": "10:00", "end": "20:30"}], [{"start": "10:00", "end": "20:30"}], [{"start": "10:00", "end": "18:00"}]]'::jsonb)
-on conflict (id) do nothing;
-
--- Commission rules start empty ("Sin capturar") from the beginning of time.
-insert into public.commission_versions (staff_id, valid_from, mode, value) values
-  ('leonardo', '0001-01-01', 'percent', null),
-  ('isaac', '0001-01-01', 'percent', null)
-on conflict do nothing;
+-- Barbers are not seeded: the owner registers them in the panel (Equipo).
+-- Leaving them here would bring a removed barber back on the next deploy.
 
 insert into public.bonus_rules (id, name, kind, sort) values
   ('puntualidad', 'Puntualidad', 'manual', 1),

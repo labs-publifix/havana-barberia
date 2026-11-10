@@ -53,3 +53,26 @@ export const staffPortraits: Record<string, Responsive & { position: string }> =
   isaac: { ...r(isaacPortrait400, 400, isaacPortrait800, 800, 1.25), position: '50% 20%' },
   leonardo: { ...r(leoPortrait400, 400, leoPortrait800, 768, 1.25), position: '50% 18%' },
 }
+
+/**
+ * A barber's photo for the site. The photo uploaded in the panel wins; barbers
+ * with a professional shoot bundled here use it while no other photo is set.
+ * null: no photo yet (the card shows initials).
+ */
+export function barberPhoto(
+  s: { id: string; photoUrl: string | null },
+  kind: 'card' | 'portrait',
+): { src: string; srcSet?: string; width?: number; height?: number; position?: string } | null {
+  const bundled = kind === 'card' ? staffCards[s.id] : staffPortraits[s.id]
+  const isBundled = !s.photoUrl || s.photoUrl === staffCards[s.id]?.src
+  if (bundled && isBundled) return bundled
+  return s.photoUrl ? { src: s.photoUrl, position: '50% 25%' } : null
+}
+
+export const initials = (name: string) =>
+  name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0]!.toUpperCase())
+    .join('')

@@ -13,6 +13,7 @@ import { DataTable, type Column } from '../ui/DataTable'
 import { Card, PageHeader } from '../ui/Panel'
 import { ProductPanel, type ProductDraft } from './ProductPanel'
 import { productMargin } from './products'
+import { isFinanceRole } from '../domain'
 
 type Availability = 'all' | 'active' | 'inactive'
 
@@ -35,7 +36,7 @@ const missing = <span className="text-[13px] text-fg-muted">Sin capturar</span>
 export function ProductsView() {
   const { repo } = useAdminAuth()
   const { user } = useAdminSession()
-  const canEdit = user.role === 'owner' || user.role === 'manager'
+  const canEdit = isFinanceRole(user.role)
   const seesFinance = canEdit
   const { data: products } = useQuery({ queryKey: ['admin', 'products'], queryFn: () => repo.listProducts() })
   const [query, setQuery] = useState('')

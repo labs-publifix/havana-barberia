@@ -79,6 +79,8 @@ export interface Staff {
   schedule: WeeklySchedule
   /** Short title shown with the name (e.g. "Barbero senior"); optional. */
   title?: string
+  /** One or two sentences for the site's team section; optional. */
+  bio?: string
 }
 
 /**

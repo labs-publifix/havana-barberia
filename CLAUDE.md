@@ -37,7 +37,7 @@ Sistema propio de reservas (público, móvil primero) y panel administrativo par
 - `/servicios`: hero de foto a pantalla completa (navbar transparente que flota al bajar), filtros por categoría en píldora de vidrio fija bajo el navbar con desvanecido negro detrás, lista del catálogo («Agendar» en contorno; el aqua solo en «Reservar cita»), franja «El lugar» con fotos reales del local (`src/assets/shop`) y CTA final.
 - `SiteNav`: un solo componente; transparente sobre el hero y píldora flotante después de 24 px; `startFloating` en páginas internas. `MobileBookBar` aparece al salir del hero.
 - Animación: CSS + IntersectionObserver (`Reveal`), sin librerías; todo respeta `prefers-reduced-motion` (el marquee se vuelve lista manual).
-- Contenido sin inventar: reseñas reales de Google en `src/config/reviews.ts` (texto literal; solo se recorta con «…», nunca se reescribe; nombre + inicial), rol y bio de barberos en `src/config/team.ts` (vacíos), insignias en `src/config/serviceBadges.ts` (vacío), `business.instagramUrl` (hoy https://www.instagram.com/havana.barberia/; null oculta los botones).
+- Contenido sin inventar: reseñas reales de Google en `src/config/reviews.ts` (texto literal; solo se recorta con «…», nunca se reescribe; nombre + inicial), barberos (nombre, título, descripción, foto y si están activos) desde el panel › Equipo: el sitio muestra solo los activos, insignias en `src/config/serviceBadges.ts` (vacío), `business.instagramUrl` (hoy https://www.instagram.com/havana.barberia/; null oculta los botones).
 - Estrellas de Google en amarillo (`text-google-star`), no en el acento.
 
 ## Políticas de reserva (configurables)

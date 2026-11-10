@@ -14,6 +14,7 @@ import { AlertsList, BarberDayList, UpcomingList } from '../features/overview/li
 import { cashSummary } from '../cash'
 import { computeOverview, timelineBounds } from '../overview'
 import { Card, EmptyState, StatCard } from '../ui/Panel'
+import { isFinanceRole } from '../domain'
 
 /** Thin bar under the occupancy figure; the number carries the meaning, the bar helps scanning. */
 function Meter({ pct, label }: { pct: number; label: string }) {
@@ -44,7 +45,7 @@ export default function Overview() {
   const today = localDate(now, tz)
   const status = useOpenStatus()
   const isBarber = user.role === 'barber'
-  const seesMoney = user.role === 'owner' || user.role === 'manager'
+  const seesMoney = isFinanceRole(user.role)
 
   const { data: day, isError } = useQuery({
     queryKey: ['admin', 'day', today],

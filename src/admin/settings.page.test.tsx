@@ -109,7 +109,8 @@ describe('admin settings', () => {
 
     const matrix = screen.getByRole('table', { name: 'Secciones del panel por rol' })
     const row = within(matrix).getByRole('row', { name: /Cierre y nómina/ })
-    expect(within(row).getAllByLabelText('Sí')).toHaveLength(2)
+    // Owner, developer and manager.
+    expect(within(row).getAllByLabelText('Sí')).toHaveLength(3)
   })
 
   it('the manager edits rules but only sees users', async () => {
