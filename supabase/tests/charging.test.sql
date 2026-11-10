@@ -99,5 +99,14 @@ select pg_temp.check(
 insert into public.customers (name) values ('Sin teléfono');
 select pg_temp.check(true, 'cliente sin cita puede no dejar teléfono');
 
+-- Visitors without a session can't charge, close or sell.
+reset role;
+select pg_temp.check(
+  not has_function_privilege('anon', 'public.complete_appointment(text, jsonb)', 'execute')
+  and not has_function_privilege('anon', 'public.close_day(date, int, int, text)', 'execute')
+  and not has_function_privilege('anon', 'public.record_sale(jsonb, text, text)', 'execute'),
+  'sin sesión no se puede cobrar, cerrar caja ni vender'
+);
+
 reset role;
 rollback;
