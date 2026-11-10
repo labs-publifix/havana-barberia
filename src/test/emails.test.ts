@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { authTemplate, compose, when, type EmailFacts } from '../../supabase/functions/_shared/emails'
+import { authTemplate, compose, routeEmail, when, type EmailFacts } from '../../supabase/functions/_shared/emails'
 
 const base: EmailFacts = {
   kind: 'confirmation',
@@ -76,5 +76,35 @@ describe('transactional e-mails', () => {
     const file = readFileSync(resolve(__dirname, `../../supabase/templates/${kind}.html`), 'utf8')
     expect(file).toBe(authTemplate(kind).html)
     expect(file).toContain('href="{{ .ConfirmationURL }}"')
+  })
+})
+
+describe('who receives each e-mail', () => {
+  const base = { to: 'leo@barberia.test', also: [], reviewCopy: 'dev@test.mx' }
+  it('test mode: customers only to the review copy', () => {
+    expect(routeEmail({ ...base, forCustomer: true, live: false, to: 'ana@cliente.test' })).toEqual({
+      to: ['dev@test.mx'],
+      bcc: [],
+      test: true,
+    })
+  })
+  it('test mode does not hold back team notices', () => {
+    expect(routeEmail({ ...base, forCustomer: false, live: false })).toEqual({
+      to: ['leo@barberia.test'],
+      bcc: ['dev@test.mx'],
+      test: false,
+    })
+  })
+  it('the shop list gets every notice, without repeats', () => {
+    expect(
+      routeEmail({ ...base, forCustomer: false, live: true, also: ['Dueno@Barberia.test', 'leo@barberia.test'] }).to,
+    ).toEqual(['leo@barberia.test', 'dueno@barberia.test'])
+  })
+  it('live: the customer, with the review copy in BCC', () => {
+    expect(routeEmail({ ...base, forCustomer: true, live: true, to: 'ana@cliente.test' })).toEqual({
+      to: ['ana@cliente.test'],
+      bcc: ['dev@test.mx'],
+      test: false,
+    })
   })
 })

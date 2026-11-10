@@ -1,11 +1,13 @@
+import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Alert } from '@/components/ui/Alert'
 import { Badge, type BadgeTone } from '@/components/ui/Badge'
+import { buttonClass } from '@/components/ui/buttonClass'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { useAdminAuth } from '../auth/AdminAuth'
 import { errorMessage } from '../agenda/useAgendaActions'
 import type { SentEmail } from '../domain'
-import { Switch } from '../ui/controls'
+import { Input, Switch } from '../ui/controls'
 import { Card } from '../ui/Panel'
 import { useToast } from '../ui/Toast'
 
@@ -77,10 +79,12 @@ export function EmailsView() {
           description={
             data.customerEmails
               ? 'Encendido: cada cliente con correo recibe los suyos (con copia oculta para revisión).'
-              : 'Apagado (modo prueba): los correos llegan solo a la copia de revisión, marcados «Prueba». Enciéndelo cuando dejes AgendaPro para que nadie reciba correos dobles.'
+              : 'Apagado (modo prueba): los correos a clientes llegan solo a la copia de revisión, marcados «Prueba». Enciéndelo cuando dejes AgendaPro para que nadie reciba correos dobles. Los avisos al equipo siempre se envían.'
           }
         />
       </Card>
+
+      <TeamEmails saved={data.teamEmails} />
 
       <Card title="Últimos correos" description="Se envían en el minuto siguiente a cada cambio.">
         {data.recent.length === 0 ? (
@@ -109,5 +113,62 @@ export function EmailsView() {
         )}
       </Card>
     </div>
+  )
+}
+
+/** Besides the barber, who hears about each online booking and cancellation (e.g. the owner). */
+function TeamEmails({ saved }: { saved: string[] }) {
+  const { repo } = useAdminAuth()
+  const qc = useQueryClient()
+  const toast = useToast()
+  const [draft, setDraft] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const text = draft ?? saved.join(', ')
+  const save = useMutation({
+    mutationFn: () => repo.setTeamEmails(text.split(/[\s,;]+/)),
+    onSuccess: async () => {
+      setDraft(null)
+      setError(null)
+      await qc.invalidateQueries({ queryKey: ['admin', 'email-settings'] })
+      toast('Avisos al equipo guardados')
+    },
+    onError: (e) => setError(errorMessage(e)),
+  })
+  return (
+    <Card
+      title="Avisos de citas en línea"
+      description="Cada cita nueva o cancelada desde el sitio le llega al barbero de la cita (con el correo de su perfil en Equipo). Agrega aquí quién más debe recibirlas, por ejemplo el dueño."
+    >
+      <form
+        className="grid gap-3"
+        onSubmit={(e) => {
+          e.preventDefault()
+          save.mutate()
+        }}
+      >
+        <Input
+          label="Correos que reciben todas las citas en línea"
+          type="text"
+          inputMode="email"
+          autoComplete="off"
+          spellCheck={false}
+          placeholder="dueno@ejemplo.com, gerente@ejemplo.com"
+          value={text}
+          onChange={(e) => {
+            setDraft(e.target.value)
+            setError(null)
+          }}
+          hint="Hasta 5, separados por coma."
+        />
+        {error && <Alert tone="danger" title={error} />}
+        <button
+          type="submit"
+          disabled={draft === null || save.isPending}
+          className={buttonClass({ size: 'sm', className: 'justify-self-start' })}
+        >
+          {save.isPending ? 'Guardando…' : 'Guardar'}
+        </button>
+      </form>
+    </Card>
   )
 }

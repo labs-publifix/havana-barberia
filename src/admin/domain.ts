@@ -1,3 +1,4 @@
+import { InvalidRequestError } from '@/data/errors'
 import type {
   Appointment,
   BookingPolicy,
@@ -198,6 +199,8 @@ export interface AdminSettings {
 export interface EmailSettings {
   /** Off: every e-mail goes only to the review copy (test mode). */
   customerEmails: boolean
+  /** Besides the barber, who hears about every online booking and cancellation (up to 5). */
+  teamEmails: string[]
   recent: SentEmail[]
 }
 
@@ -295,4 +298,13 @@ export interface StaffInput {
   commission?: Omit<StaffCommission, 'staffId'>
   /** When a changed commission starts to apply (default: today). Past weeks keep their rule. */
   commissionFrom?: LocalDate
+}
+
+/** Notice e-mails for the team: trimmed, lower-case, no repeats, up to 5; refuses invalid ones. */
+export function cleanEmails(emails: string[]): string[] {
+  const list = [...new Set(emails.map((e) => e.trim().toLowerCase()).filter(Boolean))]
+  const bad = list.find((e) => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e))
+  if (bad) throw new InvalidRequestError(`Revisa el correo «${bad}».`)
+  if (list.length > 5) throw new InvalidRequestError('Hasta 5 correos.')
+  return list
 }

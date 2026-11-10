@@ -79,7 +79,7 @@ import {
   type ProductSale,
 } from '../../finance'
 import { InvalidCredentialsError, InvalidMfaCodeError, type AdminRepository } from '../AdminRepository'
-import { isFinanceRole, isOwnerRole } from '../../domain'
+import { cleanEmails, isFinanceRole, isOwnerRole } from '../../domain'
 
 /** Sections connected to Supabase. */
 const AVAILABLE = [
@@ -784,6 +784,7 @@ export class SupabaseAdminRepository implements AdminRepository {
     ])
     return {
       customerEmails: !!(row as SettingsRow & { customer_emails?: boolean }).customer_emails,
+      teamEmails: (row as SettingsRow & { team_emails?: string[] }).team_emails ?? [],
       recent: (recent.error ? [] : (recent.data as OutboxRow[])).map((r) => ({
         id: String(r.id),
         kind: r.kind,
@@ -795,6 +796,14 @@ export class SupabaseAdminRepository implements AdminRepository {
         sentAt: r.sent_at,
       })),
     }
+  }
+
+  async setTeamEmails(emails: string[]): Promise<string[]> {
+    const list = cleanEmails(emails)
+    const res = await this.db.from('settings').update({ team_emails: list }).eq('id', 1).select('id').maybeSingle()
+    if (res.error) friendly(res.error)
+    if (!res.data) throw new InvalidRequestError('Tu rol no permite hacer este cambio.')
+    return list
   }
 
   async setCustomerEmails(on: boolean): Promise<void> {
