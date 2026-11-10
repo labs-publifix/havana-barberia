@@ -5,7 +5,17 @@ import { buttonClass } from '@/components/ui/buttonClass'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { business } from '@/config/business'
 import { downloadCsv } from '@/lib/csv'
-import { addDays, capitalize, formatDay, localDate, localTime, money, toMinutes } from '@/lib/time'
+import {
+  addDays,
+  capitalize,
+  daysBetween,
+  formatDateLong,
+  formatDay,
+  localDate,
+  localTime,
+  money,
+  toMinutes,
+} from '@/lib/time'
 import { useAdminAuth } from '../auth/AdminAuth'
 import { cashSummary, methodLabels, productsTotalOf } from '../cash'
 import type { AdminFinance } from '../domain'
@@ -22,12 +32,15 @@ import {
 } from '../reports/metrics'
 import { useFinanceWeek } from '../useFinanceWeek'
 import { Segmented } from '../ui/controls'
+import { DatePicker } from '../ui/DatePicker'
 import { Card, PageHeader } from '../ui/Panel'
 import { useBusinessHours } from '@/app/queries'
-import type { WeeklySchedule } from '@/domain/types'
+import type { LocalDate, WeeklySchedule } from '@/domain/types'
 
 const tz = business.hours.timeZone
-type Period = 'semana' | 'pasada' | 'mes'
+type Period = 'semana' | 'pasada' | 'mes' | 'rango'
+/** A custom range covers up to about three months (the daily chart stays readable). */
+const MAX_RANGE_DAYS = 92
 
 /** Opening hours of the shop, as whole hours (columns of the demand map). */
 function hourColumns(weekly: WeeklySchedule): number[] {
@@ -50,12 +63,41 @@ export default function Reports() {
   const today = localDate(new Date(), tz)
   const [period, setPeriod] = useState<Period>('semana')
   const { current } = useFinanceWeek()
-  const from = period === 'semana' ? current : period === 'pasada' ? addDays(current, -7) : addDays(current, -21)
-  const to = period === 'pasada' ? addDays(current, -1) : today
-  const back = period === 'mes' ? 28 : 7
+  const [range, setRange] = useState<{ from: LocalDate; to: LocalDate }>(() => ({
+    from: addDays(today, -29),
+    to: today,
+  }))
+  const from =
+    period === 'rango'
+      ? range.from
+      : period === 'semana'
+        ? current
+        : period === 'pasada'
+          ? addDays(current, -7)
+          : addDays(current, -21)
+  const to = period === 'rango' ? range.to : period === 'pasada' ? addDays(current, -1) : today
+  // Compared with the same number of days right before.
+  const back = period === 'rango' ? daysBetween(from, to) + 1 : period === 'mes' ? 28 : 7
   const prevFrom = addDays(from, -back)
   const prevTo = addDays(to, -back)
-  const vs = period === 'mes' ? 'las 4 semanas anteriores' : 'la semana anterior'
+  const vs =
+    period === 'rango'
+      ? `los ${back} ${back === 1 ? 'día anterior' : 'días anteriores'}`
+      : period === 'mes'
+        ? 'las 4 semanas anteriores'
+        : 'la semana anterior'
+  /** Keep the range valid: start ≤ end, up to MAX_RANGE_DAYS, nothing after today. */
+  const setFrom = (d: LocalDate) =>
+    setRange((r) => {
+      const to = r.to < d ? d : daysBetween(d, r.to) >= MAX_RANGE_DAYS ? addDays(d, MAX_RANGE_DAYS - 1) : r.to
+      return { from: d, to: to > today ? today : to }
+    })
+  const setTo = (d: LocalDate) =>
+    setRange((r) => {
+      const from =
+        r.from > d ? d : daysBetween(r.from, d) >= MAX_RANGE_DAYS ? addDays(d, -(MAX_RANGE_DAYS - 1)) : r.from
+      return { from, to: d > today ? today : d }
+    })
   const { data } = useQuery({ queryKey: ['admin', 'finance', from, to], queryFn: () => repo.getFinance(from, to) })
   const { data: prev } = useQuery({
     queryKey: ['admin', 'finance', prevFrom, prevTo],
@@ -64,7 +106,11 @@ export default function Reports() {
 
   const header = (
     <PageHeader
-      description="Cómo va el negocio frente al periodo anterior, con el mismo número de días."
+      description={
+        period === 'rango'
+          ? `Del ${formatDateLong(from)} al ${formatDateLong(to)}, frente a ${vs}. Hasta ${MAX_RANGE_DAYS} días por consulta.`
+          : 'Cómo va el negocio frente al periodo anterior, con el mismo número de días.'
+      }
       actions={
         <>
           <Segmented<Period>
@@ -75,9 +121,33 @@ export default function Reports() {
               { value: 'semana', label: 'Esta semana' },
               { value: 'pasada', label: 'Semana pasada' },
               { value: 'mes', label: '4 semanas' },
+              { value: 'rango', label: 'Rango' },
             ]}
             className="max-w-full overflow-x-auto"
           />
+          {period === 'rango' && (
+            <div
+              className="grid w-full grid-cols-2 items-end gap-2 sm:flex sm:w-auto"
+              role="group"
+              aria-label="Rango de fechas"
+            >
+              <DatePicker
+                label="Desde"
+                value={range.from}
+                onChange={setFrom}
+                today={today}
+                className="min-w-0 grid-cols-[minmax(0,1fr)] sm:w-[168px]"
+              />
+              <DatePicker
+                label="Hasta"
+                value={range.to}
+                onChange={setTo}
+                today={today}
+                min={range.from}
+                className="min-w-0 grid-cols-[minmax(0,1fr)] sm:w-[168px]"
+              />
+            </div>
+          )}
           <button
             type="button"
             disabled={!data}

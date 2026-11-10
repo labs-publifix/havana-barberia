@@ -98,3 +98,7 @@ export const durationLabel = (min: number) => {
   const m = min % 60
   return m ? `${h} h ${m} min` : `${h} h`
 }
+
+/** Whole days from `a` to `b` (calendar dates; negative when `b` is earlier). */
+export const daysBetween = (a: LocalDate, b: LocalDate): number =>
+  Math.round((Date.parse(`${b}T00:00:00Z`) - Date.parse(`${a}T00:00:00Z`)) / 86400000)
