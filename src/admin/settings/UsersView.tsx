@@ -37,7 +37,7 @@ export function UsersView() {
     <div className="grid grid-cols-[minmax(0,1fr)] gap-6">
       <Card
         title="Usuarios"
-        description="Quién entra al panel. Dueño y gerente entran con verificación en dos pasos."
+        description="Quién entra al panel. Cada persona entra con su correo y su contraseña."
         actions={
           canEdit ? (
             <button type="button" onClick={() => setDraft({ mode: 'new' })} className={buttonClass({ size: 'sm' })}>
@@ -260,7 +260,6 @@ function UserPanel({
     onError: (e) => setError(errorMessage(e)),
   })
 
-  const twoStep = form.role === 'owner' || form.role === 'manager'
   return (
     <SidePanel
       open={!!draft}
@@ -341,12 +340,10 @@ function UserPanel({
             hint="Verá solo su agenda y sus comisiones."
           />
         )}
-        {twoStep && (
-          <p className="flex items-start gap-2 text-[13px] text-fg-muted">
-            <ShieldCheck className="mt-px size-4 shrink-0" aria-hidden />
-            Este rol ve finanzas: entra con verificación en dos pasos.
-          </p>
-        )}
+        <p className="flex items-start gap-2 text-[13px] text-fg-muted">
+          <ShieldCheck className="mt-px size-4 shrink-0" aria-hidden />
+          Entra con su correo y una contraseña que crea al abrir la invitación.
+        </p>
         {editing && (
           <div className="rounded-md border border-line p-4">
             <Switch

@@ -82,8 +82,8 @@ finanzas solo dueño y gerente; recepción opera agenda, clientes y ventas.
 
 - Esquema en Supabase (Postgres + RLS) según el modelo de datos, restricción de
   exclusión contra dobles citas, `audit_log`, `settings`.
-- Auth real: sin registro público, invitaciones, roles, verificación en dos pasos para
-  dueño y gerente.
+- Auth real: sin registro público, invitaciones, roles; entrada con correo y contraseña para todos los
+  roles (la barbería decidió no usar verificación en dos pasos; se puede activar después).
 - Migraciones aplicadas desde GitHub Actions con secretos del repositorio
   (`SUPABASE_ACCESS_TOKEN`, `SUPABASE_DB_PASSWORD`, `SUPABASE_PROJECT_REF`).
 - `SupabaseAdminRepository` y `SupabaseBookingRepository`; reserva pública por Edge
