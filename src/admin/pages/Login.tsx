@@ -160,7 +160,7 @@ export default function Login() {
 }
 
 /** Send a link to set a new password (always says the same, whether or not the e-mail exists). */
-function ForgotPassword({ send }: { send: (email: string) => Promise<void> }) {
+export function ForgotPassword({ send }: { send: (email: string) => Promise<void> }) {
   const [email, setEmail] = useState('')
   const [sent, setSent] = useState(false)
   const [busy, setBusy] = useState(false)

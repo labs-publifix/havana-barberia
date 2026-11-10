@@ -276,6 +276,7 @@ export class SupabaseAdminRepository implements AdminRepository {
           email: input.email,
           role: input.role,
           staffId: input.staffId,
+          password: input.password,
           redirectTo: `${window.location.origin}${import.meta.env.BASE_URL}admin/contrasena`,
         },
       })
