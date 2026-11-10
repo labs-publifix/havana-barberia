@@ -53,7 +53,7 @@ import type {
 } from '../../finance'
 import { InvalidRequestError } from '@/data/errors'
 import { InvalidCredentialsError, InvalidMfaCodeError, type AdminRepository } from '../AdminRepository'
-import { isFinanceRole, isOwnerRole } from '../../domain'
+import { cleanEmails, isFinanceRole, isOwnerRole } from '../../domain'
 
 /**
  * Demo users. Generic, fictitious accounts (reserved .test domain); the barber
@@ -312,11 +312,19 @@ export class MockAdminRepository implements AdminRepository {
   }
 
   private customerEmails = false
+  private teamEmails: string[] = []
+
+  async setTeamEmails(emails: string[]): Promise<string[]> {
+    const me = (await this.getSession())?.user
+    if (!isFinanceRole(me?.role)) throw new InvalidRequestError('Tu rol no permite hacer este cambio.')
+    this.teamEmails = cleanEmails(emails)
+    return [...this.teamEmails]
+  }
 
   /** The demo sends nothing: it only remembers the switch. */
   async getEmailSettings(): Promise<EmailSettings> {
     await this.delay()
-    return { customerEmails: this.customerEmails, recent: [] }
+    return { customerEmails: this.customerEmails, teamEmails: [...this.teamEmails], recent: [] }
   }
 
   async setCustomerEmails(on: boolean): Promise<void> {

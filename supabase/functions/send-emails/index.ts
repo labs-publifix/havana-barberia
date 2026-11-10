@@ -6,7 +6,7 @@
 // EMAIL_BCC with "[Prueba]" in the subject, so the shop can review them before
 // customers receive anything.
 import { createClient } from 'npm:@supabase/supabase-js@2.118.0'
-import { compose, isCustomerEmail, type EmailKind } from '../_shared/emails.ts'
+import { compose, isCustomerEmail, routeEmail, type EmailKind } from '../_shared/emails.ts'
 
 const MAX_ATTEMPTS = 3
 
@@ -38,7 +38,7 @@ Deno.serve(async (req) => {
   if (error) return reply(500, { error: error.message })
   const { data: settings } = await db
     .from('settings')
-    .select('customer_emails, time_zone, tolerance_min, change_cutoff_min')
+    .select('customer_emails, team_emails, time_zone, tolerance_min, change_cutoff_min')
     .eq('id', 1)
     .single()
   const live = !!settings?.customer_emails
@@ -70,10 +70,14 @@ Deno.serve(async (req) => {
         email: string
       } | null
       const staff = (Array.isArray(a.staff) ? a.staff[0] : a.staff) as { name: string } | null
+      const forCustomer = isCustomerEmail(row.kind)
       let to: string | null
-      if (isCustomerEmail(row.kind)) {
+      // The shop's own people who hear about every online booking (Ajustes › Correos).
+      let also: string[] = []
+      if (forCustomer) {
         to = customer?.email || null
       } else {
+        also = ((settings?.team_emails as string[] | null) ?? []).filter(Boolean)
         // The barber's e-mail from Equipo; otherwise the one they sign in with.
         const { data: contact } = await db
           .from('staff_contacts')
@@ -83,7 +87,7 @@ Deno.serve(async (req) => {
         const { data: barber } = contact?.email
           ? { data: null }
           : await db.from('profiles').select('email').eq('staff_id', a.staff_id).eq('active', true).maybeSingle()
-        to = contact?.email || barber?.email || null
+        to = contact?.email || barber?.email || also[0] || null
       }
       if (!to) {
         await finish(row.id, { status: 'skipped', error: 'Sin correo de destino.' })
@@ -108,13 +112,15 @@ Deno.serve(async (req) => {
         assetBase: site,
       })
 
-      // Test mode: only the review copy, and it says who would have received it.
-      const recipients = live ? [to] : bcc ? [bcc] : []
+      // Test mode only holds back customers' e-mails (so nobody gets doubles while
+      // AgendaPro still runs); notices to the team always go out.
+      const route = routeEmail({ forCustomer, live, to, also, reviewCopy: bcc })
+      const recipients = route.to
       if (!recipients.length) {
         await finish(row.id, { status: 'skipped', error: 'Modo prueba sin EMAIL_BCC.' })
         continue
       }
-      const subject = live ? email.subject : `[Prueba · para ${to}] ${email.subject}`
+      const subject = route.test ? `[Prueba · para ${to}] ${email.subject}` : email.subject
       const res = await fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: {
@@ -125,7 +131,7 @@ Deno.serve(async (req) => {
         body: JSON.stringify({
           from,
           to: recipients,
-          ...(live && bcc ? { bcc: [bcc] } : {}),
+          ...(route.bcc.length ? { bcc: route.bcc } : {}),
           subject,
           html: email.html,
           text: email.text,
@@ -135,7 +141,7 @@ Deno.serve(async (req) => {
       await finish(row.id, {
         status: 'sent',
         sent_at: new Date().toISOString(),
-        to_email: to,
+        to_email: route.test ? to : recipients.join(', '),
         subject: email.subject,
         error: null,
       })

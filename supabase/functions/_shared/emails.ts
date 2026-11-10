@@ -325,3 +325,22 @@ export function authTemplate(kind: 'invite' | 'recovery', assetBase = DEFAULT_SI
     }),
   }
 }
+
+/**
+ * Who gets an e-mail. Test mode (`live` false) holds back only customers'
+ * e-mails: they go to the review copy marked «Prueba». Team notices always go
+ * to the barber plus the shop's notice list, with the review copy in BCC.
+ */
+export function routeEmail(opts: {
+  forCustomer: boolean
+  live: boolean
+  to: string
+  also: string[]
+  reviewCopy: string | null
+}): { to: string[]; bcc: string[]; test: boolean } {
+  const real = opts.live || !opts.forCustomer
+  if (!real) return { to: opts.reviewCopy ? [opts.reviewCopy] : [], bcc: [], test: true }
+  const to = [...new Set([opts.to, ...opts.also].map((e) => e.trim().toLowerCase()).filter(Boolean))]
+  const copy = opts.reviewCopy?.trim().toLowerCase()
+  return { to, bcc: copy && !to.includes(copy) ? [copy] : [], test: false }
+}

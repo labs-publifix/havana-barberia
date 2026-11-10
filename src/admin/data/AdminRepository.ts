@@ -149,6 +149,8 @@ export interface AdminRepository {
   /** Owner and manager: e-mail test mode and the latest e-mails. */
   getEmailSettings(): Promise<EmailSettings>
   setCustomerEmails(on: boolean): Promise<void>
+  /** Up to 5 e-mails; each invalid one is refused. */
+  setTeamEmails(emails: string[]): Promise<string[]>
   /** Counter sale of products (prices and commissions from the catalog). */
   createSale(input: {
     items: { productId: ID; qty: number }[]
