@@ -39,7 +39,8 @@ Deno.serve(async (req) => {
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return reply(400, { error: 'Revisa el correo.' })
   if (!ROLES.includes(role)) return reply(400, { error: 'Elige el rol.' })
   if (role === 'barber' && !staffId) return reply(400, { error: 'Elige el perfil del barbero en Equipo.' })
-  if (body.redirectTo && !isAllowedRedirect(body.redirectTo)) return reply(400, { error: 'Dirección de regreso no permitida.' })
+  if (body.redirectTo && !isAllowedRedirect(body.redirectTo))
+    return reply(400, { error: 'Dirección de regreso no permitida.' })
 
   const { data: taken } = await admin.from('profiles').select('id').ilike('email', email).maybeSingle()
   if (taken) return reply(409, { error: 'Ya hay un usuario con ese correo.' })

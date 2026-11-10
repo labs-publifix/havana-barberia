@@ -7,13 +7,14 @@ import { Skeleton } from '@/components/ui/Skeleton'
 import { useAdminAuth } from '../auth/AdminAuth'
 import { errorMessage } from '../agenda/useAgendaActions'
 import { BookingRulesView, LoyaltyView, type PolicyForm } from '../settings/PolicyViews'
+import { EmailsView } from '../settings/EmailsView'
 import { FinanceView } from '../settings/FinanceView'
 import { UsersView } from '../settings/UsersView'
 import { TabPanel, Tabs } from '../ui/Tabs'
 import { useToast } from '../ui/Toast'
 
-type Tab = 'reservas' | 'lealtad' | 'finanzas' | 'usuarios'
-const TABS: Tab[] = ['reservas', 'lealtad', 'finanzas', 'usuarios']
+type Tab = 'reservas' | 'lealtad' | 'finanzas' | 'correos' | 'usuarios'
+const TABS: Tab[] = ['reservas', 'lealtad', 'finanzas', 'correos', 'usuarios']
 
 const same = (a: PolicyForm, b: PolicyForm) =>
   JSON.stringify(a.policy) === JSON.stringify(b.policy) &&
@@ -87,6 +88,7 @@ export default function Settings() {
           { value: 'reservas', label: 'Reservas' },
           { value: 'lealtad', label: 'Lealtad' },
           { value: 'finanzas', label: 'Finanzas' },
+          { value: 'correos', label: 'Correos' },
           { value: 'usuarios', label: 'Usuarios y roles' },
         ]}
       />
@@ -95,6 +97,8 @@ export default function Settings() {
           <UsersView />
         ) : tab === 'finanzas' ? (
           <FinanceView />
+        ) : tab === 'correos' ? (
+          <EmailsView />
         ) : !form || !saved || !catalog ? (
           <div className="grid gap-4" aria-busy="true">
             <Skeleton className="h-72 rounded-lg" />

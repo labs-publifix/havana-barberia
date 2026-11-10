@@ -66,10 +66,18 @@ La UI nunca importa datos directamente: pide todo a `BookingRepository` mediante
 - **Descuentos:** dueño y gerente descuentan directo. Si cobra otra persona, el dueño o gerente escribe su correo y contraseña en esa pantalla; la Edge Function `authorize-discount` los verifica en el servidor y deja una autorización de un solo uso, por ese monto, válida 10 minutos (tabla `discount_approvals`, sin acceso desde el navegador). El cobro guarda quién autorizó.
 - **Pruebas:** `supabase/tests/charging.test.sql` cubre cobro, descuento autorizado, pago mixto, corte gratis en combo, corte de caja y venta.
 
-**Sigue:**
+**Entrega 4 (conectado):** correos y fotos.
 
-1. Edge Functions para reservar, cancelar y reprogramar desde el sitio (Turnstile y límites).
-2. Correos con Resend y recordatorios con `pg_cron`; fotos en Storage.
+- **Correos** (migración `emails_storage`, Edge Function `send-emails`):
+  - **Bandeja `email_outbox`:** triggers en `appointments` encolan la confirmación, el aviso de cambio de horario y el de cancelación. Las citas en línea también avisan al barbero. Los clientes sin cita no reciben correo.
+  - **Recordatorios:** `app.queue_reminders()` encola el de un día antes (si se agendó con más de un día) y el de dos horas antes. Cada uno sale una sola vez por cita y horario.
+  - **Envío:** `pg_cron` corre `app.mailer_tick()` cada minuto. Si hay pendientes, llama a `send-emails` vía `pg_net` con una llave compartida que el despliegue renueva cada vez (`app.mailer_config`, fuera del API). La función arma el correo (`supabase/functions/_shared/emails.ts`, probado con Vitest) y lo manda por Resend desde `EMAIL_FROM`, con copia oculta a `EMAIL_BCC`. Reintenta hasta 3 veces.
+  - **Modo prueba:** Ajustes › Correos (`settings.customer_emails`, apagado por omisión). Mientras esté apagado, todo llega solo a la copia de revisión con «[Prueba · para …]» en el asunto, para no duplicar los correos de AgendaPro. La misma pestaña muestra los últimos 30 envíos.
+  - **Enlaces:** apuntan a `SITE_URL` (variable opcional de GitHub). El enlace para cambiar o cancelar aparece cuando `VITE_BOOKING_OPEN=true`; antes, el correo da el teléfono.
+- **Fotos:** el bucket público `photos` de Storage (máx. 2 MB; WebP, JPEG o PNG). Solo el dueño y el gerente suben; `uploadProductImage` y `uploadStaffPhoto` guardan en `products/` y `staff/` y devuelven la URL pública.
+- **Pruebas:** `supabase/tests/emails.test.sql` (bandeja, recordatorios, permisos y fotos) y `src/test/emails.test.ts` (textos).
+
+**Sigue:** entrega 3, Edge Functions para reservar, cancelar y reprogramar desde el sitio (Turnstile y límites).
 
 Ninguna pantalla debería cambiar.
 

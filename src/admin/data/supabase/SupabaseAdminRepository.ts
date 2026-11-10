@@ -48,10 +48,12 @@ import type {
   AdminUser,
   AgendaDay,
   CashDay,
+  EmailSettings,
   NewBlock,
   PanelCustomer,
   PaymentInput,
   PolicyInput,
+  SentEmail,
   ProductInput,
   ServiceInput,
   StaffInput,
@@ -502,18 +504,23 @@ export class SupabaseAdminRepository implements AdminRepository {
     if (res.error) friendly(res.error)
   }
 
-  /** Photos stay small (resized in the browser) and live with the record for now; Storage arrives later. */
+  /** Photos (already resized in the browser) go to the public `photos` bucket. */
+  private async uploadPhoto(folder: 'products' | 'staff', image: Blob): Promise<string> {
+    const ext = image.type === 'image/png' ? 'png' : image.type === 'image/jpeg' ? 'jpg' : 'webp'
+    const path = `${folder}/${crypto.randomUUID()}.${ext}`
+    const { error } = await this.db.storage
+      .from('photos')
+      .upload(path, image, { contentType: image.type || 'image/webp', cacheControl: '31536000', upsert: false })
+    if (error) throw new InvalidRequestError('No se pudo subir la foto. Intenta de nuevo.')
+    return this.db.storage.from('photos').getPublicUrl(path).data.publicUrl
+  }
+
   uploadProductImage(image: Blob): Promise<string> {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader()
-      reader.onload = () => resolve(String(reader.result))
-      reader.onerror = () => reject(new Error('No se pudo leer la imagen.'))
-      reader.readAsDataURL(image)
-    })
+    return this.uploadPhoto('products', image)
   }
 
   uploadStaffPhoto(image: Blob): Promise<string> {
-    return this.uploadProductImage(image)
+    return this.uploadPhoto('staff', image)
   }
 
   // ── Team ────────────────────────────────────────────────────────────────
@@ -692,6 +699,32 @@ export class SupabaseAdminRepository implements AdminRepository {
       discountCommission: row.discount_commission,
       bonuses,
     }
+  }
+
+  async getEmailSettings(): Promise<EmailSettings> {
+    const [row, recent] = await Promise.all([
+      this.settingsRow(),
+      this.db.from('email_outbox').select('*').order('id', { ascending: false }).limit(30),
+    ])
+    return {
+      customerEmails: !!(row as SettingsRow & { customer_emails?: boolean }).customer_emails,
+      recent: (recent.error ? [] : (recent.data as OutboxRow[])).map((r) => ({
+        id: String(r.id),
+        kind: r.kind,
+        status: r.status,
+        to: r.to_email,
+        subject: r.subject,
+        error: r.error,
+        createdAt: r.created_at,
+        sentAt: r.sent_at,
+      })),
+    }
+  }
+
+  async setCustomerEmails(on: boolean): Promise<void> {
+    const res = await this.db.from('settings').update({ customer_emails: on }).eq('id', 1).select('id').maybeSingle()
+    if (res.error) friendly(res.error)
+    if (!res.data) throw new InvalidRequestError('Tu rol no permite hacer este cambio.')
   }
 
   async saveFinanceSettings(input: FinanceSettings): Promise<FinanceSettings> {
@@ -1296,6 +1329,17 @@ export class SupabaseAdminRepository implements AdminRepository {
 }
 
 // ── Rows of the agenda and finance tables ───────────────────────────────────
+interface OutboxRow {
+  id: number
+  kind: SentEmail['kind']
+  status: SentEmail['status']
+  to_email: string | null
+  subject: string | null
+  error: string | null
+  created_at: string
+  sent_at: string | null
+}
+
 const TZ = business.hours.timeZone
 const APPT = '*, customers(name, phone, email), payments(*)'
 

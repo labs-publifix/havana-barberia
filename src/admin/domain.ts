@@ -187,6 +187,24 @@ export interface AdminSettings {
   services: Service[]
 }
 
+/** Ajustes › Correos: whether customers receive e-mails, and the latest ones sent. */
+export interface EmailSettings {
+  /** Off: every e-mail goes only to the review copy (test mode). */
+  customerEmails: boolean
+  recent: SentEmail[]
+}
+
+export interface SentEmail {
+  id: string
+  kind: 'confirmation' | 'reschedule' | 'cancellation' | 'reminder_24h' | 'reminder_2h' | 'team_new' | 'team_cancel'
+  status: 'pending' | 'sending' | 'sent' | 'failed' | 'skipped'
+  to: string | null
+  subject: string | null
+  error: string | null
+  createdAt: string
+  sentAt: string | null
+}
+
 export interface PolicyInput {
   policy: BookingPolicy
   /** Services that add a stamp when completed. */
