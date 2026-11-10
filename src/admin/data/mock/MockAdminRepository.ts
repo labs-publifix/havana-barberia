@@ -62,7 +62,7 @@ export const demoUsers: AdminUser[] = [
     email: 'dueno@havana.test',
     role: 'owner',
     staffId: null,
-    mfaRequired: true,
+    mfaRequired: false,
     active: true,
   },
   {
@@ -71,7 +71,7 @@ export const demoUsers: AdminUser[] = [
     email: 'gerencia@havana.test',
     role: 'manager',
     staffId: null,
-    mfaRequired: true,
+    mfaRequired: false,
     active: true,
   },
   {
@@ -206,7 +206,7 @@ export class MockAdminRepository implements AdminRepository {
       email,
       role: input.role,
       staffId,
-      mfaRequired: input.role === 'owner' || input.role === 'manager',
+      mfaRequired: false,
       active: input.active,
     }
     const next = existing ? users.map((u) => (u.id === user.id ? user : u)) : [...users, user]

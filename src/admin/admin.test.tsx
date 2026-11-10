@@ -53,18 +53,11 @@ describe('admin panel shell', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Correo o contraseña incorrectos.')
   })
 
-  it('owner goes through two-step verification before entering', async () => {
+  it('owner enters with e-mail and password only (no second step)', async () => {
     const { user } = renderAdmin('/admin/entrar')
     await user.click(await screen.findByRole('button', { name: /Dueño/ }))
-
-    expect(await screen.findByRole('heading', { name: 'Verificación en dos pasos' })).toBeInTheDocument()
-    await user.type(screen.getByLabelText('Código'), '12')
-    await user.click(screen.getByRole('button', { name: 'Verificar y entrar' }))
-    expect(screen.getByText('Escribe los 6 dígitos del código.')).toBeInTheDocument()
-
-    await user.type(screen.getByLabelText('Código'), '3456')
-    await user.click(screen.getByRole('button', { name: 'Verificar y entrar' }))
     expect(await screen.findByRole('heading', { level: 1, name: 'Vista general' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Verificación en dos pasos' })).toBeNull()
     expect(within(nav()).getByRole('link', { name: 'Cierre y nómina' })).toBeInTheDocument()
   })
 

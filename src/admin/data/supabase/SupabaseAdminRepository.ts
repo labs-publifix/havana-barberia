@@ -118,7 +118,8 @@ const toUser = (p: ProfileRow): AdminUser => ({
   email: p.email,
   role: p.role,
   staffId: p.staff_id,
-  mfaRequired: p.role === 'owner' || p.role === 'manager',
+  // Decision of the shop: everyone signs in with e-mail and password only (no second step).
+  mfaRequired: false,
   active: p.active,
 })
 

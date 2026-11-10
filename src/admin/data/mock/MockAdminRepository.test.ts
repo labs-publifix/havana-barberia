@@ -19,11 +19,10 @@ describe('MockAdminRepository', () => {
     expect(await repo.getSession()).toBeNull()
   })
 
-  it('owner needs the second step; a 6-digit code completes it', async () => {
+  it('owner signs in with e-mail and password only; the code check still validates format', async () => {
     const repo = new MockAdminRepository({ storage: null })
     const s = await repo.signIn('  Dueno@Havana.test ', DEMO_PASSWORD)
-    expect(s.user.role).toBe('owner')
-    expect(s.mfaVerified).toBe(false)
+    expect(s.user).toMatchObject({ role: 'owner', mfaRequired: false })
     await expect(repo.verifyMfa('12a456')).rejects.toBeInstanceOf(InvalidMfaCodeError)
     expect((await repo.verifyMfa('123456')).mfaVerified).toBe(true)
   })
@@ -106,7 +105,7 @@ describe('MockAdminRepository · users', () => {
       staffId: null,
       active: true,
     })
-    expect(u).toMatchObject({ name: 'Sofía Ruiz', email: 'sofia@havana.test', mfaRequired: true })
+    expect(u).toMatchObject({ name: 'Sofía Ruiz', email: 'sofia@havana.test', mfaRequired: false })
     expect((await repo.signIn('sofia@havana.test', DEMO_PASSWORD)).user.role).toBe('manager')
     await repo.demo.switchTo('u-owner')
     await expect(
