@@ -3,3 +3,4 @@ node_modules
 .claude
 docs/design
 package-lock.json
+supabase/functions/_shared/engine.js
