@@ -212,6 +212,15 @@ export interface SentEmail {
   sentAt: string | null
 }
 
+/** Result of saving the shop's hours: what no longer fits, so the shop can fix it. */
+export interface BusinessHoursChange {
+  weekly: WeeklySchedule
+  /** Barbers with shifts outside the new hours (those times simply stop being bookable). */
+  staffOutside: { id: ID; name: string; days: number[] }[]
+  /** Upcoming appointments outside the new hours (they stay; move them if needed). */
+  appointmentsOutside: Appointment[]
+}
+
 export interface PolicyInput {
   policy: BookingPolicy
   /** Services that add a stamp when completed. */

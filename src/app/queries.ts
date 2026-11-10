@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import type { BookingPolicy } from '@/domain/types'
+import type { BookingPolicy, BusinessHours } from '@/domain/types'
 import { business } from '@/config/business'
 import type { SlotQuery } from '@/data'
 import { useRepository } from './RepositoryContext'
@@ -11,6 +11,17 @@ export const keys = {
   appointment: (token: string) => ['appointment', token] as const,
   loyalty: (token: string) => ['loyalty', token] as const,
   policy: ['policy'] as const,
+  hours: ['hours'] as const,
+}
+
+/**
+ * The shop's opening hours from Ajustes › Horario. Until they load (or if they
+ * can't), the defaults in config/business keep the page complete.
+ */
+export function useBusinessHours(): BusinessHours {
+  const repo = useRepository()
+  const { data } = useQuery({ queryKey: keys.hours, queryFn: () => repo.getBusinessHours(), staleTime: 5 * 60_000 })
+  return data ?? business.hours
 }
 
 export function useCatalog() {

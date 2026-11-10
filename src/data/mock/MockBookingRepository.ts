@@ -17,13 +17,21 @@ import type {
   StaffChoice,
   TimeBlock,
   WeeklySchedule,
+  BusinessHours,
   BookingPolicy,
 } from '@/domain/types'
 import { bookingPolicy, businessHours } from '@/config/business'
 import { computeSlots, isActiveStatus, nearestAvailable, staffForServices, totalDuration } from '@/lib/availability'
 import { addDays, localDate, toMinutes, weekdayOf, zonedInstant } from '@/lib/time'
 import { normalizeMxPhone } from '@/lib/phone'
-import { DAY_NAMES, outsideSchedule, scheduleErrors } from '@/lib/schedule'
+import {
+  DAY_NAMES,
+  daysOutsideShop,
+  outsideSchedule,
+  outsideShopHours,
+  scheduleErrors,
+  shopHoursErrors,
+} from '@/lib/schedule'
 import { policyError } from '@/lib/policy'
 import { rewardAvailable, rewardFor } from '@/lib/loyalty'
 import { cashSummary } from '@/admin/cash'
@@ -207,6 +215,39 @@ export class MockBookingRepository implements BookingRepository {
     return clone(this.policy)
   }
 
+  /** The shop's hours as edited in Ajustes › Horario (config/business has the defaults). */
+  private get hours(): BusinessHours {
+    return this.db.hours ? { timeZone: businessHours.timeZone, weekly: this.db.hours } : businessHours
+  }
+
+  async getBusinessHours(): Promise<BusinessHours> {
+    return clone(this.hours)
+  }
+
+  /** Save the shop's hours and report what no longer fits (barbers' shifts, upcoming appointments). */
+  async adminSaveBusinessHours(weekly: WeeklySchedule) {
+    await this.delay()
+    return this.exclusive(() => {
+      const clean = Array.from({ length: 7 }, (_, d) =>
+        [...(weekly[d] ?? [])].sort((a, b) => a.start.localeCompare(b.start)),
+      )
+      const errors = shopHoursErrors(clean)
+      const first = Object.entries(errors)[0]
+      if (first)
+        throw new InvalidRequestError(Number(first[0]) < 0 ? first[1] : `${DAY_NAMES[Number(first[0])]}: ${first[1]}`)
+      this.db.hours = clean
+      this.save()
+      return {
+        weekly: clone(clean),
+        staffOutside: this.db.staff
+          .filter((s) => s.active)
+          .map((s) => ({ id: s.id, name: s.name, days: daysOutsideShop(s.schedule, clean) }))
+          .filter((s) => s.days.length),
+        appointmentsOutside: clone(outsideShopHours(this.db.appointments, clean, businessHours.timeZone, this.now())),
+      }
+    })
+  }
+
   private slotsFor(q: SlotQuery, policy = this.policy): Slot[] {
     const services = this.db.services.filter((s) => s.active && q.serviceIds.includes(s.id))
     if (services.length !== q.serviceIds.length || services.length === 0) return []
@@ -216,7 +257,7 @@ export class MockBookingRepository implements BookingRepository {
       date: q.date,
       durationMin: totalDuration(services),
       staff,
-      hours: businessHours,
+      hours: this.hours,
       policy,
       appointments: this.db.appointments,
       blocks: this.db.blocks,
@@ -1159,7 +1200,7 @@ export class MockBookingRepository implements BookingRepository {
       if (!name) throw new InvalidRequestError('Escribe el nombre del barbero.')
       if (this.db.staff.some((x) => x.id !== input.id && fold(x.name) === fold(name)))
         throw new InvalidRequestError('Ya hay un barbero con ese nombre.')
-      const problems = scheduleErrors(input.schedule, businessHours.weekly)
+      const problems = scheduleErrors(input.schedule, this.hours.weekly)
       const day = Object.keys(problems)[0]
       if (day !== undefined) throw new InvalidRequestError(`${DAY_NAMES[Number(day)]}: ${problems[Number(day)]}`)
       const known = new Set(this.db.services.map((x) => x.id))

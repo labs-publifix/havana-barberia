@@ -84,6 +84,13 @@ La UI nunca importa datos directamente: pide todo a `BookingRepository` mediante
 
 - **Rol Desarrollador:** tiene el mismo acceso que el dueño, incluidos usuarios y bitácora (`app.is_owner()`, `isOwnerRole`/`isFinanceRole` en el panel). Sirve para revisar cada módulo con una cuenta real. Siempre debe quedar al menos un dueño activo.
 - **Barberos desde el panel:** el dueño los da de alta en Equipo con nombre, título, descripción para el sitio, foto y un correo para avisos de citas (`staff_contacts`, privado; solo dueño, desarrollador y gerente). El aviso al barbero va a ese correo y, si no hay, al de su usuario. La semilla ya no crea barberos, para que un despliegue no regrese a alguien dado de baja; las pruebas usan `supabase/tests/fixtures.sql`.
+- **Horario de la barbería en un solo lugar (Ajustes › Horario):** se guarda en `settings.business_hours` y todo lo lee de ahí:
+  - el sitio (`useBusinessHours()`): horario, «Abierto ahora / abre mañana», pie de página, datos para Google y días de la reserva;
+  - la reserva en línea, en el navegador y en el servidor;
+  - el panel: agenda, reportes y límites de los turnos.
+
+  Cada barbero trabaja dentro de ese marco: una hora se puede reservar solo si la barbería está abierta y el barbero tiene turno. Al guardar, el panel avisa qué barberos quedaron con turnos fuera y qué citas próximas caen fuera. `config/business` solo es el valor de respaldo mientras carga.
+
 - **El sitio muestra solo a los activos:** las pills del hero, la sección de equipo y la reserva salen de `listStaff()` (solo activos, en el orden de Equipo). La foto subida en el panel tiene prioridad; si no hay foto, se ven las iniciales.
 
 **Entrega 3 (conectado):** reserva en línea.

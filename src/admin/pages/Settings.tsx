@@ -9,12 +9,13 @@ import { errorMessage } from '../agenda/useAgendaActions'
 import { BookingRulesView, LoyaltyView, type PolicyForm } from '../settings/PolicyViews'
 import { EmailsView } from '../settings/EmailsView'
 import { FinanceView } from '../settings/FinanceView'
+import { HoursView } from '../settings/HoursView'
 import { UsersView } from '../settings/UsersView'
 import { TabPanel, Tabs } from '../ui/Tabs'
 import { useToast } from '../ui/Toast'
 
-type Tab = 'reservas' | 'lealtad' | 'finanzas' | 'correos' | 'usuarios'
-const TABS: Tab[] = ['reservas', 'lealtad', 'finanzas', 'correos', 'usuarios']
+type Tab = 'reservas' | 'horario' | 'lealtad' | 'finanzas' | 'correos' | 'usuarios'
+const TABS: Tab[] = ['reservas', 'horario', 'lealtad', 'finanzas', 'correos', 'usuarios']
 
 const same = (a: PolicyForm, b: PolicyForm) =>
   JSON.stringify(a.policy) === JSON.stringify(b.policy) &&
@@ -86,6 +87,7 @@ export default function Settings() {
         }
         tabs={[
           { value: 'reservas', label: 'Reservas' },
+          { value: 'horario', label: 'Horario' },
           { value: 'lealtad', label: 'Lealtad' },
           { value: 'finanzas', label: 'Finanzas' },
           { value: 'correos', label: 'Correos' },
@@ -95,6 +97,8 @@ export default function Settings() {
       <TabPanel idBase={idBase} value={tab}>
         {tab === 'usuarios' ? (
           <UsersView />
+        ) : tab === 'horario' ? (
+          <HoursView />
         ) : tab === 'finanzas' ? (
           <FinanceView />
         ) : tab === 'correos' ? (

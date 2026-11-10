@@ -20,12 +20,29 @@ export function ScheduleEditor({
   onChange,
   shop,
   disabled,
+  variant = 'barber',
 }: {
   value: WeeklySchedule
   onChange: (schedule: WeeklySchedule) => void
   shop: WeeklySchedule
   disabled?: boolean
+  /** "shop": the barbershop's own hours (Ajustes › Horario). */
+  variant?: 'barber' | 'shop'
 }) {
+  const t =
+    variant === 'shop'
+      ? {
+          on: 'Abre',
+          off: 'Cerrado',
+          add: 'Agregar horario (si cierra a mediodía)',
+          copy: 'Copiar el lunes a los demás días',
+        }
+      : {
+          on: 'Trabaja',
+          off: 'Descansa',
+          add: 'Agregar turno (para separar la comida)',
+          copy: 'Copiar el lunes a los demás días',
+        }
   const errors = scheduleErrors(value, shop)
   const setDay = (d: number, ranges: TimeRange[]) => onChange(value.map((x, i) => (i === d ? ranges : x)))
   const bounds = (d: number): [number, number] | null => {
@@ -52,7 +69,7 @@ export function ScheduleEditor({
               <div className="grid gap-2">
                 {b && (
                   <Switch
-                    label={works ? 'Trabaja' : 'Descansa'}
+                    label={works ? t.on : t.off}
                     checked={works}
                     disabled={disabled}
                     onChange={(on) => setDay(d, on ? [{ start: fromMinutes(b[0]), end: fromMinutes(b[1]) }] : [])}
@@ -118,7 +135,7 @@ export function ScheduleEditor({
                     }}
                     className="inline-flex items-center gap-1.5 justify-self-start rounded text-[13px] font-medium text-fg-muted hover:text-fg focus-visible:outline focus-visible:outline-2 focus-visible:outline-focus"
                   >
-                    <Plus className="size-3.5" aria-hidden /> Agregar turno (para separar la comida)
+                    <Plus className="size-3.5" aria-hidden /> {t.add}
                   </button>
                 )}
                 {errors[d] && (
@@ -152,7 +169,7 @@ export function ScheduleEditor({
           }
           className={cn(buttonClass({ variant: 'secondary', size: 'sm' }), 'justify-self-start')}
         >
-          <Copy className="size-4" strokeWidth={1.75} aria-hidden /> Copiar el lunes a los demás días
+          <Copy className="size-4" strokeWidth={1.75} aria-hidden /> {t.copy}
         </button>
       )}
     </div>

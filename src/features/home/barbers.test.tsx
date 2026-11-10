@@ -42,7 +42,10 @@ describe('barbers on the site come from the panel', () => {
     const list = screen.getByRole('list', { name: 'Barberos' })
     expect(within(list).getByText('Barbero senior')).toBeInTheDocument()
     expect(within(list).getByText('Fades y barba clásica.')).toBeInTheDocument()
-    expect(within(list).getByAltText('Retrato de Carlos Ruiz')).toHaveAttribute('src', 'https://example.test/carlos.webp')
+    expect(within(list).getByAltText('Retrato de Carlos Ruiz')).toHaveAttribute(
+      'src',
+      'https://example.test/carlos.webp',
+    )
     expect(within(list).getByRole('link', { name: 'Reservar con Carlos' })).toHaveAttribute(
       'href',
       expect.stringContaining('b-nuevo'),

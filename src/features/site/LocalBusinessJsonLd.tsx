@@ -1,10 +1,12 @@
 import { useEffect } from 'react'
 import { business } from '@/config/business'
+import { useBusinessHours } from '@/app/queries'
 
 const DAY = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 
 /** schema.org BarberShop structured data, built from configuration. */
 export function LocalBusinessJsonLd() {
+  const hours = useBusinessHours()
   useEffect(() => {
     const data = {
       '@context': 'https://schema.org',
@@ -22,7 +24,7 @@ export function LocalBusinessJsonLd() {
         postalCode: '76180',
         addressCountry: 'MX',
       },
-      openingHoursSpecification: business.hours.weekly.flatMap((ranges, wd) =>
+      openingHoursSpecification: hours.weekly.flatMap((ranges, wd) =>
         ranges.map((r) => ({
           '@type': 'OpeningHoursSpecification',
           dayOfWeek: DAY[wd],
@@ -41,6 +43,6 @@ export function LocalBusinessJsonLd() {
     el.textContent = JSON.stringify(data)
     document.head.appendChild(el)
     return () => el.remove()
-  }, [])
+  }, [hours.weekly])
   return null
 }
