@@ -17,10 +17,6 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    env:
-      VITE_BASE: /havana-barberia/
-      VITE_DATA_SOURCE: mock
-      VITE_UI_GALLERY: 'true'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -31,12 +27,12 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
-      - run: npm run build
-      # The real system (Supabase) under /app/, for the owner to start capturing
-      # data. Only the public (publishable) key reaches the browser.
-      - name: Build the real system at /app/
+      # havanabarberia.com (custom domain in Settings › Pages): the real system at
+      # the root (site, booking and /admin). Only the public (publishable) key
+      # reaches the browser.
+      - name: Build the real system at the site root
         env:
-          VITE_BASE: /havana-barberia/app/
+          VITE_BASE: /
           VITE_DATA_SOURCE: supabase
           VITE_UI_GALLERY: 'false'
           VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
@@ -44,11 +40,18 @@ jobs:
           # Public key (saved as a variable or a secret).
           VITE_TURNSTILE_SITE_KEY: ${{ vars.VITE_TURNSTILE_SITE_KEY || secrets.VITE_TURNSTILE_SITE_KEY }}
           VITE_BOOKING_OPEN: ${{ vars.VITE_BOOKING_OPEN || 'false' }}
-        run: npx vite build --outDir dist/app --emptyOutDir
-      # Pages has no rewrites: serve the SPA for any deep link (/cita/:token…).
-      # Deep links under /app/ go to the real build, keeping the path and #hash.
+        run: npx vite build --outDir dist --emptyOutDir
+      # The demo with sample data (no database), for showing the system.
+      - name: Build the demo at /demo/
+        env:
+          VITE_BASE: /demo/
+          VITE_DATA_SOURCE: mock
+          VITE_UI_GALLERY: 'true'
+        run: npx vite build --outDir dist/demo --emptyOutDir
+      # Pages has no rewrites: 404.html is the real SPA, so deep links (/cita/:token,
+      # /admin/…) open; deep links under /demo/ go to the demo, keeping path and #hash.
       - name: 404 fallback for both builds
-        run: node scripts/pages-404.mjs /havana-barberia/app/
+        run: node scripts/pages-404.mjs /demo/
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

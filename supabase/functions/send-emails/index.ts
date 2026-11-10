@@ -26,7 +26,7 @@ Deno.serve(async (req) => {
   const resendKey = Deno.env.get('RESEND_API_KEY')
   const from = Deno.env.get('EMAIL_FROM')
   const bcc = Deno.env.get('EMAIL_BCC') || null
-  const site = (Deno.env.get('SITE_URL') || 'https://labs-publifix.github.io/havana-barberia/app').replace(/\/$/, '')
+  const site = (Deno.env.get('SITE_URL') || 'https://havanabarberia.com').replace(/\/$/, '')
   const bookingOpen = Deno.env.get('BOOKING_OPEN') === 'true'
   if (!resendKey || !from) return reply(500, { error: 'Faltan RESEND_API_KEY o EMAIL_FROM.' })
 

@@ -1,4 +1,5 @@
 User-agent: *
 Allow: /
-Disallow: /havana-barberia/__ui
+Disallow: /admin
+Disallow: /demo/
 Disallow: /__ui
