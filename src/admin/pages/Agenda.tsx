@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react'
 import { useQueries } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
-import { Ban, ChevronLeft, ChevronRight, Footprints } from 'lucide-react'
+import { Ban, CalendarPlus, ChevronLeft, ChevronRight, Footprints } from 'lucide-react'
+import { CalendarConnect } from '../agenda/CalendarConnect'
 import { useNow } from '@/app/useNow'
 import { Avatar } from '@/components/booking/Avatar'
 import { buttonClass } from '@/components/ui/buttonClass'
@@ -153,6 +154,7 @@ export default function Agenda() {
   const opened: Appointment | null = (openId && allAppointments.find((a) => a.id === openId)) || null
 
   const [blockDraft, setBlockDraft] = useState<BlockDraft | null>(null)
+  const [calendarOpen, setCalendarOpen] = useState(false)
   const booking = useNewAppointment()
 
   // Same booking panel as the top bar's "Agendar cita", prefilled with what the agenda shows.
@@ -225,6 +227,13 @@ export default function Agenda() {
               { value: 'semana', label: 'Semana' },
             ]}
           />
+          <button
+            type="button"
+            onClick={() => setCalendarOpen(true)}
+            className={buttonClass({ variant: 'secondary', size: 'sm' })}
+          >
+            <CalendarPlus className="size-4" strokeWidth={1.75} aria-hidden /> Mi calendario
+          </button>
           {!ownId && staffAll.length > 0 && (
             <div className="w-48">
               <Select
@@ -310,6 +319,7 @@ export default function Agenda() {
         canManage={canManage}
         onClose={() => setBlockDraft(null)}
       />
+      <CalendarConnect open={calendarOpen} onOpenChange={setCalendarOpen} staff={staffAll} />
     </div>
   )
 }

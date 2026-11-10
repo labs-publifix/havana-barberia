@@ -12,7 +12,7 @@ sql_paths = ["./seed.sql"]
 [auth]
 # No public sign-up: the owner invites panel users.
 enable_signup = false
-site_url = "https://labs-publifix.github.io/havana-barberia/"
+site_url = "https://havanabarberia.com/"
 
 [functions.invite-user]
 # The function checks the caller's session itself (owner only).
@@ -27,4 +27,8 @@ verify_jwt = false
 
 # Public: the site calls it without a session (Turnstile and limits per IP inside).
 [functions.booking]
+verify_jwt = false
+
+# Read by phone calendars (no session): the private token in the link is the key.
+[functions.calendar]
 verify_jwt = false

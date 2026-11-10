@@ -141,6 +141,11 @@ export interface AdminRepository {
   setBonusAward(award: BonusAward, on: boolean): Promise<void>
   /** Owner, developer and manager: the shop's opening hours (the frame for every barber). */
   saveBusinessHours(weekly: WeeklySchedule): Promise<BusinessHoursChange>
+  /**
+   * Private link for a phone calendar subscription (null: the whole shop; barbers
+   * only their own). `reset` makes a new link and the old one stops working.
+   */
+  getCalendarLink(staffId: ID | null, reset?: boolean): Promise<string>
   /** Owner and manager: e-mail test mode and the latest e-mails. */
   getEmailSettings(): Promise<EmailSettings>
   setCustomerEmails(on: boolean): Promise<void>

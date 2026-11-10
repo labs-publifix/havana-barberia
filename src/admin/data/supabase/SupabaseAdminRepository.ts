@@ -687,6 +687,13 @@ export class SupabaseAdminRepository implements AdminRepository {
     return must<SettingsRow>(await this.db.from('settings').select('*').eq('id', 1).single())
   }
 
+  async getCalendarLink(staffId: ID | null, reset = false): Promise<string> {
+    const { data, error } = await this.db.rpc('calendar_feed', { p_staff_id: staffId, p_reset: reset })
+    if (error) friendly(error)
+    const base = (import.meta.env.VITE_SUPABASE_URL ?? '').replace(/\/$/, '')
+    return `${base}/functions/v1/calendar?t=${data as string}`
+  }
+
   async saveBusinessHours(weekly: WeeklySchedule): Promise<BusinessHoursChange> {
     const clean = Array.from({ length: 7 }, (_, d) =>
       [...(weekly[d] ?? [])].sort((a, b) => a.start.localeCompare(b.start)),
