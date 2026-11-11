@@ -38,7 +38,7 @@ La UI nunca importa datos directamente: pide todo a `BookingRepository` mediante
 
 ### Motor de disponibilidad (`src/lib/availability`)
 
-`computeSlots()` es una función pura: recibe la fecha, la duración (suma de servicios), los barberos candidatos, el horario, la política, las citas, los bloqueos y `now`, y devuelve la cuadrícula de 15 minutos con `available` y el barbero asignado. Nunca depende del huso horario del dispositivo. En Supabase se puede portar a una función SQL o a una Edge Function, y estas pruebas sirven como especificación.
+`computeSlots()` es una función pura: recibe la fecha, la duración (suma de servicios), los barberos candidatos, el horario, la política, las citas, los bloqueos y `now`, y devuelve la cuadrícula (cada `slotStepMin`, desde la apertura) con `available` y el barbero asignado. Nunca depende del huso horario del dispositivo. En Supabase se puede portar a una función SQL o a una Edge Function, y estas pruebas sirven como especificación.
 
 ## Base de datos (Supabase, hito 1C)
 
@@ -242,7 +242,7 @@ Pantallas del panel ──▶ AdminRepository ──▶ MockAdminRepository     
 ### Ajustes (`/admin/ajustes`)
 
 - **Políticas guardadas:** `MockDb.policy` (valores iniciales en `src/config/business.ts`). `MockBookingRepository` las aplica en disponibilidad, límite de citas, plazo de cambios, tolerancia y lealtad; el sitio público las lee con `usePolicy()` (`BookingRepository.getPolicy`), con los valores de `config/business` mientras cargan. Supabase: una fila de `settings`.
-- **Valores permitidos** (`src/lib/policy.ts`, con pruebas): cada regla toma un valor de una lista corta para que los textos públicos se lean bien («hasta 4 horas antes»); la cuadrícula de 15 min es fija. `policySummary` arma la vista previa «Así lo lee el cliente».
+- **Valores permitidos** (`src/lib/policy.ts`, con pruebas): cada regla toma un valor de una lista corta para que los textos públicos se lean bien («hasta 4 horas antes»); «Horarios cada» (15, 20, 30, 45 o 60 min) solo espacia los horarios de la reserva en línea; el panel agenda siempre cada 15 min, y turnos y duraciones siguen en pasos de 15. `policySummary` arma la vista previa «Así lo lee el cliente».
 - **Lealtad:** meta de sellos, vigencia y servicios que suman sello (`Service.loyaltyEligible`). Al cambiar la meta, las tarjetas en curso se ajustan; si baja, quien ya la alcanza gana su corte desde hoy; los premios ya ganados se respetan.
 - **Usuarios** (`AdminRepository.saveUser`, con pruebas): solo la persona dueña invita, cambia rol o quita acceso; correo único; un barbero se liga a un perfil de Equipo sin usuario; nadie cambia su propio rol ni se quita el acceso; siempre queda una persona dueña activa. Todos entran con correo y contraseña. En la demo los usuarios se guardan en este navegador (`havana:admin-users`) y entran con la contraseña de demostración; con Supabase, invitación por correo (`auth.admin.inviteUserByEmail`).
 - **Permisos:** dueño y gerente editan las políticas; el gerente consulta los usuarios. La matriz «Qué ve cada rol» se arma con las mismas reglas de navegación (`sections.ts`).

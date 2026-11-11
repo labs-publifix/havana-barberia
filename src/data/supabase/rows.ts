@@ -87,6 +87,7 @@ export const toPolicy = (r: SettingsRow): BookingPolicy => ({
 })
 
 export const fromPolicy = (p: BookingPolicy) => ({
+  slot_step_min: p.slotStepMin,
   min_notice_min: p.minNoticeMin,
   max_advance_days: p.maxAdvanceDays,
   max_active_per_customer: p.maxActiveAppointmentsPerCustomer,

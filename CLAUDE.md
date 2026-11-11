@@ -41,7 +41,7 @@ Sistema propio de reservas (público, móvil primero) y panel administrativo par
 - Estrellas de Google en amarillo (`text-google-star`), no en el acento.
 
 ## Políticas de reserva (configurables)
-Cancelar o reprogramar hasta 4 h antes; anticipación mínima 1 h y máxima 30 días; cuadrícula de 15 min; tolerancia 10 min; máximo 2 citas futuras activas por cliente; reserva sin cuenta (nombre, teléfono, correo). Lealtad: 10 sellos = corte gratis; el sello se gana al completar la cita.
+Cancelar o reprogramar hasta 4 h antes; anticipación mínima 1 h y máxima 30 días; horarios en línea cada 15 min (configurable: 15–60; el panel siempre cada 15); tolerancia 10 min; máximo 2 citas futuras activas por cliente; reserva sin cuenta (nombre, teléfono, correo). Lealtad: 10 sellos = corte gratis; el sello se gana al completar la cita.
 
 ## Datos del negocio
 Prol. Av. Zaragoza 46, Las Plazas, 76180 Santiago de Querétaro, Qro. · Tel. 442 537 7844 · L–V 10:00–20:30, sáb 10:00–18:00, dom 10:00–15:00 (confirmar domingo).

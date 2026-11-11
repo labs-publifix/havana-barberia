@@ -36,7 +36,7 @@ describe('Supabase rows', () => {
   })
 
   it('round-trips the booking policy', () => {
-    const row = { slot_step_min: 15, ...fromPolicy(bookingPolicy) } as unknown as SettingsRow
+    const row = fromPolicy(bookingPolicy) as unknown as SettingsRow
     expect(toPolicy(row)).toEqual(bookingPolicy)
   })
 })
