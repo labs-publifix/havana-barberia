@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useId, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
 import { CalendarCheck2, Gift, UserPlus, Users } from 'lucide-react'
@@ -18,6 +18,8 @@ import {
   type CustomerSummary,
 } from '../customers/model'
 import { SearchInput, Segmented } from '../ui/controls'
+import { TabPanel, Tabs } from '../ui/Tabs'
+import { WinbackView } from '../customers/WinbackView'
 import { DataTable, type Column } from '../ui/DataTable'
 import { Card, PageHeader, StatCard } from '../ui/Panel'
 
@@ -48,6 +50,8 @@ export default function Customers() {
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState<CustomerFilter>('all')
   const openId = params.get('cliente')
+  const view = params.get('vista') === 'recuperar' ? 'recuperar' : 'todos'
+  const idBase = useId().replace(/:/g, '')
   const now = new Date()
 
   const counts = useMemo(() => {
@@ -145,47 +149,76 @@ export default function Customers() {
         <StatCard label="Corte gratis por canjear" value={list ? counts.reward : '—'} icon={Gift} />
       </div>
 
-      <Card bodyClassName="grid grid-cols-[minmax(0,1fr)] gap-4 p-5">
-        <div className="flex flex-wrap items-center gap-3">
-          <SearchInput
-            label="Buscar cliente"
-            placeholder="Nombre, teléfono o correo"
-            value={query}
-            onChange={(e) => {
-              setQuery(e.target.value)
-            }}
-            className="w-full sm:w-80"
-          />
-          <Segmented<CustomerFilter>
-            label="Filtrar clientes"
-            value={filter}
-            onChange={setFilter}
-            className="max-w-full overflow-x-auto"
-            options={[
-              { value: 'all', label: 'Todos', count: counts.all },
-              { value: 'upcoming', label: 'Con cita', count: counts.upcoming },
-              { value: 'regulars', label: 'Frecuentes', count: counts.regulars },
-              { value: 'no_shows', label: 'Con no-shows', count: counts.no_shows },
-              { value: 'reward', label: 'Corte gratis', count: counts.reward },
-            ]}
-          />
-        </div>
-        <DataTable
-          caption="Clientes"
-          columns={columns}
-          rows={rows}
-          rowKey={(s) => s.customer.id}
-          onRowOpen={(s) => open(s.customer.id)}
-          selectedKey={openId}
-          initialSort={{ id: 'last', dir: 'desc' }}
-          empty={query ? 'Nadie coincide con la búsqueda.' : 'No hay clientes en este filtro.'}
-        />
-        {rows && (
-          <p className="text-[13px] text-fg-muted" aria-live="polite">
-            {rows.length === 1 ? '1 cliente' : `${rows.length} clientes`}
-          </p>
+      <Tabs<'todos' | 'recuperar'>
+        label="Vista de clientes"
+        idBase={idBase}
+        value={view}
+        onChange={(v) =>
+          setParams(
+            (p) => {
+              const next = new URLSearchParams(p)
+              if (v === 'recuperar') next.set('vista', 'recuperar')
+              else next.delete('vista')
+              return next
+            },
+            { replace: true },
+          )
+        }
+        tabs={[
+          { value: 'todos', label: 'Todos los clientes' },
+          { value: 'recuperar', label: 'Por recuperar' },
+        ]}
+      />
+
+      <TabPanel idBase={idBase} value={view}>
+        {view === 'recuperar' ? (
+          <Card bodyClassName="p-5">
+            <WinbackView list={list} staff={staff ?? []} onOpen={(id) => open(id)} />
+          </Card>
+        ) : (
+          <Card bodyClassName="grid grid-cols-[minmax(0,1fr)] gap-4 p-5">
+            <div className="flex flex-wrap items-center gap-3">
+              <SearchInput
+                label="Buscar cliente"
+                placeholder="Nombre, teléfono o correo"
+                value={query}
+                onChange={(e) => {
+                  setQuery(e.target.value)
+                }}
+                className="w-full sm:w-80"
+              />
+              <Segmented<CustomerFilter>
+                label="Filtrar clientes"
+                value={filter}
+                onChange={setFilter}
+                className="max-w-full overflow-x-auto"
+                options={[
+                  { value: 'all', label: 'Todos', count: counts.all },
+                  { value: 'upcoming', label: 'Con cita', count: counts.upcoming },
+                  { value: 'regulars', label: 'Frecuentes', count: counts.regulars },
+                  { value: 'no_shows', label: 'Con no-shows', count: counts.no_shows },
+                  { value: 'reward', label: 'Corte gratis', count: counts.reward },
+                ]}
+              />
+            </div>
+            <DataTable
+              caption="Clientes"
+              columns={columns}
+              rows={rows}
+              rowKey={(s) => s.customer.id}
+              onRowOpen={(s) => open(s.customer.id)}
+              selectedKey={openId}
+              initialSort={{ id: 'last', dir: 'desc' }}
+              empty={query ? 'Nadie coincide con la búsqueda.' : 'No hay clientes en este filtro.'}
+            />
+            {rows && (
+              <p className="text-[13px] text-fg-muted" aria-live="polite">
+                {rows.length === 1 ? '1 cliente' : `${rows.length} clientes`}
+              </p>
+            )}
+          </Card>
         )}
-      </Card>
+      </TabPanel>
 
       <CustomerPanel
         customerId={openId}

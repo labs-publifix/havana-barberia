@@ -43,4 +43,6 @@ export interface BookingRepository {
   getPolicy(): Promise<BookingPolicy>
   /** The shop's opening hours (Ajustes › Horario): the frame for every barber's shifts. */
   getBusinessHours(): Promise<BusinessHours>
+  /** «Darme de baja» from the invitations: returns the first name, or null for an unknown link. */
+  unsubscribe(token: string): Promise<string | null>
 }

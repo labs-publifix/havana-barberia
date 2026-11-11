@@ -3,6 +3,7 @@ import { resolve } from 'node:path'
 import {
   authTemplate,
   compose,
+  invitation,
   routeEmail,
   thankYou,
   ticketLines,
@@ -229,5 +230,38 @@ describe('«Gracias por tu visita»', () => {
     const none = thankYou({ ...facts, card: null })
     expect(none.html).not.toContain('Tu tarjeta de sellos')
     expect(none.html).toContain('Dejar mi reseña en Google')
+  })
+})
+
+describe('invitations to come back', () => {
+  const base = {
+    kind: 'winback' as const,
+    customerName: 'Ana Ríos',
+    lastVisit: '2026-10-01T18:00:00Z',
+    staffName: 'Leonardo Gómez',
+    timeZone: 'America/Mexico_City',
+    card: { stamps: 3, goal: 10, rewardExpiresAt: null },
+    bookUrl: 'https://example.test/reservar?barbero=leonardo',
+    loyaltyUrl: 'https://example.test/lealtad/x',
+    unsubscribeUrl: 'https://example.test/baja/tok',
+    assetBase: 'https://example.test',
+    now: new Date('2026-11-19T18:00:00Z'),
+  }
+  it('win-back: weeks away, stamps, book with the same barber, and the opt-out link', () => {
+    const e = invitation(base)
+    expect(e.subject).toBe('Ana, ¿ya te toca corte?')
+    expect(e.text).toContain('Ya pasaron 7 semanas desde tu último corte con Leonardo.')
+    expect(e.text).toContain('Llevas 3 de 10 sellos')
+    expect(e.html).toContain('>Agendar con Leonardo</a>')
+    expect(e.html).toContain('href="https://example.test/baja/tok"')
+    expect(e.text).toContain('Darme de baja de las invitaciones: https://example.test/baja/tok')
+  })
+  it('free cut waiting changes the subject; imported customers get the new-system invitation', () => {
+    expect(invitation({ ...base, card: { stamps: 10, goal: 10, rewardExpiresAt: null } }).subject).toBe(
+      'Ana, tu corte gratis te está esperando',
+    )
+    const n = invitation({ ...base, kind: 'new_system', lastVisit: null, staffName: null })
+    expect(n.subject).toBe('Ana, estrenamos reservas en línea en Havana')
+    expect(n.html).toContain('>Agendar mi cita</a>')
   })
 })

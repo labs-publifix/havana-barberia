@@ -32,6 +32,7 @@ import type {
   AgendaDay,
   BusinessHoursChange,
   ExpenseInput,
+  InviteResult,
   ProfitData,
   NewBlock,
   PaymentInput,
@@ -57,6 +58,7 @@ import { InvalidRequestError } from '@/data/errors'
 import { InvalidCredentialsError, InvalidMfaCodeError, type AdminRepository } from '../AdminRepository'
 import { cleanEmails, isFinanceRole, isOwnerRole, reviewUrl } from '../../domain'
 import type { Expense } from '../../profit'
+import type { InviteKind, InviteState } from '../../customers/winback'
 
 /**
  * Demo users. Generic, fictitious accounts (reserved .test domain); the barber
@@ -360,6 +362,58 @@ export class MockAdminRepository implements AdminRepository {
   private customerEmails = false
   private teamEmails: string[] = []
   private googleReviewUrl = ''
+  private winbackDays = 40
+  private inviteDailyLimit = 30
+  /** Demo invitations (in memory; nothing is sent). */
+  private invites: { customerId: ID; kind: InviteKind; channel: 'email' | 'whatsapp'; at: string }[] = []
+
+  async setInviteSettings(input: { winbackDays: number; inviteDailyLimit: number }): Promise<void> {
+    const me = (await this.getSession())?.user
+    if (!isFinanceRole(me?.role)) throw new InvalidRequestError('Tu rol no permite hacer este cambio.')
+    this.winbackDays = input.winbackDays
+    this.inviteDailyLimit = input.inviteDailyLimit
+  }
+
+  async getInviteState(): Promise<InviteState> {
+    const today = localDate(new Date(), businessHours.timeZone)
+    const last: InviteState['last'] = {}
+    for (const i of [...this.invites].reverse())
+      if (!last[i.customerId]) last[i.customerId] = { at: i.at, kind: i.kind, channel: i.channel }
+    return {
+      last,
+      sentToday: this.invites.filter((i) => i.channel === 'email' && localDate(i.at, businessHours.timeZone) === today)
+        .length,
+      dailyLimit: this.inviteDailyLimit,
+      days: this.winbackDays,
+    }
+  }
+
+  async inviteCustomers(ids: ID[], kind: InviteKind): Promise<InviteResult> {
+    const me = (await this.getSession())?.user
+    if (!me || me.role === 'barber') throw new InvalidRequestError('Tu rol no permite enviar invitaciones.')
+    const db = this.booking.snapshot()
+    let left = Math.max(0, this.inviteDailyLimit - (await this.getInviteState()).sentToday)
+    const skipped: InviteResult['skipped'] = []
+    let queued = 0
+    for (const id of ids) {
+      const c = db.customers.find((x) => x.id === id)
+      const recent = this.invites.some((i) => i.customerId === id && Date.now() - Date.parse(i.at) < 30 * 86400000)
+      if (!c?.email) skipped.push({ id, reason: 'sin correo' })
+      else if (c.marketingOptOut) skipped.push({ id, reason: 'pidió no recibir invitaciones' })
+      else if (recent) skipped.push({ id, reason: 'invitado hace menos de 30 días' })
+      else if (left <= 0) skipped.push({ id, reason: 'se acabó el cupo de hoy' })
+      else {
+        this.invites.push({ customerId: id, kind, channel: 'email', at: new Date().toISOString() })
+        queued++
+        left--
+      }
+    }
+    return { queued, skipped, left }
+  }
+
+  async logWhatsappInvite(id: ID, kind: InviteKind): Promise<void> {
+    this.invites.push({ customerId: id, kind, channel: 'whatsapp', at: new Date().toISOString() })
+  }
 
   async setGoogleReviewUrl(url: string): Promise<string> {
     const me = (await this.getSession())?.user
@@ -382,6 +436,8 @@ export class MockAdminRepository implements AdminRepository {
       customerEmails: this.customerEmails,
       teamEmails: [...this.teamEmails],
       googleReviewUrl: this.googleReviewUrl,
+      winbackDays: this.winbackDays,
+      inviteDailyLimit: this.inviteDailyLimit,
       recent: [],
     }
   }

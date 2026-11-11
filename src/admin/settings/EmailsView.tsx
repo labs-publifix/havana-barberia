@@ -9,6 +9,7 @@ import { errorMessage } from '../agenda/useAgendaActions'
 import type { SentEmail } from '../domain'
 import { Input, Switch } from '../ui/controls'
 import { Card } from '../ui/Panel'
+import { Select } from '../ui/Select'
 import { useToast } from '../ui/Toast'
 
 const kindLabels: Record<SentEmail['kind'], string> = {
@@ -20,6 +21,8 @@ const kindLabels: Record<SentEmail['kind'], string> = {
   team_new: 'Aviso al barbero: nueva cita',
   team_cancel: 'Aviso al barbero: cancelación',
   thank_you: 'Gracias por tu visita',
+  winback: 'Invitación: te extrañamos',
+  new_system: 'Invitación: estrenamos reservas',
 }
 
 const statusLabels: Record<SentEmail['status'], [string, BadgeTone]> = {
@@ -88,6 +91,8 @@ export function EmailsView() {
       <TeamEmails saved={data.teamEmails} />
 
       <ReviewLink saved={data.googleReviewUrl} />
+
+      <InviteSettings days={data.winbackDays} limit={data.inviteDailyLimit} />
 
       <Card title="Últimos correos" description="Se envían en el minuto siguiente a cada cambio.">
         {data.recent.length === 0 ? (
@@ -235,6 +240,66 @@ function ReviewLink({ saved }: { saved: string }) {
             </a>
           )}
         </div>
+      </form>
+    </Card>
+  )
+}
+
+/** Clientes › Por recuperar: when a customer counts as "away" and the daily e-mail cap. */
+function InviteSettings({ days, limit }: { days: number; limit: number }) {
+  const { repo } = useAdminAuth()
+  const qc = useQueryClient()
+  const toast = useToast()
+  const [form, setForm] = useState<{ days: string; limit: string } | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const f = form ?? { days: String(days), limit: String(limit) }
+  const save = useMutation({
+    mutationFn: () => repo.setInviteSettings({ winbackDays: Number(f.days), inviteDailyLimit: Number(f.limit) }),
+    onSuccess: async () => {
+      setForm(null)
+      setError(null)
+      await qc.invalidateQueries({ queryKey: ['admin'] })
+      toast('Invitaciones guardadas')
+    },
+    onError: (e) => setError(errorMessage(e)),
+  })
+  return (
+    <Card
+      title="Invitaciones a volver"
+      description="En Clientes › Por recuperar aparecen quienes no vienen hace más de estos días y no tienen cita. El límite diario cuida tu plan de correos (Resend gratuito: 100 correos al día contando confirmaciones y recordatorios)."
+    >
+      <form
+        className="grid gap-4 sm:grid-cols-2"
+        onSubmit={(e) => {
+          e.preventDefault()
+          save.mutate()
+        }}
+      >
+        <Select
+          label="Días sin venir"
+          value={f.days}
+          onValueChange={(v) => setForm({ ...f, days: v })}
+          options={[30, 40, 45, 60, 90].map((d) => ({ value: String(d), label: `Más de ${d} días` }))}
+        />
+        <Input
+          label="Invitaciones por correo al día"
+          inputMode="numeric"
+          value={f.limit}
+          onChange={(e) => setForm({ ...f, limit: e.target.value.replace(/\D/g, '').slice(0, 2) })}
+          hint="Recomendado: 30."
+        />
+        {error && (
+          <div className="sm:col-span-2">
+            <Alert tone="danger" title={error} />
+          </div>
+        )}
+        <button
+          type="submit"
+          disabled={form === null || save.isPending}
+          className={buttonClass({ size: 'sm', className: 'justify-self-start' })}
+        >
+          {save.isPending ? 'Guardando…' : 'Guardar'}
+        </button>
       </form>
     </Card>
   )

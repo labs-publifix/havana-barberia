@@ -105,6 +105,17 @@ La UI nunca importa datos directamente: pide todo a `BookingRepository` mediante
   Compara con el periodo anterior y se filtra por Todo, Servicios o Productos. Muestra servicios contra productos, lo más vendido y el desglose por barbero, y exporta a Excel. Los gastos que no salen de la caja se registran ahí (tabla `expenses`, solo finanzas). Las salidas de caja no se restan solas, porque muchas son pagos a barberos o retiros: «Contar como gasto» convierte una en gasto, una sola vez.
 
 - **«Gracias por tu visita»** (al cobrar, también clientes sin cita si dejaron correo): incluye el ticket (servicios, corte gratis, descuento, productos, propina, total y forma de pago, sin comisiones), la tarjeta de sellos dibujada (un círculo por sello y el último marcado «GRATIS»), el bloque de reseña en Google con estrellas y un botón aqua, y «Agendar mi siguiente cita». El enlace de reseñas se configura en Ajustes › Correos (Perfil de Negocio › «Pedir reseñas»); si está vacío, abre el perfil en Google Maps. Sigue el modo prueba de los correos a clientes.
+- **Clientes › Por recuperar** (`src/admin/customers/winback.ts`, probado):
+  - **Listas:**
+    - «Sin venir»: última visita hace más de N días (Ajustes › Correos; 40 por defecto) y sin cita próxima;
+    - «Importados sin visita»: traídos de AgendaPro, todavía sin visitas en el sistema nuevo.
+  - **Orden:** primero los más frecuentes y los más cerca del corte gratis.
+  - **Invitaciones:**
+    - por correo, una a una o en bloque (`invite_customers`), con tope diario (30 por defecto, por el plan gratuito de Resend);
+    - por WhatsApp, con el mensaje ya escrito (`wa.me`), y se registra con `log_whatsapp_invite`.
+  - **Reglas:** cada cliente recibe una invitación cada 30 días como máximo y nunca a quien se dio de baja.
+  - **Correos:** «Te extrañamos» (tarjeta de sellos y «Agendar con» su barbero) o «Estrenamos reservas». Llevan el enlace `/baja/:token` y el encabezado `List-Unsubscribe`.
+- **Darse de baja:** `/baja/:token` (función `unsubscribe`) detiene solo las invitaciones; los correos de las citas siguen llegando.
 - **Sellos en los correos:** la confirmación, el cambio de horario y los recordatorios traen «Ver mis sellos» (`/lealtad/:token`).
 - **El sitio muestra solo a los activos:** las pills del hero, la sección de equipo y la reserva salen de `listStaff()` (solo activos, en el orden de Equipo). La foto subida en el panel tiene prioridad; si no hay foto, se ven las iniciales.
 

@@ -82,6 +82,12 @@ export class SupabaseBookingRepository implements BookingRepository {
     return toPolicy(must<SettingsRow>(await supabase().from('settings').select('*').eq('id', 1).single()))
   }
 
+  async unsubscribe(token: string): Promise<string | null> {
+    const { data, error } = await supabase().rpc('unsubscribe', { p_token: token })
+    if (error) throw error
+    return (data as string | null) ?? null
+  }
+
   async getBusinessHours(): Promise<BusinessHours> {
     const row = must<{ business_hours: BusinessHours['weekly']; time_zone: string }>(
       await supabase().from('settings').select('business_hours, time_zone').eq('id', 1).single(),

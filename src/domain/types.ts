@@ -120,6 +120,8 @@ export interface Customer extends CustomerContact {
   createdAt: Instant
   /** Staff notes about the person (preferences, allergies…). */
   notes?: string
+  /** Asked not to receive invitations to come back (appointment e-mails still go). */
+  marketingOptOut?: boolean
 }
 
 export type AppointmentStatus = 'booked' | 'confirmed' | 'completed' | 'cancelled' | 'no_show'

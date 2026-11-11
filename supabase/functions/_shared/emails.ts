@@ -113,6 +113,8 @@ export interface Frame {
   outlinedActions?: boolean
   /** Small print under the buttons. */
   notes?: string[]
+  /** Trusted HTML in small print at the very bottom of the card (e.g. the opt-out link). */
+  postscript?: string
 }
 
 const button = (label: string, href: string, main: boolean) =>
@@ -162,7 +164,7 @@ ${
         .map((n) => `<p style="margin:8px 0 0;font-size:14px;line-height:21px;color:${c.subtle}">${esc(n)}</p>`)
         .join('')}</td></tr>`
     : ''
-}
+}${f.postscript ? `\n<tr><td class="px" style="padding:0 40px 28px;font-size:12px;line-height:18px;color:${c.subtle}">${f.postscript}</td></tr>` : ''}
 </table>
 </td></tr>
 <tr><td align="center" style="padding:28px 24px 0;font-size:13px;line-height:20px;color:${c.subtle}">
@@ -536,4 +538,88 @@ export function ticketLines(
     ? payment.splits.map((s) => methodName[s.method] ?? s.method).join(' + ')
     : (methodName[payment.method] ?? payment.method)
   return { lines, total: payment.amount + products + payment.tip, method }
+}
+
+// ── Invitations to come back (Clientes › Por recuperar) ─────────────────────
+export interface InviteFacts {
+  kind: 'winback' | 'new_system'
+  customerName: string
+  /** Last completed visit and who did it (winback). */
+  lastVisit: string | null
+  staffName: string | null
+  timeZone: string
+  card: { stamps: number; goal: number; rewardExpiresAt: string | null } | null
+  bookUrl: string
+  loyaltyUrl: string | null
+  unsubscribeUrl: string
+  assetBase: string
+  now?: Date
+}
+
+/** "3 semanas", "2 meses": how long since the last visit, in plain words. */
+export function sinceWords(iso: string, now = new Date()): string {
+  const days = Math.max(1, Math.round((now.getTime() - Date.parse(iso)) / 86400000))
+  if (days < 14) return `${days} días`
+  if (days < 60) return `${Math.round(days / 7)} semanas`
+  const months = Math.round(days / 30)
+  return months === 1 ? '1 mes' : `${months} meses`
+}
+
+export function invitation(f: InviteFacts): Email {
+  const name = firstName(f.customerName)
+  const barber = f.staffName ? f.staffName.split(' ')[0]! : null
+  const full = !!f.card && f.card.stamps >= f.card.goal
+  const winback = f.kind === 'winback'
+  const since = winback && f.lastVisit ? sinceWords(f.lastVisit, f.now) : null
+  const subject = full
+    ? `${name}, tu corte gratis te está esperando`
+    : winback
+      ? `${name}, ¿ya te toca corte?`
+      : `${name}, estrenamos reservas en línea en Havana`
+  const title = full
+    ? `${name}, tienes un corte gratis`
+    : winback
+      ? `${name}, ¿ya te toca?`
+      : 'Ahora agendas en un minuto'
+  const intro = winback
+    ? `Ya pasaron ${since ?? 'unas semanas'} desde tu último corte${barber ? ` con ${barber}` : ''}. Cuando quieras, te apartamos tu lugar.`
+    : `Hola, ${name}. Estrenamos sistema: eliges barbero, día y hora desde tu celular, y juntas sellos en cada visita. ${f.card?.goal ?? 10} sellos = corte gratis.`
+  const action = winback && barber ? `Agendar con ${barber}` : 'Agendar mi cita'
+  const card = f.card ? stampsCard({ ...f.card, redeemedNow: false }, f.timeZone, f.loyaltyUrl) : ''
+  const html = frame({
+    assetBase: f.assetBase,
+    preheader: full
+      ? 'Tu corte gratis sigue disponible. Aparta tu lugar.'
+      : winback
+        ? `Ya pasaron ${since ?? 'unas semanas'}. Aparta tu lugar en un minuto.`
+        : 'Reserva en línea y tarjeta de sellos: 10 visitas, corte gratis.',
+    eyebrow: winback ? 'Te extrañamos' : 'Novedades en Havana',
+    title,
+    intro,
+    body: card || undefined,
+    actions: [
+      [action, f.bookUrl],
+      ...(f.loyaltyUrl && !card ? ([['Ver mis sellos', f.loyaltyUrl]] as [string, string][]) : []),
+    ],
+    postscript: `¿Prefieres no recibir estas invitaciones? <a href="${esc(f.unsubscribeUrl)}" style="color:${c.subtle};text-decoration:underline">Darme de baja</a>. Seguirás recibiendo los correos de tus citas.`,
+  })
+  const text = [
+    title,
+    intro,
+    '',
+    ...(f.card
+      ? [
+          full
+            ? `Tienes un corte gratis${f.card.rewardExpiresAt ? `, úsalo antes del ${when(f.card.rewardExpiresAt, f.timeZone).day}` : ''}.`
+            : `Llevas ${f.card.stamps} de ${f.card.goal} sellos para tu corte gratis.`,
+          '',
+        ]
+      : []),
+    `${action}: ${f.bookUrl}`,
+    ...(f.loyaltyUrl ? [`Ver mis sellos: ${f.loyaltyUrl}`] : []),
+    '',
+    `Darme de baja de las invitaciones: ${f.unsubscribeUrl}`,
+    `${shop.name} · ${shop.address} · ${shop.phone}`,
+  ].join('\n')
+  return { subject, html, text }
 }
