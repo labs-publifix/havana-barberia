@@ -19,6 +19,25 @@ export interface CustomerSummary {
   /** Sum of completed appointments (MXN). */
   totalSpent: number
   loyalty: LoyaltyCard | null
+  /** Barber of most completed visits (ties: the most recent); null without visits. */
+  favoriteStaffId: string | null
+}
+
+/** Most frequent barber among completed visits; on a tie, the latest one wins. */
+function favorite(done: Appointment[]): string | null {
+  const count = new Map<string, { n: number; last: string }>()
+  for (const a of done) {
+    const c = count.get(a.staffId) ?? { n: 0, last: '' }
+    count.set(a.staffId, { n: c.n + 1, last: a.startsAt > c.last ? a.startsAt : c.last })
+  }
+  let best: string | null = null
+  let top = { n: 0, last: '' }
+  for (const [id, c] of count)
+    if (c.n > top.n || (c.n === top.n && c.last > top.last)) {
+      best = id
+      top = c
+    }
+  return best
 }
 
 export const NO_SHOW_WINDOW_DAYS = 90
@@ -62,6 +81,7 @@ export function summarizeCustomers(
       nextAppointment: upcoming[0] ?? null,
       totalSpent: done.reduce((m, a) => m + a.totalPrice, 0),
       loyalty: loyalty.find((c) => c.customerId === customer.id) ?? null,
+      favoriteStaffId: favorite(done),
     }
   })
 }

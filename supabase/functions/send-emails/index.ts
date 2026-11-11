@@ -6,14 +6,24 @@
 // EMAIL_BCC with "[Prueba]" in the subject, so the shop can review them before
 // customers receive anything.
 import { createClient } from 'npm:@supabase/supabase-js@2.118.0'
-import { compose, isCustomerEmail, routeEmail, shop, thankYou, ticketLines, type EmailKind } from '../_shared/emails.ts'
+import {
+  compose,
+  invitation,
+  isCustomerEmail,
+  routeEmail,
+  shop,
+  thankYou,
+  ticketLines,
+  type EmailKind,
+} from '../_shared/emails.ts'
 
 const MAX_ATTEMPTS = 3
 
 interface Outbox {
   id: number
   kind: EmailKind
-  appointment_id: string
+  appointment_id: string | null
+  customer_id: string | null
   attempts: number
 }
 
@@ -46,14 +56,105 @@ Deno.serve(async (req) => {
   const finish = (id: number, patch: Record<string, unknown>) => db.from('email_outbox').update(patch).eq('id', id)
   let sent = 0
 
+  /** Route (test mode, review copy), send through Resend and record the result. */
+  const deliver = async (
+    row: Outbox,
+    to: string,
+    also: string[],
+    forCustomer: boolean,
+    email: { subject: string; html: string; text: string },
+    headers?: Record<string, string>,
+  ) => {
+    const route = routeEmail({ forCustomer, live, to, also, reviewCopy: bcc })
+    const recipients = route.to
+    if (!recipients.length) {
+      await finish(row.id, { status: 'skipped', error: 'Modo prueba sin EMAIL_BCC.' })
+      return
+    }
+    const subject = route.test ? `[Prueba · para ${to}] ${email.subject}` : email.subject
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${resendKey}`,
+        'Content-Type': 'application/json',
+        'Idempotency-Key': `havana-outbox-${row.id}`,
+      },
+      body: JSON.stringify({
+        from,
+        to: recipients,
+        ...(route.bcc.length ? { bcc: route.bcc } : {}),
+        subject,
+        html: email.html,
+        text: email.text,
+        ...(headers ? { headers } : {}),
+      }),
+    })
+    if (!res.ok) throw new Error(`Resend ${res.status}: ${(await res.text()).slice(0, 300)}`)
+    await finish(row.id, {
+      status: 'sent',
+      sent_at: new Date().toISOString(),
+      to_email: route.test ? to : recipients.join(', '),
+      subject: email.subject,
+      error: null,
+    })
+    sent++
+  }
+
+  /** Invitation to come back (by customer, not appointment). */
+  const invite = async (row: Outbox) => {
+    const { data: c } = await db
+      .from('customers')
+      .select('id, name, email, marketing_opt_out, optout_token')
+      .eq('id', row.customer_id!)
+      .maybeSingle()
+    if (!c?.email) return finish(row.id, { status: 'skipped', error: 'Sin correo de destino.' })
+    if (c.marketing_opt_out) return finish(row.id, { status: 'skipped', error: 'Pidió no recibir invitaciones.' })
+    const [{ data: last }, { data: card }] = await Promise.all([
+      db
+        .from('appointments')
+        .select('starts_at, staff_id, staff(name, active, archived_at)')
+        .eq('customer_id', c.id)
+        .eq('status', 'completed')
+        .order('starts_at', { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      db.from('loyalty_cards').select('token, stamps, goal, reward_expires_at').eq('customer_id', c.id).maybeSingle(),
+    ])
+    const barber = (Array.isArray(last?.staff) ? last?.staff[0] : last?.staff) as
+      { name: string; active: boolean; archived_at: string | null } | null | undefined
+    // Book with the same barber when they still work here.
+    const withBarber = barber?.active && !barber.archived_at ? last!.staff_id : null
+    const bookUrl = `${site}/reservar${withBarber ? `?barbero=${encodeURIComponent(withBarber)}` : ''}`
+    const unsubscribeUrl = `${site}/baja/${c.optout_token}`
+    const email = invitation({
+      kind: row.kind as 'winback' | 'new_system',
+      customerName: c.name,
+      lastVisit: last?.starts_at ?? null,
+      staffName: withBarber ? (barber?.name ?? null) : null,
+      timeZone: settings?.time_zone ?? 'America/Mexico_City',
+      card: card ? { stamps: card.stamps, goal: card.goal, rewardExpiresAt: card.reward_expires_at } : null,
+      bookUrl,
+      loyaltyUrl: bookingOpen && card ? `${site}/lealtad/${card.token}` : null,
+      unsubscribeUrl,
+      assetBase: site,
+    })
+    await deliver(row, c.email, [], true, email, {
+      'List-Unsubscribe': `<${unsubscribeUrl}>`,
+    })
+  }
+
   for (const row of (batch ?? []) as Outbox[]) {
     try {
+      if (row.kind === 'winback' || row.kind === 'new_system') {
+        await invite(row)
+        continue
+      }
       const { data: a } = await db
         .from('appointments')
         .select(
           'id, token, loyalty_token, customer_id, staff_id, service_ids, starts_at, duration_min, total_price, status, customers(name, email), staff(name)',
         )
-        .eq('id', row.appointment_id)
+        .eq('id', row.appointment_id!)
         .maybeSingle()
       if (!a) {
         await finish(row.id, { status: 'skipped', error: 'La cita ya no existe.' })
@@ -153,38 +254,7 @@ Deno.serve(async (req) => {
 
       // Test mode only holds back customers' e-mails (so nobody gets doubles while
       // AgendaPro still runs); notices to the team always go out.
-      const route = routeEmail({ forCustomer, live, to, also, reviewCopy: bcc })
-      const recipients = route.to
-      if (!recipients.length) {
-        await finish(row.id, { status: 'skipped', error: 'Modo prueba sin EMAIL_BCC.' })
-        continue
-      }
-      const subject = route.test ? `[Prueba · para ${to}] ${email.subject}` : email.subject
-      const res = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${resendKey}`,
-          'Content-Type': 'application/json',
-          'Idempotency-Key': `havana-outbox-${row.id}`,
-        },
-        body: JSON.stringify({
-          from,
-          to: recipients,
-          ...(route.bcc.length ? { bcc: route.bcc } : {}),
-          subject,
-          html: email.html,
-          text: email.text,
-        }),
-      })
-      if (!res.ok) throw new Error(`Resend ${res.status}: ${(await res.text()).slice(0, 300)}`)
-      await finish(row.id, {
-        status: 'sent',
-        sent_at: new Date().toISOString(),
-        to_email: route.test ? to : recipients.join(', '),
-        subject: email.subject,
-        error: null,
-      })
-      sent++
+      await deliver(row, to, also, forCustomer, email)
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e)
       await finish(row.id, { status: row.attempts >= MAX_ATTEMPTS ? 'failed' : 'pending', error: message })

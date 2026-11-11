@@ -205,6 +205,10 @@ export interface EmailSettings {
   teamEmails: string[]
   /** Direct link to leave a Google review (empty: the Google Maps profile). */
   googleReviewUrl: string
+  /** Days without coming that put a customer in «Por recuperar». */
+  winbackDays: number
+  /** E-mail invitations per day (Resend's free plan: 100 e-mails a day in total). */
+  inviteDailyLimit: number
   recent: SentEmail[]
 }
 
@@ -219,6 +223,8 @@ export interface SentEmail {
     | 'team_new'
     | 'team_cancel'
     | 'thank_you'
+    | 'winback'
+    | 'new_system'
   status: 'pending' | 'sending' | 'sent' | 'failed' | 'skipped'
   to: string | null
   subject: string | null
@@ -347,4 +353,11 @@ export function reviewUrl(url: string): string {
   if (!u) return ''
   if (!/^https:\/\/\S+$/.test(u)) throw new InvalidRequestError('Pega el enlace completo, empieza con https://')
   return u
+}
+
+export interface InviteResult {
+  queued: number
+  skipped: { id: ID; reason: string }[]
+  /** E-mail invitations still available today. */
+  left: number
 }

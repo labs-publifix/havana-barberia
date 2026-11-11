@@ -9,6 +9,7 @@ const ManageAppointment = lazy(() => import('@/pages/ManageAppointment'))
 const Loyalty = lazy(() => import('@/pages/Loyalty'))
 const Legal = lazy(() => import('@/pages/Legal'))
 const NotFound = lazy(() => import('@/pages/NotFound'))
+const Unsubscribe = lazy(() => import('@/pages/Unsubscribe'))
 const UiGallery = lazy(() => import('@/pages/UiGallery'))
 const AdminApp = lazy(() => import('@/admin/AdminApp'))
 const BookingSoon = lazy(() => import('@/pages/BookingSoon'))
@@ -46,6 +47,7 @@ export function AppRoutes() {
         <Route path="/lealtad/:token" element={bookingOpen ? <Loyalty /> : <BookingSoon />} />
         <Route path="/politicas" element={<Legal kind="policies" />} />
         <Route path="/privacidad" element={<Legal kind="privacy" />} />
+        <Route path="/baja/:token" element={<Unsubscribe />} />
         <Route path="/admin/*" element={<AdminApp />} />
         {galleryEnabled && <Route path="/__ui" element={<UiGallery />} />}
         <Route path="*" element={<NotFound />} />

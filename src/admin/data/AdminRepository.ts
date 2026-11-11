@@ -22,6 +22,7 @@ import type {
   AdminSettings,
   BusinessHoursChange,
   ExpenseInput,
+  InviteResult,
   ProfitData,
   EmailSettings,
   AdminTeam,
@@ -43,6 +44,7 @@ import type {
 import type { CustomerSummary } from '../customers/model'
 import type { Advance, BonusAward, CashMove, DailyClose, FinanceSettings, PayrollClose, ProductSale } from '../finance'
 import type { Expense } from '../profit'
+import type { InviteKind, InviteState } from '../customers/winback'
 
 export class InvalidCredentialsError extends Error {
   constructor() {
@@ -158,6 +160,14 @@ export interface AdminRepository {
   setCustomerEmails(on: boolean): Promise<void>
   /** Up to 5 e-mails; each invalid one is refused. */
   setTeamEmails(emails: string[]): Promise<string[]>
+  /** Owner, developer and manager: days for «Por recuperar» and the daily e-mail invitation cap. */
+  setInviteSettings(input: { winbackDays: number; inviteDailyLimit: number }): Promise<void>
+  /** Clientes › Por recuperar (desk roles). */
+  getInviteState(): Promise<InviteState>
+  /** Queue e-mail invitations (daily cap, once every 30 days, never to opted-out customers). */
+  inviteCustomers(ids: ID[], kind: InviteKind): Promise<InviteResult>
+  /** A WhatsApp invitation sent from the phone, recorded so the spacing applies. */
+  logWhatsappInvite(id: ID, kind: InviteKind): Promise<void>
   /** https link from Google Business Profile › «Pedir reseñas»; empty clears it. */
   setGoogleReviewUrl(url: string): Promise<string>
   /** Counter sale of products (prices and commissions from the catalog). */

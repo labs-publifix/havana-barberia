@@ -220,6 +220,12 @@ export class MockBookingRepository implements BookingRepository {
     return this.db.hours ? { timeZone: businessHours.timeZone, weekly: this.db.hours } : businessHours
   }
 
+  /** The demo has no real invitations: any link of the right length works. */
+  async unsubscribe(token: string): Promise<string | null> {
+    await this.delay()
+    return token.length >= 16 ? 'Cliente' : null
+  }
+
   async getBusinessHours(): Promise<BusinessHours> {
     return clone(this.hours)
   }

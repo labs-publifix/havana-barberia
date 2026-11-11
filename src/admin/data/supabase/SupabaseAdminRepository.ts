@@ -50,6 +50,7 @@ import type {
   AgendaDay,
   BusinessHoursChange,
   ExpenseInput,
+  InviteResult,
   ProfitData,
   CashDay,
   EmailSettings,
@@ -81,6 +82,7 @@ import {
   type ProductSale,
 } from '../../finance'
 import type { Expense } from '../../profit'
+import type { InviteKind, InviteState } from '../../customers/winback'
 import { InvalidCredentialsError, InvalidMfaCodeError, type AdminRepository } from '../AdminRepository'
 import { cleanEmails, isFinanceRole, isOwnerRole, reviewUrl } from '../../domain'
 
@@ -790,6 +792,8 @@ export class SupabaseAdminRepository implements AdminRepository {
       customerEmails: !!(row as SettingsRow & { customer_emails?: boolean }).customer_emails,
       teamEmails: (row as SettingsRow & { team_emails?: string[] }).team_emails ?? [],
       googleReviewUrl: (row as SettingsRow & { google_review_url?: string }).google_review_url ?? '',
+      winbackDays: (row as SettingsRow & { winback_days?: number }).winback_days ?? 40,
+      inviteDailyLimit: (row as SettingsRow & { invite_daily_limit?: number }).invite_daily_limit ?? 30,
       recent: (recent.error ? [] : (recent.data as OutboxRow[])).map((r) => ({
         id: String(r.id),
         kind: r.kind,
@@ -814,6 +818,59 @@ export class SupabaseAdminRepository implements AdminRepository {
     if (res.error) friendly(res.error)
     if (!res.data) throw new InvalidRequestError('Tu rol no permite hacer este cambio.')
     return clean
+  }
+
+  async setInviteSettings(input: { winbackDays: number; inviteDailyLimit: number }): Promise<void> {
+    if (!Number.isInteger(input.winbackDays) || input.winbackDays < 15 || input.winbackDays > 180)
+      throw new InvalidRequestError('Elige entre 15 y 180 días.')
+    if (!Number.isInteger(input.inviteDailyLimit) || input.inviteDailyLimit < 1 || input.inviteDailyLimit > 90)
+      throw new InvalidRequestError('El límite diario va de 1 a 90 correos.')
+    const res = await this.db
+      .from('settings')
+      .update({ winback_days: input.winbackDays, invite_daily_limit: input.inviteDailyLimit })
+      .eq('id', 1)
+      .select('id')
+      .maybeSingle()
+    if (res.error) friendly(res.error)
+    if (!res.data) throw new InvalidRequestError('Tu rol no permite hacer este cambio.')
+  }
+
+  async getInviteState(): Promise<InviteState> {
+    const start = zonedInstant(localDate(new Date(), TZ), '00:00', TZ).toISOString()
+    const [row, invites, today] = await Promise.all([
+      this.settingsRow(),
+      this.db
+        .from('customer_invites')
+        .select('customer_id, kind, channel, at')
+        .order('at', { ascending: false })
+        .limit(5000),
+      this.db
+        .from('customer_invites')
+        .select('id', { count: 'exact', head: true })
+        .eq('channel', 'email')
+        .gte('at', start),
+    ])
+    const last: InviteState['last'] = {}
+    for (const r of (invites.error ? [] : invites.data) as {
+      customer_id: string
+      kind: InviteKind
+      channel: 'email' | 'whatsapp'
+      at: string
+    }[])
+      if (!last[r.customer_id]) last[r.customer_id] = { at: r.at, kind: r.kind, channel: r.channel }
+    const s = row as SettingsRow & { winback_days?: number; invite_daily_limit?: number }
+    return { last, sentToday: today.count ?? 0, dailyLimit: s.invite_daily_limit ?? 30, days: s.winback_days ?? 40 }
+  }
+
+  async inviteCustomers(ids: ID[], kind: InviteKind): Promise<InviteResult> {
+    const { data, error } = await this.db.rpc('invite_customers', { p_ids: ids, p_kind: kind })
+    if (error) friendly(error)
+    return data as InviteResult
+  }
+
+  async logWhatsappInvite(id: ID, kind: InviteKind): Promise<void> {
+    const { error } = await this.db.rpc('log_whatsapp_invite', { p_id: id, p_kind: kind })
+    if (error) friendly(error)
   }
 
   async setTeamEmails(emails: string[]): Promise<string[]> {
@@ -1559,6 +1616,7 @@ interface CustomerRow {
   email: string
   notes: string
   created_at: string
+  marketing_opt_out?: boolean
 }
 interface CardRow {
   token: string
@@ -1671,6 +1729,7 @@ const toCustomer = (r: CustomerRow): Customer => ({
   email: r.email,
   notes: r.notes,
   createdAt: iso(r.created_at),
+  ...(r.marketing_opt_out ? { marketingOptOut: true } : {}),
 })
 
 const toCard = (r: CardRow): LoyaltyCard => ({
