@@ -11,9 +11,9 @@ import { cn } from '@/lib/cn'
 import { useAdminAuth } from '../auth/AdminAuth'
 import { errorMessage } from '../agenda/useAgendaActions'
 import type { InviteResult } from '../domain'
-import { Segmented } from '../ui/controls'
+import { SearchInput, Segmented } from '../ui/controls'
 import { useToast } from '../ui/Toast'
-import type { CustomerSummary } from './model'
+import { matchesQuery, type CustomerSummary } from './model'
 import { leftToday, whatsappText, whatsappUrl, winbackRows, type InviteKind, type WinbackRow } from './winback'
 
 const siteUrl = () => `${window.location.origin}${import.meta.env.BASE_URL.replace(/\/$/, '')}`
@@ -39,13 +39,16 @@ export function WinbackView({
   const [segment, setSegment] = useState<InviteKind>('winback')
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [result, setResult] = useState<InviteResult | null>(null)
+  const [query, setQuery] = useState('')
   const { data: state, error } = useQuery({ queryKey: ['admin', 'invites'], queryFn: () => repo.getInviteState() })
   const now = useMemo(() => new Date(), [])
 
-  const rows = useMemo(
+  const all = useMemo(
     () => (list && state ? winbackRows(list, state, segment, now) : undefined),
     [list, state, segment, now],
   )
+  // Search by name, phone or e-mail (same as «Todos los clientes»).
+  const rows = useMemo(() => all?.filter((r) => matchesQuery(r.summary, query)), [all, query])
   const counts = useMemo(
     () =>
       list && state
@@ -124,6 +127,14 @@ export function WinbackView({
         </p>
       </div>
 
+      <SearchInput
+        label="Buscar en esta lista"
+        placeholder="Nombre, teléfono o correo"
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        className="w-full sm:w-80"
+      />
+
       <p className="text-sm text-fg-muted">
         {segment === 'winback'
           ? `Clientes cuya última visita fue hace más de ${state.days} días y no tienen cita. Primero los más frecuentes y los más cerca del corte gratis.`
@@ -149,9 +160,11 @@ export function WinbackView({
 
       {rows.length === 0 ? (
         <p className="rounded-lg border border-line p-6 text-sm text-fg-muted">
-          {segment === 'winback'
-            ? `Nadie lleva más de ${state.days} días sin venir. La lista se va llenando conforme se cobran visitas en el sistema.`
-            : 'No quedan clientes importados por invitar.'}
+          {query && all?.length
+            ? 'Nadie en esta lista coincide con la búsqueda.'
+            : segment === 'winback'
+              ? `Nadie lleva más de ${state.days} días sin venir. La lista se va llenando conforme se cobran visitas en el sistema.`
+              : 'No quedan clientes importados por invitar.'}
         </p>
       ) : (
         <>
