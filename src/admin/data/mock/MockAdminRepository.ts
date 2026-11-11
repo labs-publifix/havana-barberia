@@ -585,6 +585,18 @@ export class MockAdminRepository implements AdminRepository {
     return this.booking.adminUpdateCustomer(id, patch)
   }
 
+  deleteCustomer(id: ID): Promise<void> {
+    return this.booking.adminDeleteCustomer(id).then(() => {
+      this.invites = this.invites.filter((i) => i.customerId !== id)
+    })
+  }
+
+  async mergeCustomers(fromId: ID, intoId: ID): Promise<Customer> {
+    const kept = await this.booking.adminMergeCustomers(fromId, intoId)
+    for (const i of this.invites) if (i.customerId === fromId) i.customerId = intoId
+    return kept
+  }
+
   async getCatalog(): Promise<AdminCatalog> {
     await this.delay()
     return this.booking.adminCatalog()

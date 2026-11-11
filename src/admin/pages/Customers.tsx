@@ -226,6 +226,7 @@ export default function Customers() {
         services={catalog?.services ?? []}
         timeZone={tz}
         onClose={() => open(null)}
+        onOpen={open}
       />
     </div>
   )

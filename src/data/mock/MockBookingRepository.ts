@@ -1452,6 +1452,62 @@ export class MockBookingRepository implements BookingRepository {
     })
   }
 
+  /** Same rule as the database: only customers without appointments are deleted. */
+  async adminDeleteCustomer(id: ID): Promise<void> {
+    await this.delay()
+    return this.exclusive(() => {
+      if (!this.db.customers.some((c) => c.id === id)) throw new NotFoundError('ese cliente')
+      if (this.db.appointments.some((a) => a.customerId === id))
+        throw new InvalidRequestError(
+          'Este cliente tiene citas: únelo con el registro correcto para no perder su historial.',
+        )
+      this.db.customers = this.db.customers.filter((c) => c.id !== id)
+      this.db.loyalty = this.db.loyalty.filter((c) => c.customerId !== id)
+      this.save()
+    })
+  }
+
+  /**
+   * Merge a duplicate into the right record (same rules as merge_customers):
+   * appointments move, stamps add up without passing the goal, missing contact
+   * data is filled in and the duplicate is deleted.
+   */
+  async adminMergeCustomers(fromId: ID, intoId: ID): Promise<Customer> {
+    await this.delay()
+    return this.exclusive(() => {
+      if (fromId === intoId) throw new InvalidRequestError('Elige otro cliente para unir.')
+      const src = this.db.customers.find((c) => c.id === fromId)
+      const dst = this.db.customers.find((c) => c.id === intoId)
+      if (!src || !dst) throw new NotFoundError('ese cliente')
+      const srcCard = this.db.loyalty.find((c) => c.customerId === fromId)
+      const dstCard = this.db.loyalty.find((c) => c.customerId === intoId)
+      if (srcCard && !dstCard) srcCard.customerId = intoId
+      else if (srcCard && dstCard) {
+        dstCard.stamps = Math.min(dstCard.goal, dstCard.stamps + srcCard.stamps)
+        if (dstCard.stamps >= dstCard.goal) {
+          const kept = [dstCard.rewardExpiresAt, srcCard.rewardExpiresAt].filter(Boolean).sort().pop()
+          dstCard.rewardExpiresAt =
+            kept ??
+            zonedEndOfDay(addDays(localDate(this.now(), businessHours.timeZone), this.policy.rewardValidityDays))
+        } else dstCard.rewardExpiresAt = null
+        this.db.loyalty = this.db.loyalty.filter((c) => c !== srcCard)
+        for (const a of this.db.appointments) if (a.loyaltyToken === srcCard.token) a.loyaltyToken = dstCard.token
+      }
+      Object.assign(dst, {
+        phone: dst.phone || src.phone,
+        email: dst.email || src.email,
+        marketingOptOut: !!(dst.marketingOptOut || src.marketingOptOut) || undefined,
+        notes: [dst.notes, `Unido con «${src.name}»${src.notes ? `: ${src.notes}` : ''}`].filter(Boolean).join('\n'),
+      })
+      for (const a of this.db.appointments)
+        if (a.customerId === fromId)
+          Object.assign(a, { customerId: intoId, customer: { name: dst.name, phone: dst.phone, email: dst.email } })
+      this.db.customers = this.db.customers.filter((c) => c !== src)
+      this.save()
+      return clone(dst)
+    })
+  }
+
   async adminLoyaltyFor(customerId: ID): Promise<LoyaltyCard | null> {
     await this.delay()
     const c = this.db.loyalty.find((x) => x.customerId === customerId)

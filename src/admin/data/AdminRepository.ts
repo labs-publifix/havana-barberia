@@ -97,6 +97,10 @@ export interface AdminRepository {
   getCustomer(id: ID): Promise<{ summary: CustomerSummary; appointments: Appointment[] } | null>
   /** Contact details and notes. Errors: InvalidRequestError (phone/email taken or invalid). */
   updateCustomer(id: ID, patch: { name: string; phone: string; email: string; notes: string }): Promise<Customer>
+  /** Only customers without appointments. Errors: InvalidRequestError (has appointments). */
+  deleteCustomer(id: ID): Promise<void>
+  /** Move a duplicate's appointments, stamps and missing contact data into `intoId`, then delete it. */
+  mergeCustomers(fromId: ID, intoId: ID): Promise<Customer>
   // Catalog (Servicios y precios). Errors: InvalidRequestError with a message to show.
   getCatalog(): Promise<AdminCatalog>
   /** Create (no id) or update a service, including who performs it. */

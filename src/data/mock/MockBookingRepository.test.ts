@@ -466,6 +466,39 @@ describe('MockBookingRepository · customers', () => {
       r.adminUpdateCustomer(a.customerId, { name: 'Ana', phone: '', email: 'no-es-correo', notes: '' }),
     ).rejects.toThrow('Revisa el correo')
   })
+
+  it('deletes only customers without appointments; with appointments they merge into the right record', async () => {
+    const first = repo()
+    const a = await first.createAppointment(booking(iso(MONDAY, '10:00'), 1))
+    const b = await first.createAppointment(booking(iso(MONDAY, '11:00'), 2))
+    const db = first.snapshot()
+    db.customers.push({ id: 'solo', name: 'Sin citas', phone: '', email: '', createdAt: NOW.toISOString() })
+    db.customers.find((c) => c.id === a.customerId)!.notes = 'Prefiere fade'
+    db.customers.find((c) => c.id === b.customerId)!.email = ''
+    const card = (id: string) => db.loyalty.find((c) => c.customerId === id)!
+    Object.assign(card(a.customerId), { stamps: 7 })
+    Object.assign(card(b.customerId), { stamps: 6 })
+    const dup = card(a.customerId).token
+    const keep = card(b.customerId).token
+    expect(db.appointments.find((x) => x.id === a.id)?.loyaltyToken).toBe(dup)
+    const r = repo(db)
+
+    await r.adminDeleteCustomer('solo')
+    expect(r.snapshot().customers.some((c) => c.id === 'solo')).toBe(false)
+    await expect(r.adminDeleteCustomer(a.customerId)).rejects.toThrow('únelo con el registro correcto')
+    await expect(r.adminMergeCustomers(a.customerId, a.customerId)).rejects.toThrow('Elige otro cliente')
+
+    const kept = await r.adminMergeCustomers(a.customerId, b.customerId)
+    expect(kept).toMatchObject({ email: a.customer.email, notes: 'Unido con «Ana 1»: Prefiere fade' })
+    const after = r.snapshot()
+    expect(after.customers.some((c) => c.id === a.customerId)).toBe(false)
+    expect(after.appointments.filter((x) => x.customerId === b.customerId)).toHaveLength(2)
+    const cards = after.loyalty.filter((c) => c.customerId === b.customerId || c.token === dup)
+    expect(cards).toHaveLength(1)
+    expect(cards[0]).toMatchObject({ token: keep, stamps: 10 })
+    expect(cards[0]!.rewardExpiresAt).not.toBeNull()
+    expect(after.appointments.find((x) => x.id === a.id)?.loyaltyToken).toBe(keep)
+  })
 })
 
 describe('MockBookingRepository · catalog', () => {
