@@ -5,6 +5,7 @@ import {
   HandCoins,
   LayoutDashboard,
   type LucideIcon,
+  PiggyBank,
   ReceiptText,
   Scissors,
   Settings,
@@ -23,6 +24,7 @@ export type SectionId =
   | 'equipo'
   | 'comisiones'
   | 'cierre'
+  | 'utilidades'
   | 'reportes'
   | 'ajustes'
   | 'componentes'
@@ -140,6 +142,15 @@ export const sections: Record<SectionId, Section> = {
     summary: 'Cierre semanal, bonos, anticipos y recibos.',
     features: ['Ventas por forma de pago y salidas', 'Anticipos', 'Recibo semanal por barbero'],
   },
+  utilidades: {
+    id: 'utilidades',
+    label: 'Utilidades',
+    icon: PiggyBank,
+    roles: finance,
+    delivery: 8,
+    summary: 'Cuánto entró, cuánto se fue a comisiones y gastos, y cuánto le quedó a la barbería.',
+    features: ['Ingresos brutos, comisiones, gastos y utilidad neta', 'Servicios contra productos', 'Registro de gastos'],
+  },
   reportes: {
     id: 'reportes',
     label: 'Reportes',
@@ -181,7 +192,7 @@ export interface NavGroup {
 export const navGroups: NavGroup[] = [
   { label: 'Operación', items: ['inicio', 'agenda', 'clientes', 'ventas'] },
   { label: 'Negocio', items: ['catalogo', 'equipo'] },
-  { label: 'Finanzas', items: ['comisiones', 'cierre', 'reportes'] },
+  { label: 'Finanzas', items: ['utilidades', 'comisiones', 'cierre', 'reportes'] },
   { label: 'Sistema', items: ['ajustes', 'componentes'] },
 ]
 

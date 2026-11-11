@@ -19,6 +19,8 @@ export interface EmailFacts {
   changeCutoffMin: number
   /** Link to change or cancel; null while online booking is not open. */
   manageUrl: string | null
+  /** The customer's loyalty card (stamps); null when there is none or booking is closed. */
+  loyaltyUrl?: string | null
   /** The barber's notice links to the panel agenda. */
   panelUrl: string
   /** Where the site's public files live (the logo is `${assetBase}/email/logo-white.png`). */
@@ -239,7 +241,11 @@ export function compose(f: EmailFacts): Email {
   const actions: [string, string][] = customer
     ? cancelled
       ? [['Escríbenos por WhatsApp', shop.whatsapp]]
-      : [['Cómo llegar', shop.maps], f.manageUrl ? ['Cambiar o cancelar', f.manageUrl] : ['WhatsApp', shop.whatsapp]]
+      : [
+          ['Cómo llegar', shop.maps],
+          f.manageUrl ? ['Cambiar o cancelar', f.manageUrl] : ['WhatsApp', shop.whatsapp],
+          ...(f.loyaltyUrl ? ([['Ver mis sellos', f.loyaltyUrl]] as [string, string][]) : []),
+        ]
     : [['Ver agenda', f.panelUrl]]
 
   const strike = cancelled ? `text-decoration:line-through;color:${c.subtle};` : ''

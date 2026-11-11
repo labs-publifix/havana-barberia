@@ -21,6 +21,8 @@ import type {
   CashDay,
   AdminSettings,
   BusinessHoursChange,
+  ExpenseInput,
+  ProfitData,
   EmailSettings,
   AdminTeam,
   AdminChange,
@@ -40,6 +42,7 @@ import type {
 } from '../domain'
 import type { CustomerSummary } from '../customers/model'
 import type { Advance, BonusAward, CashMove, DailyClose, FinanceSettings, PayrollClose, ProductSale } from '../finance'
+import type { Expense } from '../profit'
 
 export class InvalidCredentialsError extends Error {
   constructor() {
@@ -123,6 +126,10 @@ export interface AdminRepository {
   addAdvance(input: { staffId: ID; date: LocalDate; amount: number; note: string }): Promise<Advance>
   deleteAdvance(id: ID): Promise<void>
   getFinanceSettings(): Promise<FinanceSettings>
+  /** Finanzas › Utilidades (owner, developer and manager). */
+  getProfit(from: LocalDate, to: LocalDate): Promise<ProfitData>
+  addExpense(input: ExpenseInput): Promise<Expense>
+  deleteExpense(id: ID): Promise<void>
   // Payroll weeks (owner and manager). A closed week freezes its receipts.
   closeWeek(weekStart: LocalDate): Promise<PayrollClose>
   markPaid(weekStart: LocalDate, staffId: ID, paid: boolean): Promise<void>

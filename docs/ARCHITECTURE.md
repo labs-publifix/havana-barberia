@@ -96,6 +96,15 @@ La UI nunca importa datos directamente: pide todo a `BookingRepository` mediante
   - **con historial:** se archiva (`archived_at`). Desaparece de Equipo, del sitio y de la reserva, su acceso al panel termina, y los reportes y la nómina pasados siguen cuadrando;
   - **con citas próximas:** primero hay que moverlas o cancelarlas.
 - **Calendario suscrito** (Agenda › «Mi calendario»): `public.calendar_feed` da a cada usuario del panel un enlace privado, de toda la barbería o de un barbero (cada barbero, solo el suyo). La Edge Function `calendar` lo sirve como `.ics` con las citas de 30 días atrás a 90 adelante. Los teléfonos (iPhone, Google Calendar) se suscriben y lo vuelven a leer solos. El enlace deja de funcionar si la persona pierde acceso al panel o genera uno nuevo.
+- **Finanzas › Utilidades** (`src/admin/profit.ts`, probado): para cualquier periodo (este mes, mes pasado, esta semana o rango de hasta un año) calcula:
+  - **Ingresos brutos:** servicios cobrados, ya con corte gratis y descuentos, más productos de citas y de mostrador. Las propinas aparecen aparte, porque son de los barberos.
+  - **Comisiones:** el mismo cálculo de nómina. Los bonos se toman de las semanas ya cerradas.
+  - **Gastos:** los registrados, la comisión de terminal y el costo de los productos vendidos.
+  - **Utilidad neta.**
+
+  Compara con el periodo anterior y se filtra por Todo, Servicios o Productos. Muestra servicios contra productos, lo más vendido y el desglose por barbero, y exporta a Excel. Los gastos que no salen de la caja se registran ahí (tabla `expenses`, solo finanzas). Las salidas de caja no se restan solas, porque muchas son pagos a barberos o retiros: «Contar como gasto» convierte una en gasto, una sola vez.
+
+- **Sellos en los correos:** la confirmación, el cambio de horario y los recordatorios traen «Ver mis sellos» (`/lealtad/:token`).
 - **El sitio muestra solo a los activos:** las pills del hero, la sección de equipo y la reserva salen de `listStaff()` (solo activos, en el orden de Equipo). La foto subida en el panel tiene prioridad; si no hay foto, se ven las iniciales.
 
 **Entrega 3 (conectado):** reserva en línea.

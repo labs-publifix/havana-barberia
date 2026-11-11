@@ -31,6 +31,8 @@ import type {
   AdminUser,
   AgendaDay,
   BusinessHoursChange,
+  ExpenseInput,
+  ProfitData,
   NewBlock,
   PaymentInput,
   PolicyInput,
@@ -54,6 +56,7 @@ import type {
 import { InvalidRequestError } from '@/data/errors'
 import { InvalidCredentialsError, InvalidMfaCodeError, type AdminRepository } from '../AdminRepository'
 import { cleanEmails, isFinanceRole, isOwnerRole } from '../../domain'
+import type { Expense } from '../../profit'
 
 /**
  * Demo users. Generic, fictitious accounts (reserved .test domain); the barber
@@ -300,6 +303,48 @@ export class MockAdminRepository implements AdminRepository {
     if (!isFinanceRole(me?.role))
       throw new InvalidRequestError('Solo el dueño o el gerente pueden reabrir una caja cerrada.')
     return this.booking.adminReopenDay(date)
+  }
+
+  /** Demo expenses live in memory. */
+  private expenses: Expense[] = []
+
+  async getProfit(from: LocalDate, to: LocalDate): Promise<ProfitData> {
+    const me = (await this.getSession())?.user
+    if (!isFinanceRole(me?.role)) throw new InvalidRequestError('Tu rol no permite ver utilidades.')
+    const finance = await this.getFinance(from, to)
+    const db = this.booking.snapshot()
+    return {
+      finance,
+      products: db.products.map((p) => ({ id: p.id, name: p.name, cost: p.cost })),
+      expenses: this.expenses.filter((e) => e.date >= from && e.date <= to),
+      payrollCloses: (db.payrollCloses ?? []).filter((c) => c.weekStart >= from && c.weekStart <= to),
+      cashOuts: (db.cashMoves ?? []).filter((m) => m.kind === 'out' && m.date >= from && m.date <= to),
+    }
+  }
+
+  async addExpense(input: ExpenseInput): Promise<Expense> {
+    const me = (await this.getSession())?.user
+    if (!isFinanceRole(me?.role)) throw new InvalidRequestError('Tu rol no permite registrar gastos.')
+    if (!input.concept.trim()) throw new InvalidRequestError('Escribe el concepto.')
+    if (!Number.isInteger(input.amount) || input.amount <= 0) throw new InvalidRequestError('Escribe el monto en pesos, sin centavos.')
+    if (input.cashMoveId && this.expenses.some((e) => e.cashMoveId === input.cashMoveId))
+      throw new InvalidRequestError('Esa salida de caja ya cuenta como gasto.')
+    const e: Expense = {
+      id: `gasto-${Date.now().toString(36)}-${this.expenses.length}`,
+      date: input.date,
+      category: input.category,
+      concept: input.concept.trim(),
+      amount: input.amount,
+      method: input.method,
+      cashMoveId: input.cashMoveId ?? null,
+      by: me!.name,
+    }
+    this.expenses.push(e)
+    return e
+  }
+
+  async deleteExpense(id: ID): Promise<void> {
+    this.expenses = this.expenses.filter((e) => e.id !== id)
   }
 
   async getFinanceSettings(): Promise<FinanceSettings> {

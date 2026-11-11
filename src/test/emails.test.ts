@@ -108,3 +108,30 @@ describe('who receives each e-mail', () => {
     })
   })
 })
+
+describe('loyalty card in customer e-mails', () => {
+  const facts = {
+    kind: 'confirmation' as const,
+    customerName: 'Ana Ríos',
+    staffName: 'Isaac',
+    services: ['Corte'],
+    startsAt: '2026-11-12T22:00:00Z',
+    durationMin: 45,
+    totalPrice: 280,
+    timeZone: 'America/Mexico_City',
+    toleranceMin: 10,
+    changeCutoffMin: 240,
+    manageUrl: 'https://example.test/cita/abc',
+    loyaltyUrl: 'https://example.test/lealtad/xyz',
+    panelUrl: 'https://example.test/admin/agenda',
+    assetBase: 'https://example.test',
+  }
+  it('confirmation and reminders link to the stamps card', () => {
+    for (const kind of ['confirmation', 'reschedule', 'reminder_24h', 'reminder_2h'] as const)
+      expect(compose({ ...facts, kind }).text).toContain('Ver mis sellos: https://example.test/lealtad/xyz')
+  })
+  it('not on cancellations or team notices', () => {
+    expect(compose({ ...facts, kind: 'cancellation' }).text).not.toContain('Ver mis sellos')
+    expect(compose({ ...facts, kind: 'team_new' }).text).not.toContain('Ver mis sellos')
+  })
+})

@@ -20,6 +20,7 @@ const Commissions = lazy(() => import('./Commissions'))
 const Payroll = lazy(() => import('./Payroll'))
 const Sales = lazy(() => import('./Sales'))
 const Reports = lazy(() => import('./Reports'))
+const Profit = lazy(() => import('./Profit'))
 
 const TOTAL_DELIVERIES = 8
 
@@ -147,6 +148,14 @@ export default function SectionPage() {
     return (
       <Suspense fallback={null}>
         <Sales />
+      </Suspense>
+    )
+  }
+
+  if (section === 'utilidades') {
+    return (
+      <Suspense fallback={null}>
+        <Profit />
       </Suspense>
     )
   }
