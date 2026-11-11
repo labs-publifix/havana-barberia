@@ -149,7 +149,11 @@ export const sections: Record<SectionId, Section> = {
     roles: finance,
     delivery: 8,
     summary: 'Cuánto entró, cuánto se fue a comisiones y gastos, y cuánto le quedó a la barbería.',
-    features: ['Ingresos brutos, comisiones, gastos y utilidad neta', 'Servicios contra productos', 'Registro de gastos'],
+    features: [
+      'Ingresos brutos, comisiones, gastos y utilidad neta',
+      'Servicios contra productos',
+      'Registro de gastos',
+    ],
   },
   reportes: {
     id: 'reportes',

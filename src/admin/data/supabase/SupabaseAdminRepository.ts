@@ -82,7 +82,7 @@ import {
 } from '../../finance'
 import type { Expense } from '../../profit'
 import { InvalidCredentialsError, InvalidMfaCodeError, type AdminRepository } from '../AdminRepository'
-import { cleanEmails, isFinanceRole, isOwnerRole } from '../../domain'
+import { cleanEmails, isFinanceRole, isOwnerRole, reviewUrl } from '../../domain'
 
 /** Sections connected to Supabase. */
 const AVAILABLE = [
@@ -789,6 +789,7 @@ export class SupabaseAdminRepository implements AdminRepository {
     return {
       customerEmails: !!(row as SettingsRow & { customer_emails?: boolean }).customer_emails,
       teamEmails: (row as SettingsRow & { team_emails?: string[] }).team_emails ?? [],
+      googleReviewUrl: (row as SettingsRow & { google_review_url?: string }).google_review_url ?? '',
       recent: (recent.error ? [] : (recent.data as OutboxRow[])).map((r) => ({
         id: String(r.id),
         kind: r.kind,
@@ -800,6 +801,19 @@ export class SupabaseAdminRepository implements AdminRepository {
         sentAt: r.sent_at,
       })),
     }
+  }
+
+  async setGoogleReviewUrl(url: string): Promise<string> {
+    const clean = reviewUrl(url)
+    const res = await this.db
+      .from('settings')
+      .update({ google_review_url: clean })
+      .eq('id', 1)
+      .select('id')
+      .maybeSingle()
+    if (res.error) friendly(res.error)
+    if (!res.data) throw new InvalidRequestError('Tu rol no permite hacer este cambio.')
+    return clean
   }
 
   async setTeamEmails(emails: string[]): Promise<string[]> {
