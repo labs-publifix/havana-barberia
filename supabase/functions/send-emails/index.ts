@@ -51,7 +51,7 @@ Deno.serve(async (req) => {
       const { data: a } = await db
         .from('appointments')
         .select(
-          'id, token, staff_id, service_ids, starts_at, duration_min, total_price, status, customers(name, email), staff(name)',
+          'id, token, loyalty_token, staff_id, service_ids, starts_at, duration_min, total_price, status, customers(name, email), staff(name)',
         )
         .eq('id', row.appointment_id)
         .maybeSingle()
@@ -108,6 +108,7 @@ Deno.serve(async (req) => {
         toleranceMin: settings?.tolerance_min ?? 10,
         changeCutoffMin: settings?.change_cutoff_min ?? 240,
         manageUrl: bookingOpen ? `${site}/cita/${a.token}` : null,
+        loyaltyUrl: bookingOpen && a.loyalty_token ? `${site}/lealtad/${a.loyalty_token}` : null,
         panelUrl: `${site}/admin/agenda`,
         assetBase: site,
       })

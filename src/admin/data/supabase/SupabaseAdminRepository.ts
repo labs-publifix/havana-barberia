@@ -49,6 +49,8 @@ import type {
   AdminUser,
   AgendaDay,
   BusinessHoursChange,
+  ExpenseInput,
+  ProfitData,
   CashDay,
   EmailSettings,
   NewBlock,
@@ -78,6 +80,7 @@ import {
   type PayrollClose,
   type ProductSale,
 } from '../../finance'
+import type { Expense } from '../../profit'
 import { InvalidCredentialsError, InvalidMfaCodeError, type AdminRepository } from '../AdminRepository'
 import { cleanEmails, isFinanceRole, isOwnerRole } from '../../domain'
 
@@ -91,6 +94,7 @@ const AVAILABLE = [
   'equipo',
   'comisiones',
   'cierre',
+  'utilidades',
   'reportes',
   'ajustes',
   'componentes',
@@ -1265,6 +1269,60 @@ export class SupabaseAdminRepository implements AdminRepository {
     }
   }
 
+  async getProfit(from: LocalDate, to: LocalDate): Promise<ProfitData> {
+    const [finance, products, expenses, closes, outs] = await Promise.all([
+      this.getFinance(from, to),
+      this.listProducts(),
+      this.db.from('expenses').select('*').gte('date', from).lte('date', to).order('date'),
+      this.db.from('payroll_closes').select('*').gte('week_start', from).lte('week_start', to),
+      this.db.from('cash_moves').select('*').eq('kind', 'out').gte('date', from).lte('date', to).order('date'),
+    ])
+    return {
+      finance,
+      products: products.map((p) => ({ id: p.id, name: p.name, cost: p.cost })),
+      expenses: must<ExpenseRow[]>(expenses).map(toExpense),
+      payrollCloses: must<PayrollCloseRow[]>(closes).map((c) => ({
+        weekStart: c.week_start,
+        weekEnd: c.week_end,
+        closedAt: c.closed_at,
+        closedBy: c.closed_by_name,
+        rows: c.rows,
+        paid: {},
+      })),
+      cashOuts: must<CashMoveRow[]>(outs).map(toMove),
+    }
+  }
+
+  async addExpense(input: ExpenseInput): Promise<Expense> {
+    const concept = input.concept.trim()
+    if (!concept) throw new InvalidRequestError('Escribe el concepto.')
+    if (!Number.isInteger(input.amount) || input.amount <= 0 || input.amount > 1000000)
+      throw new InvalidRequestError('Escribe el monto en pesos, sin centavos.')
+    const res = await this.db
+      .from('expenses')
+      .insert({
+        date: input.date,
+        category: input.category,
+        concept,
+        amount: input.amount,
+        method: input.method,
+        cash_move_id: input.cashMoveId ?? null,
+        by_name: await this.myName(),
+      })
+      .select()
+      .single<ExpenseRow>()
+    if (res.error) {
+      if (res.error.code === '23505') throw new InvalidRequestError('Esa salida de caja ya cuenta como gasto.')
+      friendly(res.error)
+    }
+    return toExpense(res.data!)
+  }
+
+  async deleteExpense(id: ID): Promise<void> {
+    const res = await this.db.from('expenses').delete().eq('id', id)
+    if (res.error) friendly(res.error)
+  }
+
   private async myName(): Promise<string> {
     return (await this.getSession())?.user.name ?? 'Panel'
   }
@@ -1415,6 +1473,27 @@ export class SupabaseAdminRepository implements AdminRepository {
 }
 
 // ── Rows of the agenda and finance tables ───────────────────────────────────
+interface ExpenseRow {
+  id: string
+  date: string
+  category: Expense['category']
+  concept: string
+  amount: number
+  method: Expense['method']
+  cash_move_id: string | null
+  by_name: string
+}
+const toExpense = (r: ExpenseRow): Expense => ({
+  id: r.id,
+  date: r.date,
+  category: r.category,
+  concept: r.concept,
+  amount: r.amount,
+  method: r.method,
+  cashMoveId: r.cash_move_id,
+  by: r.by_name,
+})
+
 interface OutboxRow {
   id: number
   kind: SentEmail['kind']

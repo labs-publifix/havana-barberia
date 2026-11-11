@@ -1,4 +1,5 @@
 import { InvalidRequestError } from '@/data/errors'
+import type { Expense, ExpenseCategory } from './profit'
 import type {
   Appointment,
   BookingPolicy,
@@ -8,6 +9,7 @@ import type {
   LocalDate,
   LoyaltyCard,
   PaymentMethod,
+  Product,
   Service,
   ServiceCategory,
   Staff,
@@ -307,4 +309,24 @@ export function cleanEmails(emails: string[]): string[] {
   if (bad) throw new InvalidRequestError(`Revisa el correo «${bad}».`)
   if (list.length > 5) throw new InvalidRequestError('Hasta 5 correos.')
   return list
+}
+
+/** Everything Finanzas › Utilidades needs for a period (owner, developer and manager). */
+export interface ProfitData {
+  finance: AdminFinance
+  products: Pick<Product, 'id' | 'name' | 'cost'>[]
+  expenses: Expense[]
+  payrollCloses: PayrollClose[]
+  /** Cash-drawer withdrawals in the period (count as expense only when Leo says so). */
+  cashOuts: CashMove[]
+}
+
+export interface ExpenseInput {
+  date: LocalDate
+  category: ExpenseCategory
+  concept: string
+  amount: number
+  method: 'cash' | 'card' | 'transfer'
+  /** When it comes from a cash-drawer withdrawal. */
+  cashMoveId?: ID | null
 }
