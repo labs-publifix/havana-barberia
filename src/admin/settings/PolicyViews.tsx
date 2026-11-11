@@ -20,6 +20,7 @@ const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one :
 
 /** How each option reads in its dropdown. */
 const optionLabel: Record<EditablePolicyKey, (n: number) => string> = {
+  slotStepMin: (n) => (n === 60 ? 'Cada hora' : `Cada ${n} minutos`),
   minNoticeMin: (n) => `${durationText(n)} antes`,
   maxAdvanceDays: (n) => `${n} días`,
   maxActiveAppointmentsPerCustomer: (n) => plural(n, 'cita', 'citas'),
@@ -128,13 +129,12 @@ export function BookingRulesView({
               hint="Minutos libres después de cada cita para limpiar y preparar."
               {...props}
             />
-            <div className="grid gap-x-6 gap-y-1 pt-4 sm:grid-cols-[minmax(0,1fr)_220px] sm:items-center">
-              <div>
-                <p className="text-sm font-semibold">Horarios cada</p>
-                <p className="mt-0.5 text-[13px] text-fg-muted">Fijo: agenda y turnos usan la misma cuadrícula.</p>
-              </div>
-              <p className="tabular text-sm font-medium sm:px-3">15 minutos</p>
-            </div>
+            <Rule
+              k="slotStepMin"
+              label="Horarios cada"
+              hint="Cada cuánto ve horarios el cliente al reservar en línea, desde la apertura. En el panel siempre puedes agendar cada 15 minutos."
+              {...props}
+            />
           </div>
         </Card>
         <Card title="Cambios y puntualidad">

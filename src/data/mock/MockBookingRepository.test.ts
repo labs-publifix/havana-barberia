@@ -814,6 +814,20 @@ describe('MockBookingRepository · settings', () => {
     expect((await again.getPolicy()).minNoticeMin).toBe(180)
   })
 
+  it('«Horarios cada» spaces the online times; the panel keeps 15 minutes', async () => {
+    const r = repo(emptyDb(), () => zonedInstant(MONDAY, '09:00', TZ))
+    const times = async () =>
+      (await r.getAvailableSlots({ serviceIds: ['corte-adulto'], staffId: 'isaac', date: MONDAY })).map((s) => s.time)
+    await r.adminSavePolicy({ policy: { ...(await r.getPolicy()), slotStepMin: 30 }, loyaltyServiceIds: all(r) })
+    expect((await times()).slice(0, 3)).toEqual(['10:00', '10:30', '11:00'])
+    expect(
+      r
+        .adminSlots({ serviceIds: ['corte-adulto'], staffId: 'isaac', date: MONDAY })
+        .slice(0, 3)
+        .map((s) => s.time),
+    ).toEqual(['10:00', '10:15', '10:30'])
+  })
+
   it('rejects values off the lists and an empty loyalty list', async () => {
     const r = repo()
     const policy = await r.getPolicy()

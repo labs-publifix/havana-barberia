@@ -742,7 +742,7 @@ export class SupabaseAdminRepository implements AdminRepository {
   }
 
   async savePolicy(input: PolicyInput): Promise<{ policy: BookingPolicy; cardsCompleted: number }> {
-    const err = policyError({ ...input.policy, slotStepMin: 15 })
+    const err = policyError(input.policy)
     if (err) throw new InvalidRequestError(err)
     const res = await this.db
       .from('settings')
@@ -1022,7 +1022,7 @@ export class SupabaseAdminRepository implements AdminRepository {
       durationMin: totalDuration(chosen),
       staff: q.staffId === 'any' ? candidates : candidates.filter((s) => s.id === q.staffId),
       hours: { timeZone: TZ, weekly: row.business_hours },
-      policy: { ...toPolicy(row), minNoticeMin: 0, maxAdvanceDays: 90 },
+      policy: { ...toPolicy(row), minNoticeMin: 0, maxAdvanceDays: 90, slotStepMin: 15 },
       appointments,
       blocks,
       now: new Date(),

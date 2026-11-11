@@ -15,7 +15,8 @@ describe('policy', () => {
     expect(policyError(bookingPolicy)).toBeNull()
     expect(policyError({ ...bookingPolicy, toleranceMin: 7 })).toBe('Elige un valor válido para la tolerancia.')
     expect(policyError({ ...bookingPolicy, changeCutoffMin: 60 })).toMatch(/cancelar o reprogramar/)
-    expect(policyError({ ...bookingPolicy, slotStepMin: 30 })).toBe('Los horarios van cada 15 minutos.')
+    expect(policyError({ ...bookingPolicy, slotStepMin: 30 })).toBeNull()
+    expect(policyError({ ...bookingPolicy, slotStepMin: 25 })).toMatch(/cada cuánto se ofrecen horarios/)
   })
 
   it('summarizes what customers read', () => {

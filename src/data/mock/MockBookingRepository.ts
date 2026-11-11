@@ -413,7 +413,7 @@ export class MockBookingRepository implements BookingRepository {
 
   /** Staff may book from now on (no minimum notice) and up to 90 days ahead. */
   adminSlots(q: SlotQuery): Slot[] {
-    return this.slotsFor(q, { ...this.policy, minNoticeMin: 0, maxAdvanceDays: 90 })
+    return this.slotsFor(q, { ...this.policy, minNoticeMin: 0, maxAdvanceDays: 90, slotStepMin: 15 })
   }
 
   /**
@@ -1144,7 +1144,7 @@ export class MockBookingRepository implements BookingRepository {
   }): Promise<{ policy: BookingPolicy; cardsCompleted: number }> {
     await this.delay()
     return this.exclusive(() => {
-      const policy: BookingPolicy = { ...this.policy, ...input.policy, slotStepMin: this.policy.slotStepMin }
+      const policy: BookingPolicy = { ...this.policy, ...input.policy }
       const err = policyError(policy)
       if (err) throw new InvalidRequestError(err)
       const eligible = new Set(input.loyaltyServiceIds)

@@ -7,6 +7,7 @@ import type { BookingPolicy } from '@/domain/types'
  * lists. The 15-minute grid is fixed: schedules and the agenda are built on it.
  */
 export const policyOptions = {
+  slotStepMin: [15, 20, 30, 45, 60],
   minNoticeMin: [30, 60, 120, 180, 240, 360, 720, 1440],
   maxAdvanceDays: [7, 14, 21, 30, 45, 60, 90],
   maxActiveAppointmentsPerCustomer: [1, 2, 3, 4, 5],
@@ -33,6 +34,7 @@ export function durationText(min: number): string {
 /** First rule whose value is not one of its options, as a message to show; null when all are valid. */
 export function policyError(p: BookingPolicy): string | null {
   const labels: Record<EditablePolicyKey, string> = {
+    slotStepMin: 'cada cuánto se ofrecen horarios',
     minNoticeMin: 'la anticipación mínima',
     maxAdvanceDays: 'los días para reservar por adelantado',
     maxActiveAppointmentsPerCustomer: 'las citas próximas por cliente',
@@ -45,7 +47,6 @@ export function policyError(p: BookingPolicy): string | null {
   for (const key of Object.keys(policyOptions) as EditablePolicyKey[]) {
     if (!(policyOptions[key] as number[]).includes(p[key])) return `Elige un valor válido para ${labels[key]}.`
   }
-  if (p.slotStepMin !== 15) return 'Los horarios van cada 15 minutos.'
   return null
 }
 
