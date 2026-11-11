@@ -124,7 +124,11 @@ export function profitReport(input: ProfitInput): ProfitReport {
     const priced = a.serviceIds.map((id) => {
       const s = input.services.find((x) => x.id === id)
       const list = s?.price ?? 0
-      return { id, name: s?.name ?? 'Servicio', price: list - (p.rewardServiceId === id ? (p.rewardAmount ?? list) : 0) }
+      return {
+        id,
+        name: s?.name ?? 'Servicio',
+        price: list - (p.rewardServiceId === id ? (p.rewardAmount ?? list) : 0),
+      }
     })
     const base = priced.reduce((t, x) => t + x.price, 0)
     for (const x of priced) add(svcMap, x.id, x.name, 1, base > 0 ? Math.round((x.price / base) * p.amount) : 0)

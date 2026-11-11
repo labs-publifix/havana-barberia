@@ -203,12 +203,22 @@ export interface EmailSettings {
   customerEmails: boolean
   /** Besides the barber, who hears about every online booking and cancellation (up to 5). */
   teamEmails: string[]
+  /** Direct link to leave a Google review (empty: the Google Maps profile). */
+  googleReviewUrl: string
   recent: SentEmail[]
 }
 
 export interface SentEmail {
   id: string
-  kind: 'confirmation' | 'reschedule' | 'cancellation' | 'reminder_24h' | 'reminder_2h' | 'team_new' | 'team_cancel'
+  kind:
+    | 'confirmation'
+    | 'reschedule'
+    | 'cancellation'
+    | 'reminder_24h'
+    | 'reminder_2h'
+    | 'team_new'
+    | 'team_cancel'
+    | 'thank_you'
   status: 'pending' | 'sending' | 'sent' | 'failed' | 'skipped'
   to: string | null
   subject: string | null
@@ -329,4 +339,12 @@ export interface ExpenseInput {
   method: 'cash' | 'card' | 'transfer'
   /** When it comes from a cash-drawer withdrawal. */
   cashMoveId?: ID | null
+}
+
+/** The Google review link as saved: https only, or empty (falls back to the Maps profile). */
+export function reviewUrl(url: string): string {
+  const u = url.trim()
+  if (!u) return ''
+  if (!/^https:\/\/\S+$/.test(u)) throw new InvalidRequestError('Pega el enlace completo, empieza con https://')
+  return u
 }

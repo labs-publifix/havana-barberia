@@ -39,8 +39,13 @@ select pg_temp.check(pg_temp.queued('m2') = 'confirmation,team_new,reminder_2h,c
 update public.appointments set notes = 'Trae foto' where id = 'm1';
 select pg_temp.check(pg_temp.queued('m1') = 'confirmation,reminder_24h,reschedule', 'cambiar notas no manda correo');
 
+-- Charging the visit queues "Gracias por tu visita" once (walk-ins too).
+update public.appointments set status = 'completed' where id = 'm3';
+update public.appointments set notes = 'otra vez' where id = 'm3';
+select pg_temp.check(pg_temp.queued('m3') = 'thank_you', 'al cobrar: gracias por tu visita, una sola vez');
+
 -- The sender takes a batch once.
-select pg_temp.check((select count(*) from public.claim_emails(50)) = 8, 'el envío toma los pendientes');
+select pg_temp.check((select count(*) from public.claim_emails(50)) = 9, 'el envío toma los pendientes');
 select pg_temp.check((select count(*) from public.claim_emails(50)) = 0, 'y no los toma dos veces');
 
 -- Who can see and do what.

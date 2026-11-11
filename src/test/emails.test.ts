@@ -1,6 +1,14 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { authTemplate, compose, routeEmail, when, type EmailFacts } from '../../supabase/functions/_shared/emails'
+import {
+  authTemplate,
+  compose,
+  routeEmail,
+  thankYou,
+  ticketLines,
+  when,
+  type EmailFacts,
+} from '../../supabase/functions/_shared/emails'
 
 const base: EmailFacts = {
   kind: 'confirmation',
@@ -133,5 +141,93 @@ describe('loyalty card in customer e-mails', () => {
   it('not on cancellations or team notices', () => {
     expect(compose({ ...facts, kind: 'cancellation' }).text).not.toContain('Ver mis sellos')
     expect(compose({ ...facts, kind: 'team_new' }).text).not.toContain('Ver mis sellos')
+  })
+})
+
+describe('«Gracias por tu visita»', () => {
+  const services = [
+    { id: 'corte', name: 'Corte de cabello adulto', price: 280 },
+    { id: 'barba', name: 'Arreglo de barba', price: 220 },
+  ]
+  const pay = {
+    method: 'card',
+    amount: 470,
+    tip: 50,
+    reward_service_id: null,
+    reward_amount: null,
+    splits: null,
+    products: [{ name: 'Cera mate', qty: 1, price: 150, commission: 20 }],
+    discount: { amount: 30 },
+  }
+  const t = ticketLines(pay, services, ['corte', 'barba'])
+  const facts = {
+    customerName: 'Ana Ríos',
+    staffName: 'Leonardo',
+    startsAt: '2026-11-12T22:00:00Z',
+    timeZone: 'America/Mexico_City',
+    lines: t.lines,
+    tip: pay.tip,
+    total: t.total,
+    method: t.method,
+    card: { stamps: 3, goal: 10, rewardExpiresAt: null, redeemedNow: false },
+    loyaltyUrl: 'https://example.test/lealtad/x',
+    reviewUrl: 'https://g.page/r/abc/review',
+    bookUrl: 'https://example.test/reservar',
+    assetBase: 'https://example.test',
+  }
+
+  it('ticket from the payment: services, discount, products, tip and total; never commissions', () => {
+    expect(t.lines).toEqual([
+      { label: 'Corte de cabello adulto', amount: 280 },
+      { label: 'Arreglo de barba', amount: 220 },
+      { label: 'Descuento', amount: -30 },
+      { label: '1 × Cera mate', amount: 150 },
+    ])
+    expect(t.total).toBe(470 + 150 + 50)
+    expect(t.method).toBe('Tarjeta')
+  })
+
+  it('free cut shows as a line; mixed payments name both methods', () => {
+    const r = ticketLines(
+      {
+        ...pay,
+        amount: 220,
+        discount: null,
+        products: null,
+        reward_service_id: 'corte',
+        reward_amount: 280,
+        splits: [
+          { method: 'cash', amount: 100 },
+          { method: 'card', amount: 120 },
+        ],
+      },
+      services,
+      ['corte', 'barba'],
+    )
+    expect(r.lines).toContainEqual({ label: 'Corte gratis (tarjeta de sellos)', amount: -280 })
+    expect(r.method).toBe('Efectivo + Tarjeta')
+  })
+
+  it('stamps card, Google review button and next booking', () => {
+    const e = thankYou(facts)
+    expect(e.subject).toBe('Gracias por tu visita, Ana · llevas 3 de 10 sellos')
+    expect(e.text).toContain('Llevas 3 de 10 sellos para tu corte gratis.')
+    expect(e.html).toContain('Dejar mi reseña en Google')
+    expect(e.html).toContain('href="https://g.page/r/abc/review"')
+    expect((e.html.match(/&#9986;/g) ?? []).length).toBe(3)
+    expect(e.html).toContain('GRATIS')
+    expect(e.text).toContain('Agendar mi siguiente cita: https://example.test/reservar')
+    expect(e.html).not.toContain('commission')
+    // Aqua only on the review button and the «GRATIS» stamp.
+    expect(e.html.match(/#14DDB6/g)?.length).toBe(4)
+  })
+
+  it('a full card announces the free cut; no card means no stamps section', () => {
+    expect(
+      thankYou({ ...facts, card: { stamps: 10, goal: 10, rewardExpiresAt: null, redeemedNow: false } }).subject,
+    ).toBe('¡Tu corte gratis está listo, Ana!')
+    const none = thankYou({ ...facts, card: null })
+    expect(none.html).not.toContain('Tu tarjeta de sellos')
+    expect(none.html).toContain('Dejar mi reseña en Google')
   })
 })

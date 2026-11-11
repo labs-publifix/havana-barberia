@@ -19,6 +19,7 @@ const kindLabels: Record<SentEmail['kind'], string> = {
   reminder_2h: 'Recordatorio dos horas antes',
   team_new: 'Aviso al barbero: nueva cita',
   team_cancel: 'Aviso al barbero: cancelación',
+  thank_you: 'Gracias por tu visita',
 }
 
 const statusLabels: Record<SentEmail['status'], [string, BadgeTone]> = {
@@ -69,7 +70,7 @@ export function EmailsView() {
     <div className="grid grid-cols-[minmax(0,1fr)] gap-6">
       <Card
         title="Correos a clientes"
-        description="Confirmación al agendar, aviso si cambia o se cancela, y recordatorios un día y dos horas antes. Las citas de clientes sin cita no mandan correo."
+        description="Confirmación al agendar, aviso si cambia o se cancela, recordatorios un día y dos horas antes, y «Gracias por tu visita» al cobrar (con su ticket, sus sellos y el botón para dejar reseña en Google)."
       >
         <Switch
           checked={data.customerEmails}
@@ -85,6 +86,8 @@ export function EmailsView() {
       </Card>
 
       <TeamEmails saved={data.teamEmails} />
+
+      <ReviewLink saved={data.googleReviewUrl} />
 
       <Card title="Últimos correos" description="Se envían en el minuto siguiente a cada cambio.">
         {data.recent.length === 0 ? (
@@ -168,6 +171,70 @@ function TeamEmails({ saved }: { saved: string[] }) {
         >
           {save.isPending ? 'Guardando…' : 'Guardar'}
         </button>
+      </form>
+    </Card>
+  )
+}
+
+/** The Google review link used by «Gracias por tu visita». */
+function ReviewLink({ saved }: { saved: string }) {
+  const { repo } = useAdminAuth()
+  const qc = useQueryClient()
+  const toast = useToast()
+  const [draft, setDraft] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const value = draft ?? saved
+  const save = useMutation({
+    mutationFn: () => repo.setGoogleReviewUrl(value),
+    onSuccess: async () => {
+      setDraft(null)
+      setError(null)
+      await qc.invalidateQueries({ queryKey: ['admin', 'email-settings'] })
+      toast('Enlace de reseñas guardado')
+    },
+    onError: (e) => setError(errorMessage(e)),
+  })
+  return (
+    <Card
+      title="Reseñas en Google"
+      description="El botón «Dejar mi reseña en Google» del correo de agradecimiento abre este enlace. Cópialo en tu Perfil de Negocio de Google › «Pedir reseñas»: lleva directo a las estrellas. Si lo dejas vacío, abre tu perfil en Google Maps."
+    >
+      <form
+        className="grid gap-3"
+        onSubmit={(e) => {
+          e.preventDefault()
+          save.mutate()
+        }}
+      >
+        <Input
+          label="Enlace para pedir reseñas"
+          type="url"
+          inputMode="url"
+          autoComplete="off"
+          spellCheck={false}
+          placeholder="https://g.page/r/…/review"
+          value={value}
+          onChange={(e) => {
+            setDraft(e.target.value)
+            setError(null)
+          }}
+        />
+        {error && <Alert tone="danger" title={error} />}
+        <div className="flex flex-wrap gap-2">
+          <button type="submit" disabled={draft === null || save.isPending} className={buttonClass({ size: 'sm' })}>
+            {save.isPending ? 'Guardando…' : 'Guardar'}
+          </button>
+          {value && (
+            <a
+              href={value}
+              target="_blank"
+              rel="noreferrer"
+              className={buttonClass({ variant: 'secondary', size: 'sm' })}
+            >
+              Probar enlace
+            </a>
+          )}
+        </div>
       </form>
     </Card>
   )

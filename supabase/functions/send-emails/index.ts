@@ -6,7 +6,7 @@
 // EMAIL_BCC with "[Prueba]" in the subject, so the shop can review them before
 // customers receive anything.
 import { createClient } from 'npm:@supabase/supabase-js@2.118.0'
-import { compose, isCustomerEmail, routeEmail, type EmailKind } from '../_shared/emails.ts'
+import { compose, isCustomerEmail, routeEmail, shop, thankYou, ticketLines, type EmailKind } from '../_shared/emails.ts'
 
 const MAX_ATTEMPTS = 3
 
@@ -38,7 +38,7 @@ Deno.serve(async (req) => {
   if (error) return reply(500, { error: error.message })
   const { data: settings } = await db
     .from('settings')
-    .select('customer_emails, team_emails, time_zone, tolerance_min, change_cutoff_min')
+    .select('customer_emails, team_emails, google_review_url, time_zone, tolerance_min, change_cutoff_min')
     .eq('id', 1)
     .single()
   const live = !!settings?.customer_emails
@@ -51,7 +51,7 @@ Deno.serve(async (req) => {
       const { data: a } = await db
         .from('appointments')
         .select(
-          'id, token, loyalty_token, staff_id, service_ids, starts_at, duration_min, total_price, status, customers(name, email), staff(name)',
+          'id, token, loyalty_token, customer_id, staff_id, service_ids, starts_at, duration_min, total_price, status, customers(name, email), staff(name)',
         )
         .eq('id', row.appointment_id)
         .maybeSingle()
@@ -94,24 +94,62 @@ Deno.serve(async (req) => {
         continue
       }
 
-      const { data: services } = await db.from('services').select('id, name').in('id', a.service_ids)
+      // "Gracias por tu visita": the payment as charged and the stamps card now.
+      const thanks = async () => {
+        const [{ data: pay }, { data: card }] = await Promise.all([
+          db.from('payments').select('*').eq('appointment_id', a.id).maybeSingle(),
+          db
+            .from('loyalty_cards')
+            .select('token, stamps, goal, reward_expires_at')
+            .eq('customer_id', a.customer_id)
+            .maybeSingle(),
+        ])
+        if (!pay) throw new Error('La cita no tiene cobro registrado.')
+        const t = ticketLines(pay, (services ?? []) as { id: string; name: string; price: number }[], a.service_ids)
+        return thankYou({
+          customerName: customer?.name ?? 'Cliente',
+          staffName: staff?.name ?? 'tu barbero',
+          startsAt: a.starts_at,
+          timeZone: settings?.time_zone ?? 'America/Mexico_City',
+          lines: t.lines,
+          tip: pay.tip,
+          total: t.total,
+          method: t.method,
+          card: card
+            ? {
+                stamps: card.stamps,
+                goal: card.goal,
+                rewardExpiresAt: card.reward_expires_at,
+                redeemedNow: !!pay.reward_amount,
+              }
+            : null,
+          loyaltyUrl: bookingOpen && card ? `${site}/lealtad/${card.token}` : null,
+          reviewUrl: (settings?.google_review_url as string) || shop.reviews,
+          bookUrl: bookingOpen ? `${site}/reservar` : null,
+          assetBase: site,
+        })
+      }
+      const { data: services } = await db.from('services').select('id, name, price').in('id', a.service_ids)
       const names = (a.service_ids as string[]).map((id) => services?.find((s) => s.id === id)?.name ?? id)
-      const email = compose({
-        kind: row.kind,
-        customerName: customer?.name ?? 'Cliente',
-        staffName: staff?.name ?? 'tu barbero',
-        services: names,
-        startsAt: a.starts_at,
-        durationMin: a.duration_min,
-        totalPrice: a.total_price,
-        timeZone: settings?.time_zone ?? 'America/Mexico_City',
-        toleranceMin: settings?.tolerance_min ?? 10,
-        changeCutoffMin: settings?.change_cutoff_min ?? 240,
-        manageUrl: bookingOpen ? `${site}/cita/${a.token}` : null,
-        loyaltyUrl: bookingOpen && a.loyalty_token ? `${site}/lealtad/${a.loyalty_token}` : null,
-        panelUrl: `${site}/admin/agenda`,
-        assetBase: site,
-      })
+      const email =
+        row.kind === 'thank_you'
+          ? await thanks()
+          : compose({
+              kind: row.kind,
+              customerName: customer?.name ?? 'Cliente',
+              staffName: staff?.name ?? 'tu barbero',
+              services: names,
+              startsAt: a.starts_at,
+              durationMin: a.duration_min,
+              totalPrice: a.total_price,
+              timeZone: settings?.time_zone ?? 'America/Mexico_City',
+              toleranceMin: settings?.tolerance_min ?? 10,
+              changeCutoffMin: settings?.change_cutoff_min ?? 240,
+              manageUrl: bookingOpen ? `${site}/cita/${a.token}` : null,
+              loyaltyUrl: bookingOpen && a.loyalty_token ? `${site}/lealtad/${a.loyalty_token}` : null,
+              panelUrl: `${site}/admin/agenda`,
+              assetBase: site,
+            })
 
       // Test mode only holds back customers' e-mails (so nobody gets doubles while
       // AgendaPro still runs); notices to the team always go out.

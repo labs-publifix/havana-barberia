@@ -55,7 +55,7 @@ import type {
 } from '../../finance'
 import { InvalidRequestError } from '@/data/errors'
 import { InvalidCredentialsError, InvalidMfaCodeError, type AdminRepository } from '../AdminRepository'
-import { cleanEmails, isFinanceRole, isOwnerRole } from '../../domain'
+import { cleanEmails, isFinanceRole, isOwnerRole, reviewUrl } from '../../domain'
 import type { Expense } from '../../profit'
 
 /**
@@ -326,7 +326,8 @@ export class MockAdminRepository implements AdminRepository {
     const me = (await this.getSession())?.user
     if (!isFinanceRole(me?.role)) throw new InvalidRequestError('Tu rol no permite registrar gastos.')
     if (!input.concept.trim()) throw new InvalidRequestError('Escribe el concepto.')
-    if (!Number.isInteger(input.amount) || input.amount <= 0) throw new InvalidRequestError('Escribe el monto en pesos, sin centavos.')
+    if (!Number.isInteger(input.amount) || input.amount <= 0)
+      throw new InvalidRequestError('Escribe el monto en pesos, sin centavos.')
     if (input.cashMoveId && this.expenses.some((e) => e.cashMoveId === input.cashMoveId))
       throw new InvalidRequestError('Esa salida de caja ya cuenta como gasto.')
     const e: Expense = {
@@ -358,6 +359,14 @@ export class MockAdminRepository implements AdminRepository {
 
   private customerEmails = false
   private teamEmails: string[] = []
+  private googleReviewUrl = ''
+
+  async setGoogleReviewUrl(url: string): Promise<string> {
+    const me = (await this.getSession())?.user
+    if (!isFinanceRole(me?.role)) throw new InvalidRequestError('Tu rol no permite hacer este cambio.')
+    this.googleReviewUrl = reviewUrl(url)
+    return this.googleReviewUrl
+  }
 
   async setTeamEmails(emails: string[]): Promise<string[]> {
     const me = (await this.getSession())?.user
@@ -369,7 +378,12 @@ export class MockAdminRepository implements AdminRepository {
   /** The demo sends nothing: it only remembers the switch. */
   async getEmailSettings(): Promise<EmailSettings> {
     await this.delay()
-    return { customerEmails: this.customerEmails, teamEmails: [...this.teamEmails], recent: [] }
+    return {
+      customerEmails: this.customerEmails,
+      teamEmails: [...this.teamEmails],
+      googleReviewUrl: this.googleReviewUrl,
+      recent: [],
+    }
   }
 
   async setCustomerEmails(on: boolean): Promise<void> {

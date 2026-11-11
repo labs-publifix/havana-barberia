@@ -6,11 +6,38 @@ import { profitReport, type Expense, type ProfitInput } from './profit'
 const tz = 'America/Mexico_City'
 const week = Array.from({ length: 7 }, () => [{ start: '10:00', end: '20:00' }])
 const services: Service[] = [
-  { id: 'corte', categoryId: 'cortes', name: 'Corte', description: '', durationMin: 45, price: 280, active: true, order: 1 },
-  { id: 'barba', categoryId: 'barba', name: 'Barba', description: '', durationMin: 30, price: 220, active: true, order: 2 },
+  {
+    id: 'corte',
+    categoryId: 'cortes',
+    name: 'Corte',
+    description: '',
+    durationMin: 45,
+    price: 280,
+    active: true,
+    order: 1,
+  },
+  {
+    id: 'barba',
+    categoryId: 'barba',
+    name: 'Barba',
+    description: '',
+    durationMin: 30,
+    price: 220,
+    active: true,
+    order: 2,
+  },
 ] as Service[]
 const staff: Staff[] = [
-  { id: 'leo', name: 'Leonardo', role: 'barber', photoUrl: null, active: true, order: 1, serviceIds: 'all', schedule: week },
+  {
+    id: 'leo',
+    name: 'Leonardo',
+    role: 'barber',
+    photoUrl: null,
+    active: true,
+    order: 1,
+    serviceIds: 'all',
+    schedule: week,
+  },
 ]
 
 const appt = (id: string, day: string, serviceIds: string[], payment: Appointment['payment']): Appointment => ({
@@ -43,9 +70,21 @@ const base = (extra: Partial<ProfitInput> = {}): ProfitInput => ({
       products: [{ productId: 'cera', name: 'Cera', qty: 1, price: 150, commission: 20 }],
     }),
     // Corte by card.
-    appt('a2', '2026-11-04', ['corte'], { method: 'card', amount: 280, tip: 0, tipMethod: 'cash', paidAt: '2026-11-04T19:00:00.000Z' }),
+    appt('a2', '2026-11-04', ['corte'], {
+      method: 'card',
+      amount: 280,
+      tip: 0,
+      tipMethod: 'cash',
+      paidAt: '2026-11-04T19:00:00.000Z',
+    }),
     // Outside the period.
-    appt('a3', '2026-10-20', ['corte'], { method: 'cash', amount: 280, tip: 0, tipMethod: 'cash', paidAt: '2026-10-20T19:00:00.000Z' }),
+    appt('a3', '2026-10-20', ['corte'], {
+      method: 'cash',
+      amount: 280,
+      tip: 0,
+      tipMethod: 'cash',
+      paidAt: '2026-10-20T19:00:00.000Z',
+    }),
   ],
   sales: [
     {
@@ -63,8 +102,26 @@ const base = (extra: Partial<ProfitInput> = {}): ProfitInput => ({
   commissions: [{ staffId: 'leo', mode: 'percent', value: 50, overrides: {} }],
   cardFeePercent: 3,
   expenses: [
-    { id: 'e1', date: '2026-11-02', category: 'renta', concept: 'Renta', amount: 1000, method: 'transfer', cashMoveId: null, by: 'Leo' },
-    { id: 'e2', date: '2026-10-01', category: 'otros', concept: 'Fuera', amount: 999, method: 'cash', cashMoveId: null, by: 'Leo' },
+    {
+      id: 'e1',
+      date: '2026-11-02',
+      category: 'renta',
+      concept: 'Renta',
+      amount: 1000,
+      method: 'transfer',
+      cashMoveId: null,
+      by: 'Leo',
+    },
+    {
+      id: 'e2',
+      date: '2026-10-01',
+      category: 'otros',
+      concept: 'Fuera',
+      amount: 999,
+      method: 'cash',
+      cashMoveId: null,
+      by: 'Leo',
+    },
   ] as Expense[],
   payrollCloses: [],
   weekStartDay: 1,

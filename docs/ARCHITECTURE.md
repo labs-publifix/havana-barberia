@@ -104,6 +104,7 @@ La UI nunca importa datos directamente: pide todo a `BookingRepository` mediante
 
   Compara con el periodo anterior y se filtra por Todo, Servicios o Productos. Muestra servicios contra productos, lo más vendido y el desglose por barbero, y exporta a Excel. Los gastos que no salen de la caja se registran ahí (tabla `expenses`, solo finanzas). Las salidas de caja no se restan solas, porque muchas son pagos a barberos o retiros: «Contar como gasto» convierte una en gasto, una sola vez.
 
+- **«Gracias por tu visita»** (al cobrar, también clientes sin cita si dejaron correo): incluye el ticket (servicios, corte gratis, descuento, productos, propina, total y forma de pago, sin comisiones), la tarjeta de sellos dibujada (un círculo por sello y el último marcado «GRATIS»), el bloque de reseña en Google con estrellas y un botón aqua, y «Agendar mi siguiente cita». El enlace de reseñas se configura en Ajustes › Correos (Perfil de Negocio › «Pedir reseñas»); si está vacío, abre el perfil en Google Maps. Sigue el modo prueba de los correos a clientes.
 - **Sellos en los correos:** la confirmación, el cambio de horario y los recordatorios traen «Ver mis sellos» (`/lealtad/:token`).
 - **El sitio muestra solo a los activos:** las pills del hero, la sección de equipo y la reserva salen de `listStaff()` (solo activos, en el orden de Equipo). La foto subida en el panel tiene prioridad; si no hay foto, se ven las iniciales.
 
