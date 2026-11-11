@@ -19,6 +19,7 @@ import { useToast } from '../ui/Toast'
 import { errorMessage } from '../agenda/useAgendaActions'
 import { hasReward, isRestricted, NO_SHOW_LIMIT, NO_SHOW_WINDOW_DAYS } from './model'
 import { isFinanceRole } from '../domain'
+import { RemoveCustomer } from './RemoveCustomer'
 
 const HISTORY_STEP = 8
 
@@ -83,12 +84,15 @@ export function CustomerPanel({
   services,
   timeZone,
   onClose,
+  onOpen,
 }: {
   customerId: string | null
   staff: Staff[]
   services: Service[]
   timeZone: string
   onClose: () => void
+  /** Show another customer's profile (after merging a duplicate into it). */
+  onOpen: (id: string) => void
 }) {
   const { repo } = useAdminAuth()
   const { user } = useAdminSession()
@@ -337,6 +341,15 @@ export function CustomerPanel({
               />
             </form>
           </Section>
+
+          {seesMoney && (
+            <RemoveCustomer
+              summary={s}
+              appointments={data?.appointments.length ?? 0}
+              onDeleted={onClose}
+              onMerged={onOpen}
+            />
+          )}
         </div>
       )}
     </SidePanel>

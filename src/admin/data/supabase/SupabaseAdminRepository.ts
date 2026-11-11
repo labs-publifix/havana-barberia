@@ -1290,6 +1290,18 @@ export class SupabaseAdminRepository implements AdminRepository {
     return toCustomer(res.data!)
   }
 
+  async deleteCustomer(id: ID): Promise<void> {
+    const { error } = await this.db.rpc('delete_customer', { p_id: id })
+    if (error) friendly(error)
+  }
+
+  async mergeCustomers(fromId: ID, intoId: ID): Promise<Customer> {
+    const { error } = await this.db.rpc('merge_customers', { p_from: fromId, p_into: intoId })
+    if (error) friendly(error)
+    const row = must<CustomerRow>(await this.db.from('customers').select('*').eq('id', intoId).single())
+    return toCustomer(row)
+  }
+
   // ── Finance ─────────────────────────────────────────────────────────────
   async getFinance(from: LocalDate, to: LocalDate): Promise<AdminFinance> {
     const start = zonedInstant(from, '00:00', TZ).toISOString()
