@@ -11,7 +11,7 @@ import { addDays, capitalize, formatDay, formatTime12, localDate, localTime, mon
 import { useFinanceWeek } from '../useFinanceWeek'
 import { useAdminAuth } from '../auth/AdminAuth'
 import { errorMessage } from '../agenda/useAgendaActions'
-import { methodLabels, productsTotalOf } from '../cash'
+import { cashSummary, methodLabels, productsTotalOf } from '../cash'
 import { printTicket, ticketFromAppointment, ticketFromSale, type TicketData } from '../ticket'
 import { Segmented, Switch } from '../ui/controls'
 import { Card, PageHeader, StatCard } from '../ui/Panel'
@@ -64,7 +64,10 @@ function TicketsView() {
         at: a.payment!.paidAt,
         kind: 'servicio' as const,
         title: a.customer.name,
-        detail: a.serviceIds.map(svcName).join(' + ') + (a.payment!.tip ? ` · propina ${money(a.payment!.tip)}` : ''),
+        detail:
+          a.serviceIds.map(svcName).join(' + ') +
+          (a.payment!.products ?? []).map((i) => ` + ${i.qty > 1 ? `${i.qty} × ` : ''}${i.name}`).join('') +
+          (a.payment!.tip ? ` · propina ${money(a.payment!.tip)}` : ''),
         staff: name(a.staffId),
         method: a.payment!.method,
         total: a.payment!.amount + productsTotalOf(a.payment!) + a.payment!.tip,
@@ -83,8 +86,7 @@ function TicketsView() {
     })),
   ].sort((a, b) => b.at.localeCompare(a.at))
 
-  const services = tickets.filter((t) => t.kind === 'servicio').reduce((t, x) => t + x.total, 0)
-  const products = data.sales.reduce((t, s) => t + s.total, 0)
+  const sum = cashSummary(data.appointments, data.sales)
 
   return (
     <div className="grid grid-cols-[minmax(0,1fr)] gap-6">
@@ -100,10 +102,10 @@ function TicketsView() {
         }
       />
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatCard label="Tickets" value={String(tickets.length)} />
-        <StatCard label="Servicios y propinas" value={money(services)} />
-        <StatCard label="Productos" value={money(products)} />
-        <StatCard label="Total" value={money(services + products)} />
+        <StatCard label="Servicios" value={money(sum.servicesTotal)} />
+        <StatCard label="Productos" value={money(sum.productsTotal)} />
+        <StatCard label="Propinas" value={money(sum.tipsTotal)} />
+        <StatCard label={`Total · ${tickets.length} tickets`} value={money(sum.total)} />
       </div>
       <Card title="Tickets de la semana" className="min-w-0" bodyClassName="p-0">
         {tickets.length ? (
@@ -189,7 +191,7 @@ function SalePanel({
         method,
       }),
     onSuccess: async (s) => {
-      await qc.invalidateQueries({ queryKey: ['admin', 'finance'] })
+      await qc.invalidateQueries({ queryKey: ['admin'] }) // tickets, cash of the day, reports
       toast(`Venta registrada · ${money(s.total)}`)
       if (print) void printTicket(ticketFromSale(s, staff.find((x) => x.id === s.staffId)?.name)).catch(() => undefined)
       reset()
@@ -204,7 +206,7 @@ function SalePanel({
       open={open}
       onOpenChange={(o) => !o && onClose()}
       title="Registrar venta"
-      description="Productos vendidos en mostrador."
+      description="Productos vendidos en mostrador, sin cita. Los que se venden en una cita se agregan al cobrarla."
       footer={
         <>
           <button type="button" onClick={onClose} className={buttonClass({ variant: 'secondary', size: 'sm' })}>
@@ -223,6 +225,28 @@ function SalePanel({
     >
       <div className="grid gap-5">
         {error && <Alert tone="danger" title={error} />}
+        <div className="grid gap-4">
+          <div className="grid gap-1.5">
+            <p className="text-[13px] font-medium">Forma de pago</p>
+            <Segmented<PaymentMethod>
+              label="Forma de pago"
+              value={method}
+              onChange={setMethod}
+              options={(['cash', 'card', 'transfer'] as const).map((m) => ({ value: m, label: methodLabels[m] }))}
+              className="justify-self-start"
+            />
+          </div>
+          <Select
+            label="¿Quién lo vendió?"
+            value={staffId}
+            onValueChange={setStaffId}
+            options={[
+              { value: '', label: 'Sin barbero (mostrador)' },
+              ...staff.map((s) => ({ value: s.id, label: s.name })),
+            ]}
+            hint="El barbero gana la comisión del producto, si está capturada."
+          />
+        </div>
         {!products ? (
           <Skeleton className="h-48 rounded-lg" />
         ) : products.filter((p) => p.active).length === 0 ? (
@@ -266,27 +290,7 @@ function SalePanel({
               })}
           </ul>
         )}
-        <Select
-          label="¿Quién lo vendió?"
-          value={staffId}
-          onValueChange={setStaffId}
-          options={[
-            { value: '', label: 'Sin barbero (mostrador)' },
-            ...staff.map((s) => ({ value: s.id, label: s.name })),
-          ]}
-          hint="El barbero gana la comisión del producto, si está capturada."
-        />
         <Switch label="Imprimir ticket al cobrar" checked={print} onChange={setPrint} />
-        <div className="grid gap-1.5">
-          <p className="text-[13px] font-medium">Forma de pago</p>
-          <Segmented<PaymentMethod>
-            label="Forma de pago"
-            value={method}
-            onChange={setMethod}
-            options={(['cash', 'card', 'transfer'] as const).map((m) => ({ value: m, label: methodLabels[m] }))}
-            className="justify-self-start"
-          />
-        </div>
       </div>
     </SidePanel>
   )

@@ -10,7 +10,7 @@ import { cn } from '@/lib/cn'
 import { addDays, capitalize, formatDateLong, formatTime12, localDate, localTime, money } from '@/lib/time'
 import { useAdminAuth, useAdminSession } from '../auth/AdminAuth'
 import { errorMessage } from '../agenda/useAgendaActions'
-import { cashSummary, methodLabels } from '../cash'
+import { cashSummary, methodLabels, productsSold } from '../cash'
 import { expectedCash } from '../finance'
 import { Input, Segmented } from '../ui/controls'
 import { Card } from '../ui/Panel'
@@ -104,6 +104,7 @@ export function CashDayView() {
   }
 
   const cash = cashSummary(data.appointments, data.sales)
+  const sold = productsSold(data.appointments, data.sales)
   const closed = data.close
   const fund = closed ? closed.openingFund : Number(count.fund || 0)
   const { ins, outs, expected } = expectedCash({
@@ -171,7 +172,8 @@ export function CashDayView() {
           </dl>
           <p className="mt-4 text-[13px] text-fg-muted">
             Tarjeta {money(cash.inByMethod.card)} · Transferencia {money(cash.inByMethod.transfer)} (no pasan por la
-            caja). {cash.paidCount} citas cobradas y {data.sales.length} ventas de productos.
+            caja). {cash.paidCount} {cash.paidCount === 1 ? 'cita cobrada' : 'citas cobradas'} y {cash.productPieces}{' '}
+            {cash.productPieces === 1 ? 'producto vendido' : 'productos vendidos'} (en citas y mostrador).
           </p>
         </Card>
 
@@ -236,6 +238,49 @@ export function CashDayView() {
           </div>
         </Card>
       </div>
+
+      <Card
+        title="Lo cobrado en el día"
+        description="Servicios, productos (vendidos en la cita o en mostrador) y propinas, en todas las formas de pago."
+        className="min-w-0"
+      >
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {(
+            [
+              ['Servicios', cash.servicesTotal],
+              ['Productos', cash.productsTotal],
+              ['Propinas', cash.tipsTotal],
+              ['Total', cash.total],
+            ] as const
+          ).map(([k, v]) => (
+            <div key={k} className="rounded-md border border-line px-3 py-2.5">
+              <p className="text-[12px] text-fg-muted">{k}</p>
+              <p className="tabular mt-0.5 text-lg font-semibold leading-tight">{money(v)}</p>
+            </div>
+          ))}
+        </div>
+        {sold.length ? (
+          <ul className="mt-4 divide-y divide-line rounded-md border border-line" aria-label="Productos vendidos">
+            {sold.map((p, i) => (
+              <li key={i} className="flex items-center gap-3 px-4 py-2.5 text-sm">
+                <span className="tabular hidden w-20 shrink-0 text-fg-muted sm:block">
+                  {formatTime12(localTime(p.at, tz))}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="font-medium">
+                    {p.qty > 1 ? `${p.qty} × ` : ''}
+                    {p.name}
+                  </span>
+                  <span className="text-fg-muted"> · {p.customer ? `en la cita de ${p.customer}` : 'mostrador'}</span>
+                </span>
+                <span className="tabular font-semibold">{money(p.total)}</span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="mt-4 text-sm text-fg-muted">Sin productos vendidos este día.</p>
+        )}
+      </Card>
 
       <Card
         title="Entradas y salidas de efectivo"

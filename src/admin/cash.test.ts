@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Appointment, AppointmentPayment } from '@/domain/types'
-import { cashSummary } from './cash'
+import { cashSummary, productsSold } from './cash'
 
 let n = 0
 const appt = (status: Appointment['status'], payment?: Partial<AppointmentPayment>): Appointment =>
@@ -49,5 +49,30 @@ describe('cashSummary', () => {
     )
     expect(s.charges).toEqual({ cash: 300, card: 500, transfer: 260 })
     expect(s).toMatchObject({ servicesTotal: 500, productsTotal: 560, total: 1060 })
+  })
+
+  it('a product sold in the appointment ticket counts as a product, with its customer', () => {
+    const ticket = {
+      ...appt('completed', {
+        method: 'cash',
+        amount: 280,
+        paidAt: '2026-11-12T01:30:00Z',
+        products: [{ productId: 'pomada', name: 'Pomada Fijación Media', qty: 1, price: 390, commission: null }],
+      }),
+      customer: { name: 'Mathias', phone: '', email: '' },
+    } as Appointment
+    const counter = {
+      at: '2026-11-11T20:00:00Z',
+      method: 'card' as const,
+      total: 580,
+      items: [{ name: 'Aceite de barba', qty: 2, price: 290 }],
+    }
+    const s = cashSummary([ticket], [counter])
+    expect(s).toMatchObject({ servicesTotal: 280, productsTotal: 970, productPieces: 3 })
+    expect(s.charges).toEqual({ cash: 670, card: 580, transfer: 0 })
+    expect(productsSold([ticket], [counter])).toEqual([
+      { at: counter.at, name: 'Aceite de barba', qty: 2, total: 580, customer: null },
+      { at: '2026-11-12T01:30:00Z', name: 'Pomada Fijación Media', qty: 1, total: 390, customer: 'Mathias' },
+    ])
   })
 })

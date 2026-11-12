@@ -923,7 +923,7 @@ export class SupabaseAdminRepository implements AdminRepository {
   }
 
   // ── Live updates (Supabase Realtime) ─────────────────────────────────────
-  /** Any change to appointments, payments or blocks refreshes the panel; new ones are announced. */
+  /** Any change to appointments, payments, blocks, sales or the drawer refreshes the panel; new appointments are announced. */
   subscribe(listener: (change: AdminChange) => void): () => void {
     const channel = this.db
       .channel('panel-agenda')
@@ -935,6 +935,9 @@ export class SupabaseAdminRepository implements AdminRepository {
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'payments' }, () => listener({ created: [] }))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'time_blocks' }, () => listener({ created: [] }))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'product_sales' }, () => listener({ created: [] }))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'cash_moves' }, () => listener({ created: [] }))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'daily_closes' }, () => listener({ created: [] }))
       .subscribe()
     return () => void this.db.removeChannel(channel)
   }

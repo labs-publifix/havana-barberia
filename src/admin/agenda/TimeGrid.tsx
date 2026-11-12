@@ -1,4 +1,4 @@
-import type { MouseEvent, ReactNode } from 'react'
+import { Fragment, type MouseEvent, type ReactNode } from 'react'
 import { Ban } from 'lucide-react'
 import type { Appointment, LocalDate, Service, TimeBlock, TimeRange } from '@/domain/types'
 import { cn } from '@/lib/cn'
@@ -91,13 +91,23 @@ export function TimeGrid({
       {/* Hour labels */}
       <div className="relative" style={{ height }} aria-hidden>
         {hours.slice(0, -1).map((m) => (
-          <span
-            key={m}
-            className="tabular absolute right-2 -translate-y-1/2 text-xs text-fg-muted first:translate-y-0.5"
-            style={{ top: y(m) }}
-          >
-            {formatTimeCompact(fromMinutes(m))}
-          </span>
+          <Fragment key={m}>
+            <span
+              className={cn(
+                'tabular absolute right-2 text-xs font-medium text-fg',
+                m === from ? 'translate-y-0.5' : '-translate-y-1/2',
+              )}
+              style={{ top: y(m) }}
+            >
+              {formatTimeCompact(fromMinutes(m))}
+            </span>
+            <span
+              className="tabular absolute right-2 -translate-y-1/2 text-[11px] text-fg-muted"
+              style={{ top: y(m + 30) }}
+            >
+              {formatTimeCompact(fromMinutes(m + 30))}
+            </span>
+          </Fragment>
         ))}
       </div>
 
@@ -117,13 +127,22 @@ export function TimeGrid({
               style={{ top: y(toMinutes(r.start)), height: (toMinutes(r.end) - toMinutes(r.start)) * PPM }}
             />
           ))}
-          {hours.slice(1, -1).map((m) => (
-            <span
-              key={m}
-              aria-hidden
-              className="pointer-events-none absolute inset-x-0 h-px bg-fg/[0.07]"
-              style={{ top: y(m) }}
-            />
+          {/* Lines every half hour: solid on the hour, dashed on the half hour. */}
+          {hours.slice(0, -1).map((m) => (
+            <Fragment key={m}>
+              {m > from && (
+                <span
+                  aria-hidden
+                  className="pointer-events-none absolute inset-x-0 border-t border-fg/20"
+                  style={{ top: y(m) }}
+                />
+              )}
+              <span
+                aria-hidden
+                className="pointer-events-none absolute inset-x-0 border-t border-dashed border-fg/[0.12]"
+                style={{ top: y(m + 30) }}
+              />
+            </Fragment>
           ))}
 
           {c.isToday && nowMin >= from && nowMin <= to && (
