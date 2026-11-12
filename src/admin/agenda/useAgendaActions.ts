@@ -10,13 +10,14 @@ export function errorMessage(e: unknown) {
 }
 
 /**
- * Agenda mutations. Each one refreshes every loaded day (agenda and overview),
+ * Agenda mutations. Each one refreshes the panel's data (agenda, overview, cash),
  * so what one person changes shows up right away on the shop screen.
  */
 export function useAgendaActions() {
   const { repo } = useAdminAuth()
   const qc = useQueryClient()
-  const refresh = () => qc.invalidateQueries({ queryKey: ['admin', 'day'] })
+  // Agenda days, the cash of the day, tickets and reports all read appointments.
+  const refresh = () => qc.invalidateQueries({ queryKey: ['admin'] })
   const opts = { onSuccess: refresh }
 
   return {
