@@ -249,6 +249,8 @@ Pantallas del panel ──▶ AdminRepository ──▶ MockAdminRepository     
 
 ### Finanzas (adelanto de la fase 2)
 
+- **Periodo estándar** (`src/admin/period.ts`, probado; `PeriodPicker` y `usePeriod`): Tickets, Utilidades, Comisiones, Cierre y Reportes eligen Día, Semana (de nómina), Mes o Personalizado (desde–hasta, hasta 366 días), con flechas y sin fechas futuras; queda en la dirección (`?periodo=…&desde=…&hasta=…`). Los periodos en curso se comparan con los mismos días del anterior. Cerrar, anticipos, bonos y pagos solo con «Semana»; con otro periodo el Cierre es de consulta y los bonos no se suman. Caja del día sigue siendo por día.
+- **Productos por barbero:** `earnings` devuelve `productSales`, `productCommission` y `productLines` (mostrador y tickets de sus citas); Comisiones y los bonos del Cierre los muestran. Toda venta de mostrador guarda quién la vendió (`record_sale` lo exige).
 - **Cálculo puro** en `src/admin/finance.ts` (con pruebas): semanas de lunes a domingo, ganancias por barbero (comisión por servicio según su regla de Equipo, comisión de productos vendidos, propinas, anticipos y lo que se le paga) y ventas por día.
 - **Datos** (`AdminRepository.getFinance(from, to)`): citas del periodo, servicios, equipo, reglas de comisión, anticipos (`MockDb.advances`) y ventas de productos (`MockDb.sales`). Un barbero solo recibe lo suyo (con Supabase lo hace RLS).
 - **Pantallas:** Ventas (desk; registrar venta con precios del catálogo), Comisiones (barbero: «Mis comisiones»), Cierre y nómina y Reportes (dueño y gerente). Las comisiones de la demo están vacías: aparecen como «sin capturar» hasta que se capturan en Equipo o en el producto. Los cálculos se validan con la barbería antes de usarse para pagar.

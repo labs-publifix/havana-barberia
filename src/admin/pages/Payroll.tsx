@@ -8,8 +8,10 @@ import { buttonClass } from '@/components/ui/buttonClass'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { business } from '@/config/business'
 import type { PaymentMethod } from '@/domain/types'
-import { addDays, capitalize, formatDay, localDate, money } from '@/lib/time'
-import { useFinanceWeek } from '../useFinanceWeek'
+import { capitalize, formatDay, localDate, money } from '@/lib/time'
+import { periodLabel } from '../period'
+import { PeriodPicker } from '../ui/PeriodPicker'
+import { usePeriod } from '../usePeriod'
 import { useAdminAuth, useAdminSession } from '../auth/AdminAuth'
 import { errorMessage } from '../agenda/useAgendaActions'
 import { cashSummary, methodLabels } from '../cash'
@@ -19,7 +21,6 @@ import { Card, PageHeader } from '../ui/Panel'
 import { Select } from '../ui/Select'
 import { SidePanel } from '../ui/SidePanel'
 import { useToast } from '../ui/Toast'
-import { WeekPicker } from '../ui/WeekPicker'
 import { isOwnerRole } from '../domain'
 
 const tz = business.hours.timeZone
@@ -31,9 +32,10 @@ export default function Payroll() {
   const { repo } = useAdminAuth()
   const qc = useQueryClient()
   const toast = useToast()
-  const today = localDate(new Date(), tz)
-  const { from, setFrom, current } = useFinanceWeek()
-  const to = addDays(from, 6)
+  const { period, setPeriod, today, weekStartDay } = usePeriod('week')
+  const { from, to } = period
+  // Closing, advances, bonuses and payments go by payroll week; other periods are for checking numbers.
+  const isWeek = period.unit === 'week'
   const { data } = useQuery({ queryKey: ['admin', 'finance', from, to], queryFn: () => repo.getFinance(from, to) })
   const [receipt, setReceipt] = useState<BarberEarnings | null>(null)
   const [adv, setAdv] = useState({ staffId: '', amount: '', note: '' })
@@ -95,15 +97,22 @@ export default function Payroll() {
   }
 
   const cash = cashSummary(data.appointments, data.sales)
-  const closed = data.close
+  const closed = isWeek ? data.close : null
   const computed = earnings({
     ...data,
-    bonusRules: data.settings.bonuses,
+    bonusRules: isWeek ? data.settings.bonuses : [],
+    bonusAwards: isWeek ? data.bonusAwards : [],
     discountCommission: data.settings.discountCommission,
     from,
     to,
     timeZone: tz,
-  }).filter((r) => r.services > 0 || r.advances > 0 || data.staff.find((s) => s.id === r.staffId)?.active)
+  }).filter(
+    (r) =>
+      r.services > 0 ||
+      r.advances > 0 ||
+      (r.productSales ?? 0) > 0 ||
+      data.staff.find((s) => s.id === r.staffId)?.active,
+  )
   // A closed week shows its frozen receipts.
   const rows = closed ? closed.rows : computed
   const total = rows.reduce(
@@ -126,11 +135,11 @@ export default function Payroll() {
   return (
     <div className="grid grid-cols-[minmax(0,1fr)] gap-6">
       <PageHeader
-        description="Cierre de la semana: lo que entró por forma de pago, anticipos y el recibo de cada barbero."
+        description={`Lo que entró por forma de pago, anticipos y el recibo de cada barbero · ${periodLabel(period)}.`}
         actions={
           <>
-            <WeekPicker value={from} onChange={setFrom} current={current} />
-            {!closed && (
+            <PeriodPicker value={period} onChange={setPeriod} today={today} weekStartDay={weekStartDay} />
+            {isWeek && !closed && (
               <button type="button" onClick={() => setConfirmClose(true)} className={buttonClass({ size: 'sm' })}>
                 <Lock className="size-4" aria-hidden /> Cerrar semana
               </button>
@@ -138,6 +147,12 @@ export default function Payroll() {
           </>
         }
       />
+      {!isWeek && (
+        <Alert tone="info" title="Estás viendo varios días">
+          Las cifras suman todo el periodo. Cerrar, registrar anticipos, marcar bonos y pagos se hace por semana: elige
+          «Semana». Los bonos se calculan por semana y aquí no se suman.
+        </Alert>
+      )}
       {closed && (
         <Alert
           tone="success"
@@ -212,7 +227,7 @@ export default function Payroll() {
       </Card>
 
       <Card
-        title="Nómina de la semana"
+        title={isWeek ? 'Nómina de la semana' : 'Nómina del periodo'}
         description="Comisión + propinas + bonos − anticipos."
         className="min-w-0"
         bodyClassName="relative overflow-x-auto"
@@ -315,28 +330,64 @@ export default function Payroll() {
       </Card>
 
       <Card
-        title="Bonos de la semana"
-        description="Marca los bonos que se ganaron. Meta de servicios y venta de productos se calculan solos. Montos y metas en Ajustes › Finanzas."
+        title={isWeek ? 'Bonos de la semana' : 'Servicios y productos por barbero'}
+        description={
+          isWeek
+            ? 'Lo que vendió cada barbero y sus bonos. Las metas de servicios y de productos se calculan solas; los demás se marcan a mano. Montos y metas en Ajustes › Finanzas.'
+            : 'Lo que vendió cada barbero en el periodo.'
+        }
         className="min-w-0"
       >
-        {manualBonuses.length === 0 ? (
-          <p className="text-sm text-fg-muted">No hay bonos que se marquen a mano.</p>
+        {rows.length === 0 ? (
+          <p className="text-sm text-fg-muted">Sin barberos con ventas en este periodo.</p>
         ) : (
           <ul className="grid gap-3 sm:grid-cols-2" aria-label="Bonos por barbero">
             {rows.map((r) => (
               <li key={r.staffId} className="rounded-md border border-line p-4">
                 <p className="font-semibold">{r.name}</p>
-                <div className="mt-2 grid gap-3">
-                  {manualBonuses.map((b) => (
-                    <Switch
-                      key={b.id}
-                      label={b.name}
-                      description={b.amount ? money(b.amount) : 'Monto sin capturar'}
-                      checked={awarded(r.staffId, b.id)}
-                      disabled={toggle.isPending || !!closed}
-                      onChange={(on) => toggle.mutate({ staffId: r.staffId, bonusId: b.id, on })}
-                    />
-                  ))}
+                <dl className="mt-2 grid grid-cols-2 gap-2 text-sm">
+                  <div className="rounded-md bg-fg/[0.04] px-3 py-2">
+                    <dt className="text-[12px] text-fg-muted">Servicios</dt>
+                    <dd className="tabular font-semibold">
+                      {r.services} · {money(r.sales)}
+                    </dd>
+                  </div>
+                  <div className="rounded-md bg-fg/[0.04] px-3 py-2">
+                    <dt className="text-[12px] text-fg-muted">Productos vendidos</dt>
+                    <dd className="tabular font-semibold">
+                      {r.products} · {money(r.productSales ?? 0)}
+                    </dd>
+                  </div>
+                </dl>
+                {isWeek &&
+                  data.settings.bonuses
+                    .filter((b) => b.active && b.kind !== 'manual' && b.threshold)
+                    .map((b) => {
+                      const done = b.kind === 'products' ? r.products : r.services
+                      return (
+                        <p key={b.id} className="mt-2 flex justify-between gap-3 text-[13px] text-fg-muted">
+                          <span>
+                            Meta «{b.name}»: {Math.min(done, b.threshold!)} de {b.threshold}{' '}
+                            {b.kind === 'products' ? 'productos' : 'servicios'}
+                          </span>
+                          <span className="tabular">
+                            {done >= b.threshold! ? 'Alcanzada' : `Faltan ${b.threshold! - done}`}
+                          </span>
+                        </p>
+                      )
+                    })}
+                <div className="mt-3 grid gap-3">
+                  {isWeek &&
+                    manualBonuses.map((b) => (
+                      <Switch
+                        key={b.id}
+                        label={b.name}
+                        description={b.amount ? money(b.amount) : 'Monto sin capturar'}
+                        checked={awarded(r.staffId, b.id)}
+                        disabled={toggle.isPending || !!closed}
+                        onChange={(on) => toggle.mutate({ staffId: r.staffId, bonusId: b.id, on })}
+                      />
+                    ))}
                   {r.bonuses
                     .filter((b) => !manualBonuses.some((m) => m.id === b.id))
                     .map((b) => (
@@ -353,7 +404,7 @@ export default function Payroll() {
       </Card>
 
       <Card title="Anticipos" description="Dinero adelantado a un barbero; se descuenta de su pago de la semana.">
-        {closed ? null : (
+        {closed || !isWeek ? null : (
           <form
             className="grid items-end gap-3 sm:grid-cols-[200px_140px_minmax(0,1fr)_auto]"
             onSubmit={(e) => {
@@ -402,7 +453,7 @@ export default function Payroll() {
                   {x.note && <span className="text-fg-muted"> · {x.note}</span>}
                 </span>
                 <span className="tabular font-semibold">{money(x.amount)}</span>
-                {!closed && (
+                {isWeek && !closed && (
                   <button
                     type="button"
                     onClick={() => remove.mutate(x.id)}
@@ -416,7 +467,7 @@ export default function Payroll() {
             ))}
           </ul>
         ) : (
-          <p className="mt-4 text-sm text-fg-muted">Sin anticipos esta semana.</p>
+          <p className="mt-4 text-sm text-fg-muted">Sin anticipos en este periodo.</p>
         )}
       </Card>
 
@@ -454,7 +505,7 @@ export default function Payroll() {
         open={!!receipt}
         onOpenChange={(o) => !o && setReceipt(null)}
         title={receipt ? `Recibo · ${receipt.name}` : 'Recibo'}
-        description={`Semana del ${weekLabel(from)}`}
+        description={isWeek ? `Semana del ${weekLabel(from)}` : periodLabel(period)}
         footer={
           <button
             type="button"
@@ -472,7 +523,8 @@ export default function Payroll() {
                 [
                   ['Servicios realizados', String(receipt.services)],
                   ['Ventas generadas', money(receipt.sales)],
-                  ['Comisión', money(receipt.commission)],
+                  ['Productos vendidos', `${receipt.products} · ${money(receipt.productSales ?? 0)}`],
+                  ['Comisión (servicios y productos)', money(receipt.commission)],
                   ['Propinas', money(receipt.tips)],
                   ...receipt.bonuses.map((b) => [`Bono: ${b.name}`, money(b.amount)] as const),
                   ['Anticipos', receipt.advances ? `−${money(receipt.advances)}` : '—'],

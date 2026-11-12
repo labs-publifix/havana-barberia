@@ -893,6 +893,9 @@ describe('MockBookingRepository · product sales', () => {
     await expect(r.adminCreateSale({ items: [], staffId: null, method: 'cash' })).rejects.toThrow(
       /al menos un producto/,
     )
+    await expect(
+      r.adminCreateSale({ items: [{ productId: p!.id, qty: 1 }], staffId: null, method: 'cash' }),
+    ).rejects.toThrow('Elige quién lo vendió.')
     const sale = await r.adminCreateSale({ items: [{ productId: p!.id, qty: 2 }], staffId: 'isaac', method: 'card' })
     expect(sale).toMatchObject({ total: p!.price * 2, staffId: 'isaac', method: 'card' })
     expect(r.adminFinance('2026-11-01', '2026-11-01').sales).toHaveLength(1)

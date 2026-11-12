@@ -131,6 +131,12 @@ export interface BarberEarnings {
   commission: number
   /** Product units sold. */
   products: number
+  /** Money from products sold (counter sales by them and products in their appointments' tickets). */
+  productSales?: number
+  /** Commission on those products (already included in `commission`). */
+  productCommission?: number
+  /** Each product sold, oldest first (receipts frozen before this existed don't have it). */
+  productLines?: ProductLine[]
   /** Services done with no commission captured (rule empty for them). */
   missing: number
   tips: number
@@ -141,6 +147,18 @@ export interface BarberEarnings {
   bonusTotal: number
   /** commission + tips + bonuses − advances. */
   pay: number
+}
+
+export interface ProductLine {
+  date: LocalDate
+  name: string
+  qty: number
+  /** Price × quantity. */
+  total: number
+  /** Commission for the units (null: not captured). */
+  commission: number | null
+  /** Customer of the appointment, or null for a counter sale. */
+  customer: string | null
 }
 
 export interface Advance {
@@ -223,15 +241,31 @@ export function earnings(input: {
     const commission = all.reduce((t, x) => t + (x.commission ?? 0), 0)
     const tips = lines.reduce((t, l) => t + l.tip, 0)
     // Products: counter sales by this barber plus products sold in their appointments' tickets.
-    const sold = [
+    const productLines: ProductLine[] = [
       ...(input.sales ?? [])
         .filter((x) => x.staffId === s.id && inRange(localDate(x.at, timeZone)))
-        .flatMap((x) => x.items),
+        .flatMap((x) => x.items.map((i) => ({ i, date: localDate(x.at, timeZone), customer: null }))),
       ...input.appointments
         .filter((a) => a.staffId === s.id && a.status === 'completed' && inRange(localDate(a.startsAt, timeZone)))
-        .flatMap((a) => a.payment?.products ?? []),
+        .flatMap((a) =>
+          (a.payment?.products ?? []).map((i) => ({
+            i,
+            date: localDate(a.startsAt, timeZone),
+            customer: a.customer.name as string | null,
+          })),
+        ),
     ]
-    const productCommission = sold.reduce((t, i) => t + (i.commission ?? 0) * i.qty, 0)
+      .map(({ i, date, customer }) => ({
+        date,
+        name: i.name,
+        qty: i.qty,
+        total: i.price * i.qty,
+        commission: i.commission === null || i.commission === undefined ? null : i.commission * i.qty,
+        customer,
+      }))
+      .sort((a, b) => a.date.localeCompare(b.date))
+    const sold = productLines
+    const productCommission = productLines.reduce((t, i) => t + (i.commission ?? 0), 0)
     const advances = (input.advances ?? [])
       .filter((x) => x.staffId === s.id && inRange(x.date))
       .reduce((t, x) => t + x.amount, 0)
@@ -253,6 +287,9 @@ export function earnings(input: {
       sales: lines.reduce((t, l) => t + l.price, 0),
       commission: commission + productCommission,
       products: count.products,
+      productSales: productLines.reduce((t, i) => t + i.total, 0),
+      productCommission,
+      productLines,
       missing: all.filter((x) => x.commission === null).length,
       tips,
       advances,

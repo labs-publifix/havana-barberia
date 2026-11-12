@@ -95,6 +95,13 @@ select pg_temp.check(
   (select total = 300 and items -> 0 ->> 'commission' = '20' from public.record_sale('[{"productId":"cera","qty":2}]', 'isaac', 'cash')),
   'venta de mostrador al precio del catálogo con la comisión del producto'
 );
+do $$ begin
+  perform public.record_sale('[{"productId":"cera","qty":1}]', null, 'cash');
+  raise exception 'FALLÓ: venta sin vendedor';
+exception when raise_exception then
+  if sqlerrm like 'FALLÓ%' then raise; end if;
+  raise notice 'ok · la venta siempre guarda quién la vendió';
+end $$;
 -- A walk-in without a phone.
 insert into public.customers (name) values ('Sin teléfono');
 select pg_temp.check(true, 'cliente sin cita puede no dejar teléfono');

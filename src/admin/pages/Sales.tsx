@@ -7,8 +7,10 @@ import { buttonClass } from '@/components/ui/buttonClass'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { business } from '@/config/business'
 import type { PaymentMethod } from '@/domain/types'
-import { addDays, capitalize, formatDay, formatTime12, localDate, localTime, money } from '@/lib/time'
-import { useFinanceWeek } from '../useFinanceWeek'
+import { capitalize, formatDay, formatTime12, localDate, localTime, money } from '@/lib/time'
+import { periodLabel } from '../period'
+import { PeriodPicker } from '../ui/PeriodPicker'
+import { usePeriod } from '../usePeriod'
 import { useAdminAuth } from '../auth/AdminAuth'
 import { errorMessage } from '../agenda/useAgendaActions'
 import { cashSummary, methodLabels, productsTotalOf } from '../cash'
@@ -18,7 +20,6 @@ import { Card, PageHeader, StatCard } from '../ui/Panel'
 import { Select } from '../ui/Select'
 import { SidePanel } from '../ui/SidePanel'
 import { useToast } from '../ui/Toast'
-import { WeekPicker } from '../ui/WeekPicker'
 import { TabPanel, Tabs } from '../ui/Tabs'
 import { CashDayView } from '../sales/CashDayView'
 
@@ -39,8 +40,8 @@ interface Ticket {
 /** Ventas (phase-2 preview): every ticket of the week (paid appointments and counter sales of products). */
 function TicketsView() {
   const { repo } = useAdminAuth()
-  const { from, setFrom, current } = useFinanceWeek()
-  const to = addDays(from, 6)
+  const { period, setPeriod, today, weekStartDay } = usePeriod('week')
+  const { from, to } = period
   const [open, setOpen] = useState(false)
   const toast = useToast()
   const { data } = useQuery({ queryKey: ['admin', 'finance', from, to], queryFn: () => repo.getFinance(from, to) })
@@ -94,7 +95,7 @@ function TicketsView() {
         description="Todo lo que se cobró: citas completadas y ventas de productos en mostrador."
         actions={
           <>
-            <WeekPicker value={from} onChange={setFrom} current={current} />
+            <PeriodPicker value={period} onChange={setPeriod} today={today} weekStartDay={weekStartDay} />
             <button type="button" onClick={() => setOpen(true)} className={buttonClass({ size: 'sm' })}>
               <ShoppingBag className="size-4" strokeWidth={2} aria-hidden /> Registrar venta
             </button>
@@ -107,7 +108,7 @@ function TicketsView() {
         <StatCard label="Propinas" value={money(sum.tipsTotal)} />
         <StatCard label={`Total · ${tickets.length} tickets`} value={money(sum.total)} />
       </div>
-      <Card title="Tickets de la semana" className="min-w-0" bodyClassName="p-0">
+      <Card title={`Tickets · ${periodLabel(period)}`} className="min-w-0" bodyClassName="p-0">
         {tickets.length ? (
           <ul className="divide-y divide-line" aria-label="Tickets">
             {tickets.map((t) => (
@@ -144,7 +145,7 @@ function TicketsView() {
             ))}
           </ul>
         ) : (
-          <p className="p-5 text-sm text-fg-muted">Sin ventas esta semana.</p>
+          <p className="p-5 text-sm text-fg-muted">Sin ventas en este periodo.</p>
         )}
       </Card>
       <SalePanel open={open} onClose={() => setOpen(false)} staff={data.staff.filter((s) => s.active)} />
@@ -214,7 +215,7 @@ function SalePanel({
           </button>
           <button
             type="button"
-            disabled={!items.length || save.isPending}
+            disabled={!items.length || !staffId || save.isPending}
             onClick={() => save.mutate()}
             className={buttonClass({ size: 'sm' })}
           >
@@ -241,10 +242,10 @@ function SalePanel({
             value={staffId}
             onValueChange={setStaffId}
             options={[
-              { value: '', label: 'Sin barbero (mostrador)' },
+              { value: '', label: 'Elige quién lo vendió' },
               ...staff.map((s) => ({ value: s.id, label: s.name })),
             ]}
-            hint="El barbero gana la comisión del producto, si está capturada."
+            hint="Obligatorio: cuenta para su comisión de productos y su meta de venta."
           />
         </div>
         {!products ? (

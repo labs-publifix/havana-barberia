@@ -8,13 +8,14 @@ import { Badge } from '@/components/ui/Badge'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { business } from '@/config/business'
 import { cn } from '@/lib/cn'
-import { addDays, capitalize, formatDay, money } from '@/lib/time'
-import { useFinanceWeek } from '../useFinanceWeek'
+import { capitalize, formatDay, money } from '@/lib/time'
+import { periodLabel } from '../period'
+import { PeriodPicker } from '../ui/PeriodPicker'
+import { usePeriod } from '../usePeriod'
 import { useAdminAuth, useAdminSession } from '../auth/AdminAuth'
 import { earnings, type BarberEarnings } from '../finance'
 import { commissionLabel } from '../team/model'
 import { PageHeader } from '../ui/Panel'
-import { WeekPicker } from '../ui/WeekPicker'
 
 const tz = business.hours.timeZone
 
@@ -23,33 +24,39 @@ export default function Commissions() {
   const { repo } = useAdminAuth()
   const { user } = useAdminSession()
   const isBarber = user.role === 'barber'
-  const { from, setFrom, current } = useFinanceWeek()
-  const to = addDays(from, 6)
+  const { period, setPeriod, today, weekStartDay } = usePeriod('week')
+  const { from, to } = period
+  // Bonuses are earned per payroll week, so they show when a week is chosen.
+  const isWeek = period.unit === 'week'
   const { data } = useQuery({ queryKey: ['admin', 'finance', from, to], queryFn: () => repo.getFinance(from, to) })
 
   // A closed payroll week shows its frozen receipts.
-  const rows = data?.close
-    ? data.close.rows
-    : data
-      ? earnings({
-          ...data,
-          bonusRules: data.settings.bonuses,
-          discountCommission: data.settings.discountCommission,
-          from,
-          to,
-          timeZone: tz,
-        }).filter((r) => r.services > 0 || data.staff.find((s) => s.id === r.staffId)?.active)
-      : null
+  const rows =
+    isWeek && data?.close
+      ? data.close.rows
+      : data
+        ? earnings({
+            ...data,
+            bonusRules: isWeek ? data.settings.bonuses : [],
+            bonusAwards: isWeek ? data.bonusAwards : [],
+            discountCommission: data.settings.discountCommission,
+            from,
+            to,
+            timeZone: tz,
+          }).filter(
+            (r) => r.services > 0 || (r.productSales ?? 0) > 0 || data.staff.find((s) => s.id === r.staffId)?.active,
+          )
+        : null
 
   return (
     <div className="grid grid-cols-[minmax(0,1fr)] gap-6">
       <PageHeader
         description={
           isBarber
-            ? 'Tus servicios completados de la semana y lo que te toca por cada uno.'
-            : 'Lo que gana cada barbero por los servicios completados, según la comisión capturada en Equipo.'
+            ? `Tus servicios y productos vendidos · ${periodLabel(period)}.`
+            : `Lo que gana cada barbero por servicios y productos vendidos · ${periodLabel(period)}.${isWeek ? '' : ' Los bonos se calculan por semana: elige «Semana» para verlos.'}`
         }
-        actions={<WeekPicker value={from} onChange={setFrom} current={current} />}
+        actions={<PeriodPicker value={period} onChange={setPeriod} today={today} weekStartDay={weekStartDay} />}
       />
       {!rows || !data ? (
         <div className="grid gap-4 md:grid-cols-2" aria-busy="true">
@@ -85,11 +92,13 @@ function EarningsCard({
   canEditRule: boolean
 }) {
   const [open, setOpen] = useState(false)
+  const productLines = r.productLines ?? []
   const stats: [string, string, string?][] = [
-    ['Servicios', String(r.services)],
-    ['Ventas', money(r.sales)],
+    ['Servicios', `${r.services} · ${money(r.sales)}`],
+    ['Productos', `${r.products} · ${money(r.productSales ?? 0)}`],
     ['Comisión', money(r.commission), r.missing ? `${r.missing} sin capturar` : undefined],
     ['Propinas', money(r.tips)],
+    ['Bonos', r.bonusTotal ? money(r.bonusTotal) : '—'],
   ]
   return (
     <li className="rounded-lg border border-line bg-raised">
@@ -110,11 +119,13 @@ function EarningsCard({
           </p>
         </div>
         <div className="text-right">
-          <p className="text-[13px] text-fg-muted">Comisión + propinas</p>
-          <p className="tabular text-2xl font-semibold tracking-[-0.02em]">{money(r.commission + r.tips)}</p>
+          <p className="text-[13px] text-fg-muted">Comisión + propinas{r.bonusTotal ? ' + bonos' : ''}</p>
+          <p className="tabular text-2xl font-semibold tracking-[-0.02em]">
+            {money(r.commission + r.tips + r.bonusTotal)}
+          </p>
         </div>
       </div>
-      <dl className="grid grid-cols-2 gap-px border-y border-line bg-line sm:grid-cols-4">
+      <dl className="grid grid-cols-2 gap-px border-y border-line bg-line sm:grid-cols-5">
         {stats.map(([label, value, note]) => (
           <div key={label} className="bg-raised px-5 py-3">
             <dt className="text-[13px] text-fg-muted">{label}</dt>
@@ -129,7 +140,7 @@ function EarningsCard({
           </div>
         ))}
       </dl>
-      {r.lines.length > 0 ? (
+      {r.lines.length > 0 || productLines.length > 0 ? (
         <>
           <button
             type="button"
@@ -137,7 +148,9 @@ function EarningsCard({
             onClick={() => setOpen((o) => !o)}
             className="flex w-full items-center justify-between px-5 py-3 text-sm font-semibold hover:bg-fg/[0.03] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-focus"
           >
-            {open ? 'Ocultar detalle' : `Ver detalle (${r.lines.length} ${r.lines.length === 1 ? 'cita' : 'citas'})`}
+            {open
+              ? 'Ocultar detalle'
+              : `Ver detalle (${r.lines.length} ${r.lines.length === 1 ? 'cita' : 'citas'}${productLines.length ? `, ${r.products} ${r.products === 1 ? 'producto' : 'productos'}` : ''})`}
             <ChevronDown className={cn('size-4 transition-transform', open && 'rotate-180')} aria-hidden />
           </button>
           {open && (
@@ -186,11 +199,44 @@ function EarningsCard({
                   })}
                 </tbody>
               </table>
+              {productLines.length > 0 && (
+                <table className="w-full min-w-[560px] border-t border-line text-sm">
+                  <caption className="px-5 pb-1 pt-3 text-left text-[13px] font-semibold">
+                    Productos vendidos · {money(r.productSales ?? 0)} · comisión {money(r.productCommission ?? 0)}
+                  </caption>
+                  <tbody className="divide-y divide-line">
+                    {productLines.map((p, i) => (
+                      <tr key={i}>
+                        <td className="tabular whitespace-nowrap px-5 py-2.5">
+                          {capitalize(formatDay(p.date, 'EEE d'))}
+                        </td>
+                        <td className="px-3 py-2.5">
+                          <span className="block font-medium">
+                            {p.qty > 1 ? `${p.qty} × ` : ''}
+                            {p.name}
+                          </span>
+                          <span className="text-[13px] text-fg-muted">
+                            {p.customer ? `En la cita de ${p.customer}` : 'Venta en mostrador'}
+                          </span>
+                        </td>
+                        <td className="tabular px-3 py-2.5 text-right">{money(p.total)}</td>
+                        <td className="tabular px-5 py-2.5 text-right">
+                          {p.commission === null ? (
+                            <span className="text-fg-muted">Sin capturar</span>
+                          ) : (
+                            money(p.commission)
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
             </div>
           )}
         </>
       ) : (
-        <p className="px-5 py-3 text-sm text-fg-muted">Sin servicios completados esta semana.</p>
+        <p className="px-5 py-3 text-sm text-fg-muted">Sin servicios ni productos en este periodo.</p>
       )}
     </li>
   )
