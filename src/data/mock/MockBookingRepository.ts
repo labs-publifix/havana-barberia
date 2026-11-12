@@ -912,7 +912,8 @@ export class MockBookingRepository implements BookingRepository {
         })
       if (!items.length) throw new InvalidRequestError('Agrega al menos un producto.')
       if (!['cash', 'card', 'transfer'].includes(input.method)) throw new InvalidRequestError('Elige cómo pagó.')
-      if (input.staffId && !this.db.staff.some((s) => s.id === input.staffId)) throw new NotFoundError('ese barbero')
+      if (!input.staffId) throw new InvalidRequestError('Elige quién lo vendió.')
+      if (!this.db.staff.some((s) => s.id === input.staffId)) throw new NotFoundError('ese barbero')
       const sale: ProductSale = {
         id: `sale-${randomToken()}`,
         at: this.now().toISOString(),

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { FileSpreadsheet, Plus, Trash2 } from 'lucide-react'
 import { Alert } from '@/components/ui/Alert'
@@ -9,7 +9,7 @@ import { business } from '@/config/business'
 import type { LocalDate } from '@/domain/types'
 import { downloadCsv } from '@/lib/csv'
 import { cn } from '@/lib/cn'
-import { addDays, daysBetween, formatDateLong, formatDay, localDate, money } from '@/lib/time'
+import { formatDateLong, formatDay, money } from '@/lib/time'
 import { useAdminAuth } from '../auth/AdminAuth'
 import { errorMessage } from '../agenda/useAgendaActions'
 import type { ExpenseInput, ProfitData } from '../domain'
@@ -21,23 +21,12 @@ import { DatePicker } from '../ui/DatePicker'
 import { Card, PageHeader } from '../ui/Panel'
 import { Select } from '../ui/Select'
 import { useToast } from '../ui/Toast'
-import { useFinanceWeek } from '../useFinanceWeek'
+import { comparisonLabel, endSoFar, periodLabel, previousPeriod } from '../period'
+import { PeriodPicker } from '../ui/PeriodPicker'
+import { usePeriod } from '../usePeriod'
 
 const tz = business.hours.timeZone
-type Period = 'mes' | 'pasado' | 'semana' | 'rango'
 type View = 'todo' | 'servicios' | 'productos'
-const MAX_RANGE_DAYS = 366
-
-const monthStart = (d: LocalDate) => `${d.slice(0, 8)}01`
-const monthEnd = (d: LocalDate) => addDays(monthStart(addDays(monthStart(d), 32)), -1)
-/** The same day-of-month span one month earlier (clamped to that month's length). */
-const sameSpanLastMonth = (from: LocalDate, to: LocalDate) => {
-  const start = monthStart(addDays(monthStart(from), -1))
-  const end = addDays(start, daysBetween(from, to))
-  const last = monthEnd(start)
-  return { from: start, to: end > last ? last : end }
-}
-
 const pctOf = (part: number, whole: number) => (whole > 0 ? Math.round((part / whole) * 100) : 0)
 
 /**
@@ -47,45 +36,13 @@ const pctOf = (part: number, whole: number) => (whole > 0 ? Math.round((part / w
  */
 export default function Profit() {
   const { repo } = useAdminAuth()
-  const today = localDate(new Date(), tz)
-  const { current: weekFrom, settings } = useFinanceWeek()
-  const [period, setPeriod] = useState<Period>('mes')
+  const { period, setPeriod, today, weekStartDay, settings } = usePeriod('month')
   const [view, setView] = useState<View>('todo')
-  const [range, setRange] = useState(() => ({ from: monthStart(today), to: today }))
-
-  const { from, to, prev, vs } = useMemo(() => {
-    if (period === 'semana') {
-      const days = daysBetween(weekFrom, today)
-      return {
-        from: weekFrom,
-        to: today,
-        prev: { from: addDays(weekFrom, -7), to: addDays(weekFrom, days - 7) },
-        vs: 'la semana anterior',
-      }
-    }
-    if (period === 'pasado') {
-      const start = monthStart(addDays(monthStart(today), -1))
-      const before = monthStart(addDays(start, -1))
-      return {
-        from: start,
-        to: monthEnd(start),
-        prev: { from: before, to: monthEnd(before) },
-        vs: formatDay(before, 'MMMM'),
-      }
-    }
-    if (period === 'rango') {
-      const n = daysBetween(range.from, range.to) + 1
-      return {
-        from: range.from,
-        to: range.to,
-        prev: { from: addDays(range.from, -n), to: addDays(range.from, -1) },
-        vs: `los ${n} ${n === 1 ? 'día anterior' : 'días anteriores'}`,
-      }
-    }
-    const start = monthStart(today)
-    const last = sameSpanLastMonth(start, today)
-    return { from: start, to: today, prev: last, vs: `${formatDay(last.from, 'MMMM')} (mismos días)` }
-  }, [period, range, today, weekFrom])
+  // What already happened in the period, against the same days of the one before.
+  const from = period.from
+  const to = endSoFar(period, today)
+  const prev = previousPeriod(period, today, weekStartDay)
+  const vs = comparisonLabel(period, prev, today)
 
   const { data, error } = useQuery({
     queryKey: ['admin', 'profit', from, to],
@@ -117,57 +74,12 @@ export default function Profit() {
   const r = data ? report(data, from, to) : null
   const p = before ? report(before, prev.from, prev.to) : null
 
-  const setFrom = (d: LocalDate) =>
-    setRange((x) => {
-      const t = x.to < d ? d : daysBetween(d, x.to) >= MAX_RANGE_DAYS ? addDays(d, MAX_RANGE_DAYS - 1) : x.to
-      return { from: d, to: t > today ? today : t }
-    })
-  const setTo = (d: LocalDate) =>
-    setRange((x) => {
-      const f = x.from > d ? d : daysBetween(x.from, d) >= MAX_RANGE_DAYS ? addDays(d, -(MAX_RANGE_DAYS - 1)) : x.from
-      return { from: f, to: d > today ? today : d }
-    })
-
   const header = (
     <PageHeader
-      description={`Del ${formatDateLong(from)} al ${formatDateLong(to)}, frente a ${vs}.`}
+      description={`${periodLabel(period)}, frente a ${vs}.`}
       actions={
         <>
-          <Segmented<Period>
-            label="Periodo"
-            value={period}
-            onChange={setPeriod}
-            options={[
-              { value: 'mes', label: 'Este mes' },
-              { value: 'pasado', label: 'Mes pasado' },
-              { value: 'semana', label: 'Esta semana' },
-              { value: 'rango', label: 'Rango' },
-            ]}
-            className="max-w-full overflow-x-auto"
-          />
-          {period === 'rango' && (
-            <div
-              className="grid w-full grid-cols-2 items-end gap-2 sm:flex sm:w-auto"
-              role="group"
-              aria-label="Rango de fechas"
-            >
-              <DatePicker
-                label="Desde"
-                value={range.from}
-                onChange={setFrom}
-                today={today}
-                className="min-w-0 grid-cols-[minmax(0,1fr)] sm:w-[168px]"
-              />
-              <DatePicker
-                label="Hasta"
-                value={range.to}
-                onChange={setTo}
-                today={today}
-                min={range.from}
-                className="min-w-0 grid-cols-[minmax(0,1fr)] sm:w-[168px]"
-              />
-            </div>
-          )}
+          <PeriodPicker value={period} onChange={setPeriod} today={today} weekStartDay={weekStartDay} />
           <button
             type="button"
             disabled={!r}
