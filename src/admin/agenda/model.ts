@@ -42,8 +42,8 @@ export function gridBounds(days: AgendaDay[], staffIds: string[] | null): [numbe
 
 export const isOpen = (a: Appointment) => a.status === 'booked' || a.status === 'confirmed'
 
-/** Completing makes sense once the appointment started. */
-export const canComplete = (a: Appointment, now: Date) => isOpen(a) && now.getTime() >= Date.parse(a.startsAt)
+/** An open appointment can be charged at any time, also before it starts (customers who pay ahead). */
+export const canComplete = (a: Appointment, _now?: Date) => isOpen(a)
 
 /** A no-show can be recorded after the tolerance has passed. */
 export const canMarkNoShow = (a: Appointment, now: Date, toleranceMin: number) =>

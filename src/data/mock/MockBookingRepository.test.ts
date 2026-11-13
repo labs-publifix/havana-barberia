@@ -314,6 +314,19 @@ describe('MockBookingRepository · staff actions', () => {
     expect((await r.adminFindCustomers('2233')).map((c) => c.id)).toEqual([first.customerId])
   })
 
+  it('an appointment can be charged before it starts', async () => {
+    const { r } = repoAt('09:00')
+    const a = await r.adminCreateAppointment({
+      serviceIds: ['corte-adulto'],
+      staffId: 'isaac',
+      startsAt: iso(MONDAY, '15:00'),
+      customer: ana,
+      notes: '',
+      source: 'panel',
+    })
+    expect((await r.adminSetStatus(a.id, 'completed', CASH)).appointment.status).toBe('completed')
+  })
+
   it('completing adds a loyalty stamp; the tenth unlocks the reward with an expiry', async () => {
     const { r, setNow } = repoAt('09:00')
     const a = await r.adminCreateAppointment({
@@ -324,7 +337,6 @@ describe('MockBookingRepository · staff actions', () => {
       notes: '',
       source: 'panel',
     })
-    await expect(r.adminSetStatus(a.id, 'completed', CASH)).rejects.toThrow('cuando ya empezó')
     setNow('10:40')
     const res = await r.adminSetStatus(a.id, 'completed', CASH)
     expect(res).toMatchObject({ stampAdded: true, loyalty: { stamps: 1, goal: 10, rewardExpiresAt: null } })

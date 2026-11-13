@@ -224,7 +224,7 @@ function SalePanel({
         </>
       }
     >
-      <div className="grid gap-5">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-5">
         {error && <Alert tone="danger" title={error} />}
         <div className="grid gap-4">
           <div className="grid gap-1.5">
@@ -263,7 +263,7 @@ function SalePanel({
                 return (
                   <li key={p.id} className="flex items-center gap-3 px-4 py-2.5">
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-medium">{p.name}</span>
+                      <span className="block text-sm font-medium [overflow-wrap:anywhere]">{p.name}</span>
                       <span className="tabular text-[13px] text-fg-muted">{money(p.price)}</span>
                     </span>
                     <button
