@@ -434,8 +434,6 @@ export class MockBookingRepository implements BookingRepository {
       const start = Date.parse(a.startsAt)
       if (status === 'confirmed' && a.status === 'confirmed')
         throw new InvalidRequestError('La cita ya está confirmada.')
-      if (status === 'completed' && now < start)
-        throw new InvalidRequestError('Solo puedes completar una cita cuando ya empezó.')
       if (status === 'no_show' && now < start + this.policy.toleranceMin * 60000)
         throw new InvalidRequestError(`Marca no-show después de ${this.policy.toleranceMin} minutos de tolerancia.`)
       if (status === 'completed') a.payment = this.buildPayment(a, payment)

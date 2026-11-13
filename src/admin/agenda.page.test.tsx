@@ -96,10 +96,10 @@ describe('admin agenda', () => {
     expect(within(isaac).getByRole('button', { name: /Pablo Ríos.*en curso/ })).toBeInTheDocument()
   })
 
-  it('confirms an upcoming appointment; completing waits until it starts', async () => {
+  it('confirms an upcoming appointment; it can be charged before it starts', async () => {
     const { user } = await renderAgenda('u-reception')
     const panel = await openAppointment(user, 'Agenda de Leonardo Gómez', /Mateo Campos/)
-    expect(within(panel).getByRole('button', { name: 'Completar y cobrar' })).toBeDisabled()
+    expect(within(panel).getByRole('button', { name: 'Completar y cobrar' })).toBeEnabled()
     expect(within(panel).getByRole('button', { name: 'No se presentó' })).toBeDisabled()
     await user.click(within(panel).getByRole('button', { name: 'Confirmar' }))
     expect(await screen.findByText('Cita confirmada')).toBeInTheDocument()

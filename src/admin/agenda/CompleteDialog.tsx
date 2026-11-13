@@ -2,7 +2,7 @@ import { useState, type KeyboardEvent } from 'react'
 import { ArrowLeftRight, Banknote, CreditCard, Minus, Plus, type LucideIcon } from 'lucide-react'
 import { Alert } from '@/components/ui/Alert'
 import { buttonClass } from '@/components/ui/buttonClass'
-import { Dialog } from '@/components/ui/Dialog'
+import { SidePanel } from '../ui/SidePanel'
 import type { Appointment, PaymentMethod, Product, Service } from '@/domain/types'
 import { cn } from '@/lib/cn'
 import { money } from '@/lib/time'
@@ -164,8 +164,9 @@ export function CompleteDialog({
   const onSale = products.filter((p) => p.active)
 
   return (
-    <Dialog
+    <SidePanel
       open={open}
+      wide
       onOpenChange={(o) => !o && onCancel()}
       title="Completar y cobrar"
       description={`${a.customer.name} · servicios ${money(a.totalPrice)}`}
@@ -180,7 +181,8 @@ export function CompleteDialog({
         </>
       }
     >
-      <div className="grid gap-5">
+      {/* One column that never grows past the panel: long product names truncate. */}
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-5">
         {(local || error) && <Alert tone="danger" title={(local || error)!} />}
 
         {reward && (
@@ -199,7 +201,7 @@ export function CompleteDialog({
         )}
 
         {onSale.length > 0 && (
-          <div className="grid gap-3 rounded-lg border border-line p-4">
+          <div className="grid grid-cols-[minmax(0,1fr)] gap-3 rounded-lg border border-line p-4">
             <Switch
               label="Agregar productos"
               description={
@@ -215,7 +217,7 @@ export function CompleteDialog({
                   return (
                     <li key={p.id} className="flex items-center gap-2 px-3 py-2">
                       <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-medium">{p.name}</span>
+                        <span className="block text-sm font-medium [overflow-wrap:anywhere]">{p.name}</span>
                         <span className="tabular text-[13px] text-fg-muted">{money(p.price)}</span>
                       </span>
                       <button
@@ -244,7 +246,7 @@ export function CompleteDialog({
           </div>
         )}
 
-        <div className="grid gap-3 rounded-lg border border-line p-4">
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-3 rounded-lg border border-line p-4">
           <Switch
             label="Aplicar descuento"
             description="Sobre los servicios. Lo autoriza el dueño o el gerente."
@@ -355,7 +357,7 @@ export function CompleteDialog({
           )}
         </div>
 
-        <div className="grid gap-3 rounded-lg border border-line p-4">
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-3 rounded-lg border border-line p-4">
           <Switch label="Dejó propina" checked={hasTip} onChange={setHasTip} />
           {hasTip && (
             <>
@@ -436,6 +438,6 @@ export function CompleteDialog({
           </div>
         </dl>
       </div>
-    </Dialog>
+    </SidePanel>
   )
 }

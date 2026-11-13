@@ -63,11 +63,11 @@ describe('agenda model', () => {
     expect(gridBounds([day({ appointments: [appt] })], ['a'])).toEqual([9 * 60, 23 * 60])
   })
 
-  it('complete once started; no-show after the tolerance; closed ones never', () => {
+  it('complete any time; no-show after the tolerance; closed ones never', () => {
     const start = zonedInstant('2026-11-05', '12:00', TZ)
     const a = { status: 'confirmed', startsAt: start.toISOString() } as Appointment
     const at = (min: number) => new Date(start.getTime() + min * 60000)
-    expect(canComplete(a, at(-1))).toBe(false)
+    expect(canComplete(a, at(-600))).toBe(true)
     expect(canComplete(a, at(0))).toBe(true)
     expect(canMarkNoShow(a, at(9), 10)).toBe(false)
     expect(canMarkNoShow(a, at(10), 10)).toBe(true)

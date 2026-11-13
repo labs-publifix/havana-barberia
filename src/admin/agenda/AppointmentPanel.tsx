@@ -319,12 +319,7 @@ export function AppointmentPanel({
                   </button>
                 </div>
               )}
-              {open && !completeOk && (
-                <p className="text-[13px] text-fg-muted">
-                  Podrás completarla cuando empiece y marcar no-show {toleranceMin} min después.
-                </p>
-              )}
-              {open && completeOk && !noShowOk && (
+              {open && !noShowOk && (
                 <p className="text-[13px] text-fg-muted">No-show disponible tras {toleranceMin} min de tolerancia.</p>
               )}
             </div>

@@ -19,7 +19,8 @@ insert into public.appointments (id, customer_id, staff_id, service_ids, starts_
   ('a1', 'c1', 'isaac', '{corte-adulto}', '2026-01-05 16:00+00', '2026-01-05 16:45+00', 45, 280, 'confirmed'),
   ('a2', 'c1', 'isaac', '{corte-barba}', '2026-01-06 16:00+00', '2026-01-06 17:00+00', 60, 500, 'confirmed'),
   ('a3', 'c2', 'isaac', '{corte-adulto}', '2026-01-07 16:00+00', '2026-01-07 16:45+00', 45, 280, 'confirmed'),
-  ('a4', 'c2', 'leonardo', '{bigote}', '2026-01-07 16:00+00', '2026-01-07 16:15+00', 15, 150, 'confirmed');
+  ('a4', 'c2', 'leonardo', '{bigote}', '2026-01-07 16:00+00', '2026-01-07 16:15+00', 15, 150, 'confirmed'),
+  ('a5', 'c2', 'leonardo', '{bigote}', now() + interval '3 days', now() + interval '3 days 15 minutes', 15, 150, 'booked');
 
 set role authenticated;
 set request.jwt.claim.sub = '10000000-0000-0000-0000-000000000002';
@@ -32,6 +33,10 @@ select pg_temp.check(
 );
 select pg_temp.check((select stamps from public.loyalty_cards where customer_id = 'c1') = 1, 'el cobro suma un sello');
 select pg_temp.check((select status from public.appointments where id = 'a1') = 'completed', 'la cita queda completada');
+
+-- It can be charged before it starts (the customer pays ahead).
+select public.complete_appointment('a5', '{"method":"card","tip":0}');
+select pg_temp.check((select status from public.appointments where id = 'a5') = 'completed', 'se puede cobrar antes de la hora de la cita');
 
 -- Reception can't discount without an owner's or manager's approval.
 do $$ begin
