@@ -1,5 +1,5 @@
 import { useState, type KeyboardEvent } from 'react'
-import { ArrowLeftRight, Banknote, Check, CreditCard, Minus, Plus, type LucideIcon } from 'lucide-react'
+import { ArrowLeftRight, Banknote, CreditCard, Minus, Plus, type LucideIcon } from 'lucide-react'
 import { Alert } from '@/components/ui/Alert'
 import { buttonClass } from '@/components/ui/buttonClass'
 import { SidePanel } from '../ui/SidePanel'
@@ -68,7 +68,7 @@ export function CompleteDialog({
   const [useReward, setUseReward] = useState(false)
   const [qty, setQty] = useState<Record<string, number>>({})
   const [showProducts, setShowProducts] = useState(false)
-  const [added, setAdded] = useState<string[]>([])
+  const [addQty, setAddQty] = useState<Record<string, number>>({})
   const [showServices, setShowServices] = useState(false)
   const [hasDiscount, setHasDiscount] = useState(false)
   const [discount, setDiscount] = useState({ amount: '', reason: '', email: '', password: '' })
@@ -86,7 +86,7 @@ export function CompleteDialog({
     setUseReward(false)
     setQty({})
     setShowProducts(false)
-    setAdded([])
+    setAddQty({})
     setShowServices(false)
     setHasDiscount(false)
     setDiscount({ amount: '', reason: '', email: '', password: '' })
@@ -107,8 +107,12 @@ export function CompleteDialog({
   const rewardOff = useReward && reward ? reward.amount : 0
   const discountOff = hasDiscount ? num(discount.amount) : 0
   // Services added during the visit, at catalog price.
-  const extra = services.filter((s) => s.active && !a.serviceIds.includes(s.id))
+  // Any active service, also one already in the appointment (e.g. a second haircut for a brother).
+  const extra = services.filter((s) => s.active)
+  const added = Object.entries(addQty).flatMap(([id, n]) => Array.from({ length: n }, () => id))
   const addedTotal = added.reduce((t, id) => t + (services.find((s) => s.id === id)?.price ?? 0), 0)
+  const stepService = (id: string, d: number) =>
+    setAddQty((q) => ({ ...q, [id]: Math.max(0, Math.min(10, (q[id] ?? 0) + d)) }))
   const base = a.totalPrice + addedTotal
   const servicesCharge = Math.max(0, base - rewardOff - discountOff)
   const sold = Object.entries(qty).filter(([, n]) => n > 0)
@@ -219,7 +223,7 @@ export function CompleteDialog({
               description={
                 added.length
                   ? `${added.length} ${added.length === 1 ? 'servicio agregado' : 'servicios agregados'} · ${money(addedTotal)}`
-                  : 'Si durante la cita pidió otro servicio, agrégalo aquí y se cobra con su precio de lista.'
+                  : 'Si pidió otro servicio (o el mismo otra vez, p. ej. para su hermano), agrégalo aquí; se cobra a precio de lista.'
               }
               checked={showServices}
               onChange={setShowServices}
@@ -227,35 +231,36 @@ export function CompleteDialog({
             {showServices && (
               <ul className="divide-y divide-line rounded-md border border-line" aria-label="Servicios para agregar">
                 {extra.map((s) => {
-                  const on = added.includes(s.id)
+                  const n = addQty[s.id] ?? 0
+                  const inAppointment = a.serviceIds.includes(s.id)
                   return (
                     <li key={s.id} className="flex items-center gap-2 px-3 py-2">
                       <span className="min-w-0 flex-1">
                         <span className="block text-sm font-medium [overflow-wrap:anywhere]">{s.name}</span>
                         <span className="tabular text-[13px] text-fg-muted">
                           {money(s.price)} · {durationLabel(s.durationMin)}
+                          {inAppointment ? ' · ya está en la cita' : ''}
                         </span>
                       </span>
                       <button
                         type="button"
-                        aria-pressed={on}
-                        onClick={() => setAdded((x) => (on ? x.filter((id) => id !== s.id) : [...x, s.id]))}
-                        className={buttonClass({
-                          variant: on ? 'primary' : 'secondary',
-                          size: 'sm',
-                          className: 'shrink-0',
-                        })}
+                        aria-label={`Quitar uno de ${s.name}`}
+                        disabled={!n}
+                        onClick={() => stepService(s.id, -1)}
+                        className="grid size-10 shrink-0 place-items-center rounded-full border border-line hover:border-fg disabled:opacity-30"
                       >
-                        {on ? (
-                          <>
-                            <Check className="size-4" aria-hidden /> Agregado
-                          </>
-                        ) : (
-                          <>
-                            <Plus className="size-4" aria-hidden /> Agregar
-                          </>
-                        )}
-                        <span className="sr-only"> {s.name}</span>
+                        <Minus className="size-4" aria-hidden />
+                      </button>
+                      <span className="tabular w-6 text-center font-semibold" aria-label={`Agregados de ${s.name}`}>
+                        {n}
+                      </span>
+                      <button
+                        type="button"
+                        aria-label={`Agregar uno de ${s.name}`}
+                        onClick={() => stepService(s.id, 1)}
+                        className="grid size-10 shrink-0 place-items-center rounded-full border border-line hover:border-fg"
+                      >
+                        <Plus className="size-4" aria-hidden />
                       </button>
                     </li>
                   )

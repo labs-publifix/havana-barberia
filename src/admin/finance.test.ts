@@ -120,6 +120,24 @@ describe('finance', () => {
     expect(leo!.pay).toBe(112 + 200)
   })
 
+  it('the same service twice (two haircuts) pays commission on both; the free cut covers only one', () => {
+    const corte = seed.services.find((x) => x.id === 'corte-adulto')!.price
+    const twice = appt('t', 'leonardo', '2026-11-03', ['corte-adulto', 'corte-adulto'])
+    twice.payment = { ...twice.payment!, amount: corte, rewardServiceId: 'corte-adulto', rewardAmount: corte }
+    const [leo] = earnings({
+      appointments: [twice],
+      services: seed.services,
+      staff: seed.staff.filter((s) => s.id === 'leonardo'),
+      commissions: [{ staffId: 'leonardo', mode: 'percent', value: 40, overrides: {} }],
+      from: '2026-11-02',
+      to: '2026-11-08',
+      timeZone: TZ,
+    })
+    expect(leo!.services).toBe(2)
+    expect(leo!.lines[0]!.services.map((x) => x.price)).toEqual([0, corte])
+    expect(leo!.commission).toBe(Math.round(corte * 0.4))
+  })
+
   it('validates finance settings and computes the card fee', () => {
     expect(financeSettingsError(defaultFinanceSettings())).toBeNull()
     expect(financeSettingsError({ ...defaultFinanceSettings(), cardFeePercent: 12 })).toMatch(/0 a 10/)

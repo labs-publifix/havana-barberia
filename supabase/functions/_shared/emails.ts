@@ -531,9 +531,11 @@ export function ticketLines(
   serviceIds: string[],
 ): { lines: { label: string; amount: number }[]; total: number; method: string } {
   const methodName: Record<string, string> = { cash: 'Efectivo', card: 'Tarjeta', transfer: 'Transferencia' }
-  const lines: { label: string; amount: number }[] = serviceIds.map((id) => {
+  // The same service twice (e.g. two haircuts) is one line: «2 × Corte».
+  const lines: { label: string; amount: number }[] = [...new Set(serviceIds)].map((id) => {
     const s = services.find((x) => x.id === id)
-    return { label: s?.name ?? 'Servicio', amount: s?.price ?? 0 }
+    const n = serviceIds.filter((x) => x === id).length
+    return { label: `${n > 1 ? `${n} × ` : ''}${s?.name ?? 'Servicio'}`, amount: (s?.price ?? 0) * n }
   })
   if (payment.reward_service_id && payment.reward_amount)
     lines.push({ label: 'Corte gratis (tarjeta de sellos)', amount: -payment.reward_amount })

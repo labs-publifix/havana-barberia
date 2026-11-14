@@ -121,13 +121,15 @@ export function profitReport(input: ProfitInput): ProfitReport {
     servicesCount += a.serviceIds.length
     tips += p.tip
     // Each service's share of what was charged for the services (list price minus free cut, then the discount).
-    const priced = a.serviceIds.map((id) => {
+    // A repeated service (two haircuts) counts twice; the free cut covers only one of them.
+    const rewardAt = p.rewardServiceId ? a.serviceIds.indexOf(p.rewardServiceId) : -1
+    const priced = a.serviceIds.map((id, i) => {
       const s = input.services.find((x) => x.id === id)
       const list = s?.price ?? 0
       return {
         id,
         name: s?.name ?? 'Servicio',
-        price: list - (p.rewardServiceId === id ? (p.rewardAmount ?? list) : 0),
+        price: list - (i === rewardAt ? (p.rewardAmount ?? list) : 0),
       }
     })
     const base = priced.reduce((t, x) => t + x.price, 0)

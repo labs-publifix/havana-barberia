@@ -43,9 +43,18 @@ insert into public.appointments (id, customer_id, staff_id, service_ids, starts_
   ('a6', 'c2', 'leonardo', '{bigote}', now() + interval '4 days', now() + interval '4 days 15 minutes', 15, 150, 'confirmed');
 select public.complete_appointment('a6', '{"method":"cash","tip":0,"addServices":["corte-adulto","bigote"]}');
 select pg_temp.check(
-  (select service_ids = '{bigote,corte-adulto}' and total_price = 150 + (select price from public.services where id = 'corte-adulto') from public.appointments where id = 'a6')
-  and (select amount from public.payments where appointment_id = 'a6') = 150 + (select price from public.services where id = 'corte-adulto'),
+  (select service_ids = '{bigote,corte-adulto,bigote}' and total_price = 300 + (select price from public.services where id = 'corte-adulto') from public.appointments where id = 'a6')
+  and (select amount from public.payments where appointment_id = 'a6') = 300 + (select price from public.services where id = 'corte-adulto'),
   'servicio agregado al cobrar: se suma a la cita y al cobro'
+);
+-- The same service twice (two haircuts): both lines and both prices.
+insert into public.appointments (id, customer_id, staff_id, service_ids, starts_at, ends_at, duration_min, total_price, status) values
+  ('a7', 'c2', 'leonardo', '{corte-adulto}', now() + interval '5 days', now() + interval '5 days 45 minutes', 45, 280, 'confirmed');
+select public.complete_appointment('a7', '{"method":"cash","tip":0,"addServices":["corte-adulto"]}');
+select pg_temp.check(
+  (select service_ids = '{corte-adulto,corte-adulto}' and total_price = 560 from public.appointments where id = 'a7')
+  and (select amount from public.payments where appointment_id = 'a7') = 560,
+  'el mismo servicio dos veces: dos líneas y doble precio'
 );
 
 -- Reception can't discount without an owner's or manager's approval.

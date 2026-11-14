@@ -439,8 +439,9 @@ export class MockBookingRepository implements BookingRepository {
       if (status === 'no_show' && now < start + this.policy.toleranceMin * 60000)
         throw new InvalidRequestError(`Marca no-show después de ${this.policy.toleranceMin} minutos de tolerancia.`)
       if (status === 'completed') {
-        // Services added during the visit join the appointment at catalog price.
-        const added = [...new Set(payment?.addServiceIds ?? [])].filter((x) => !a.serviceIds.includes(x))
+        // Services added during the visit join the appointment at catalog price, repeats included.
+        const added = payment?.addServiceIds ?? []
+        if (added.length > 20) throw new InvalidRequestError('Revisa los servicios agregados.')
         const extra = added.map((sid) => {
           const sv = this.db.services.find((x) => x.id === sid && x.active)
           if (!sv) throw new InvalidRequestError('Alguno de los servicios ya no está disponible.')

@@ -184,7 +184,10 @@ export function AppointmentPanel({
   if (!a) return null
 
   const barber = staff.find((s) => s.id === a.staffId)
-  const svc = a.serviceIds.map((id) => services.find((s) => s.id === id)).filter((s): s is Service => !!s)
+  // The same service can appear twice (e.g. two haircuts added at checkout): one row with its quantity.
+  const svc = [...new Set(a.serviceIds)]
+    .map((id) => ({ s: services.find((x) => x.id === id), n: a.serviceIds.filter((x) => x === id).length }))
+    .filter((x): x is { s: Service; n: number } => !!x.s)
   const day = capitalize(formatDateLong(localDate(a.startsAt, timeZone)))
   const range = `${formatTime12(localTime(a.startsAt, timeZone))} – ${formatTime12(localTime(a.endsAt, timeZone))}`
   const open = isOpen(a)
@@ -375,13 +378,16 @@ export function AppointmentPanel({
 
             <Section title="Servicios">
               <ul className="divide-y divide-line rounded-md border border-line">
-                {svc.map((s) => (
+                {svc.map(({ s, n }) => (
                   <li key={s.id} className="flex items-center justify-between gap-3 px-3 py-2.5 text-sm">
                     <span className="min-w-0">
-                      <span className="block font-medium">{s.name}</span>
+                      <span className="block font-medium">
+                        {n > 1 ? `${n} × ` : ''}
+                        {s.name}
+                      </span>
                       <span className="text-fg-muted">{durationLabel(s.durationMin)}</span>
                     </span>
-                    <span className="tabular font-medium">{money(s.price)}</span>
+                    <span className="tabular font-medium">{money(s.price * n)}</span>
                   </li>
                 ))}
                 <li className="flex items-center justify-between gap-3 px-3 py-2.5 text-sm font-semibold">

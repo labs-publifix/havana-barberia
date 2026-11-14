@@ -41,9 +41,10 @@ export function ticketFromAppointment(
 ): TicketData {
   const p = a.payment!
   const items = [
-    ...a.serviceIds.map((id) => {
+    // The same service twice (e.g. two haircuts) is one line with quantity 2.
+    ...[...new Set(a.serviceIds)].map((id) => {
       const s = services.find((x) => x.id === id)
-      return { name: s?.name ?? 'Servicio', qty: 1, price: s?.price ?? 0 }
+      return { name: s?.name ?? 'Servicio', qty: a.serviceIds.filter((x) => x === id).length, price: s?.price ?? 0 }
     }),
     ...(p.products ?? []).map((i) => ({ name: i.name, qty: i.qty, price: i.price })),
   ]
