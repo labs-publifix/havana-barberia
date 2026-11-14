@@ -152,7 +152,7 @@ Deno.serve(async (req) => {
       const { data: a } = await db
         .from('appointments')
         .select(
-          'id, token, loyalty_token, customer_id, staff_id, service_ids, starts_at, duration_min, total_price, status, customers(name, email), staff(name)',
+          'id, token, loyalty_token, customer_id, staff_id, service_ids, starts_at, duration_min, total_price, status, source, customers(name, email), staff(name)',
         )
         .eq('id', row.appointment_id!)
         .maybeSingle()
@@ -249,6 +249,7 @@ Deno.serve(async (req) => {
               manageUrl: bookingOpen ? `${site}/cita/${a.token}` : null,
               loyaltyUrl: bookingOpen && a.loyalty_token ? `${site}/lealtad/${a.loyalty_token}` : null,
               panelUrl: `${site}/admin/agenda`,
+              source: a.source,
               assetBase: site,
             })
 

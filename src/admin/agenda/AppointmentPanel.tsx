@@ -519,6 +519,7 @@ export function AppointmentPanel({
         onConfirm={finish}
         reward={rewardAvailable(card, now) ? rewardFor(a.serviceIds, services) : null}
         products={productsOnSale ?? []}
+        services={services}
         canAuthorize={isFinanceRole(user.role)}
       />
     </>

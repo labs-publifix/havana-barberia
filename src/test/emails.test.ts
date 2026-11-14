@@ -76,6 +76,13 @@ describe('transactional e-mails', () => {
     expect(e.text).not.toContain('tolerancia')
   })
 
+  it('team notice for a panel booking does not say «en línea»', () => {
+    const e = compose({ ...base, kind: 'team_new', source: 'panel' })
+    expect(e.subject).toMatch(/^Nueva cita · Ana <Ríos>/)
+    expect(e.html).toContain('Te agendaron a Ana &lt;Ríos&gt;')
+    expect(compose({ ...base, kind: 'team_cancel', source: 'panel' }).html).toContain('Se canceló la cita de')
+  })
+
   it('reminders', () => {
     expect(compose({ ...base, kind: 'reminder_24h' }).subject).toMatch(/^Te esperamos mañana · 4:00/)
     expect(compose({ ...base, kind: 'reminder_2h' }).subject).toMatch(/^Tu cita es hoy a las 4:00/)

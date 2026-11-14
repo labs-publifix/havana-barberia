@@ -107,6 +107,8 @@ export interface PaymentInput {
   splits?: { method: PaymentMethod; amount: number }[]
   /** Products sold in the same ticket. */
   products?: { productId: ID; qty: number }[]
+  /** Services added during the visit (catalog price); they join the appointment before charging. */
+  addServiceIds?: ID[]
   /**
    * Discount on the services. Owner and manager authorize their own; anyone
    * else needs an owner's or manager's email and password (Supabase: re-auth).

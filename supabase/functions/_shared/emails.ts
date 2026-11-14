@@ -30,6 +30,8 @@ export interface EmailFacts {
   loyaltyUrl?: string | null
   /** The barber's notice links to the panel agenda. */
   panelUrl: string
+  /** Where the appointment came from (team notices say «en línea» only for online ones). */
+  source?: 'online' | 'panel' | 'walk_in'
   /** Where the site's public files live (the logo is `${assetBase}/email/logo-white.png`). */
   assetBase: string
 }
@@ -184,6 +186,7 @@ export function compose(f: EmailFacts): Email {
   const { day, time } = when(f.startsAt, f.timeZone)
   const name = firstName(f.customerName)
   const services = f.services.join(' + ')
+  const online = (f.source ?? 'online') === 'online'
 
   const head: Record<EmailFacts['kind'], { subject: string; eyebrow: string; title: string; intro: string }> = {
     confirmation: {
@@ -216,16 +219,23 @@ export function compose(f: EmailFacts): Email {
       title: `Nos vemos en un rato, ${name}`,
       intro: `Tu cita con ${f.staffName} es hoy.`,
     },
-    team_new: {
-      subject: `Nueva cita en línea · ${f.customerName} · ${day}, ${time}`,
-      eyebrow: 'Nueva cita en línea',
-      title: `${f.customerName} agendó contigo`,
-      intro: 'Ya aparece en tu agenda.',
-    },
+    team_new: online
+      ? {
+          subject: `Nueva cita en línea · ${f.customerName} · ${day}, ${time}`,
+          eyebrow: 'Nueva cita en línea',
+          title: `${f.customerName} agendó contigo`,
+          intro: 'Ya aparece en tu agenda.',
+        }
+      : {
+          subject: `Nueva cita · ${f.customerName} · ${day}, ${time}`,
+          eyebrow: 'Nueva cita',
+          title: `Te agendaron a ${f.customerName}`,
+          intro: 'La agendaron desde el panel y ya aparece en tu agenda.',
+        },
     team_cancel: {
       subject: `Cita cancelada · ${f.customerName} · ${day}, ${time}`,
       eyebrow: 'Cita cancelada',
-      title: `${f.customerName} canceló su cita`,
+      title: online ? `${f.customerName} canceló su cita` : `Se canceló la cita de ${f.customerName}`,
       intro: 'Ese horario quedó libre en tu agenda.',
     },
   }
