@@ -154,6 +154,10 @@ export function computeOverview(day: AgendaDay, now: Date, opts: OverviewOptions
 /** First and last minute to draw on the day timeline (shop hours and every visible schedule). */
 export function timelineBounds(day: AgendaDay, loads: StaffLoad[]): [number, number] | null {
   const ranges = [...day.hours, ...loads.flatMap((l) => l.ranges)]
+  // Appointments outside hours (late walk-ins, «Fuera de horario») must still be visible.
+  for (const a of day.appointments)
+    if (a.status !== 'cancelled')
+      ranges.push({ start: localTime(a.startsAt, day.timeZone), end: localTime(a.endsAt, day.timeZone) })
   if (!ranges.length) return null
   const from = Math.min(...ranges.map((r) => toMinutes(r.start)))
   const to = Math.max(...ranges.map((r) => toMinutes(r.end)))

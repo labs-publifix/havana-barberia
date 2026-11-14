@@ -331,6 +331,26 @@ describe('MockBookingRepository · staff actions', () => {
     expect(res.appointment.payment?.amount).toBe(a.totalPrice + extra.price)
   })
 
+  it('«Fuera de horario»: any time with the chosen barber, flagged; overlaps refused', async () => {
+    const { r } = repoAt('09:00')
+    const late = {
+      serviceIds: ['corte-adulto'],
+      staffId: 'isaac',
+      startsAt: iso(MONDAY, '21:30'),
+      customer: ana,
+      notes: '',
+      source: 'panel' as const,
+    }
+    // Normal rules: closed at that time.
+    await expect(r.adminCreateAppointment(late)).rejects.toBeInstanceOf(SlotUnavailableError)
+    const a = await r.adminCreateAppointment({ ...late, afterHours: true })
+    expect(a).toMatchObject({ staffId: 'isaac', afterHours: true })
+    await expect(r.adminCreateAppointment({ ...late, afterHours: true })).rejects.toThrow('ya tiene algo')
+    await expect(r.adminCreateAppointment({ ...late, staffId: 'any', afterHours: true })).rejects.toThrow(
+      'Elige el barbero',
+    )
+  })
+
   it('an appointment can be charged before it starts', async () => {
     const { r } = repoAt('09:00')
     const a = await r.adminCreateAppointment({

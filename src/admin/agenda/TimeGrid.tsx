@@ -1,5 +1,5 @@
 import { Fragment, type MouseEvent, type ReactNode } from 'react'
-import { Ban } from 'lucide-react'
+import { Ban, Moon } from 'lucide-react'
 import type { Appointment, LocalDate, Service, TimeBlock, TimeRange } from '@/domain/types'
 import { cn } from '@/lib/cn'
 import { formatTime12, formatTimeCompact, fromMinutes, localTime, toMinutes } from '@/lib/time'
@@ -213,8 +213,9 @@ export function TimeGrid({
                       >
                         {tall ? (
                           <>
-                            <span className="tabular text-xs font-semibold opacity-80">
+                            <span className="tabular flex items-center gap-1 text-xs font-semibold opacity-80">
                               {time} – {formatTimeCompact(localTime(a.endsAt, timeZone))}
+                              {a.afterHours && <Moon className="size-3 shrink-0" aria-hidden />}
                             </span>
                             <span className="mt-0.5 truncate text-[13px] font-semibold">
                               {compact ? shortName(a.customer.name) : a.customer.name}
@@ -223,12 +224,14 @@ export function TimeGrid({
                           </>
                         ) : (
                           <span className="truncate text-xs">
-                            <span className="tabular font-semibold">{time}</span>{' '}
+                            <span className="tabular font-semibold">{time}</span>
+                            {a.afterHours && <Moon className="ml-0.5 inline size-3 align-[-1px]" aria-hidden />}{' '}
                             {h >= 18 && shortName(a.customer.name)}
                           </span>
                         )}
                         <span className="sr-only">
                           , {a.customer.name}, {serviceNames(a)}, {live ? 'en curso' : statusText[a.status]}
+                          {a.afterHours ? ', fuera de horario' : ''}
                         </span>
                       </button>
                     </Tip>
