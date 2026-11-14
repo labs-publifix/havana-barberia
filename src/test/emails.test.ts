@@ -195,6 +195,11 @@ describe('«Gracias por tu visita»', () => {
     expect(t.method).toBe('Tarjeta')
   })
 
+  it('the same service twice is one line «2 × …» with both prices', () => {
+    const r = ticketLines({ ...pay, amount: 560, discount: null, products: null }, services, ['corte', 'corte'])
+    expect(r.lines).toEqual([{ label: '2 × Corte de cabello adulto', amount: 560 }])
+  })
+
   it('free cut shows as a line; mixed payments name both methods', () => {
     const r = ticketLines(
       {

@@ -314,7 +314,7 @@ describe('MockBookingRepository · staff actions', () => {
     expect((await r.adminFindCustomers('2233')).map((c) => c.id)).toEqual([first.customerId])
   })
 
-  it('services added at checkout join the appointment and the charge, at catalog price', async () => {
+  it('services added at checkout (repeats too) join the appointment and the charge, at catalog price', async () => {
     const { r } = repoAt('09:00')
     const a = await r.adminCreateAppointment({
       serviceIds: ['corte-adulto'],
@@ -325,10 +325,11 @@ describe('MockBookingRepository · staff actions', () => {
       source: 'panel',
     })
     const extra = r.snapshot().services.find((s) => s.active && s.id !== 'corte-adulto')!
+    // The same haircut again (a brother) plus another service: both are added and charged.
     const res = await r.adminSetStatus(a.id, 'completed', { ...CASH, addServiceIds: [extra.id, 'corte-adulto'] })
-    expect(res.appointment.serviceIds).toEqual(['corte-adulto', extra.id])
-    expect(res.appointment.totalPrice).toBe(a.totalPrice + extra.price)
-    expect(res.appointment.payment?.amount).toBe(a.totalPrice + extra.price)
+    expect(res.appointment.serviceIds).toEqual(['corte-adulto', extra.id, 'corte-adulto'])
+    expect(res.appointment.totalPrice).toBe(a.totalPrice * 2 + extra.price)
+    expect(res.appointment.payment?.amount).toBe(a.totalPrice * 2 + extra.price)
   })
 
   it('«Fuera de horario»: any time with the chosen barber, flagged; overlaps refused', async () => {

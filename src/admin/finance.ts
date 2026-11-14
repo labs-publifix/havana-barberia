@@ -216,11 +216,13 @@ export function earnings(input: {
           p?.discount && input.discountCommission === 'net' && listTotal > 0
             ? Math.max(0, 1 - p.discount.amount / (listTotal - (p.rewardAmount ?? 0) || 1))
             : 1
-        const services = a.serviceIds.map((id) => {
+        // The same service can appear more than once (e.g. two haircuts); the free cut covers only one.
+        const rewardAt = p?.rewardServiceId ? a.serviceIds.indexOf(p.rewardServiceId) : -1
+        const services = a.serviceIds.map((id, i) => {
           const svc = input.services.find((x) => x.id === id)
           const list = svc?.price ?? 0
           // The loyalty free cut is not charged and pays no commission; on a combo only the haircut part is free.
-          const free = p?.rewardServiceId === id ? (p.rewardAmount ?? list) : 0
+          const free = i === rewardAt ? (p?.rewardAmount ?? list) : 0
           const price = list - free
           const name = free
             ? `${svc?.name ?? 'Servicio'} (corte gratis${price ? ' aplicado' : ''})`
