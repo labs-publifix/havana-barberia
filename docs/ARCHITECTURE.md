@@ -247,6 +247,8 @@ Pantallas del panel ──▶ AdminRepository ──▶ MockAdminRepository     
 - **Usuarios** (`AdminRepository.saveUser`, con pruebas): solo la persona dueña invita, cambia rol o quita acceso; correo único; un barbero se liga a un perfil de Equipo sin usuario; nadie cambia su propio rol ni se quita el acceso; siempre queda una persona dueña activa. Todos entran con correo y contraseña. En la demo los usuarios se guardan en este navegador (`havana:admin-users`) y entran con la contraseña de demostración; con Supabase, invitación por correo (`auth.admin.inviteUserByEmail`).
 - **Permisos:** dueño y gerente editan las políticas; el gerente consulta los usuarios. La matriz «Qué ve cada rol» se arma con las mismas reglas de navegación (`sections.ts`).
 
+- **Fuera de horario** (`appointments.after_hours`, migración `20261114002200`): dueño, desarrollador o gerente pueden agendar o registrar un walk-in a cualquier hora con un barbero elegido; solo se rechazan encimes. Queda marcada (luna en la agenda, etiqueta en la cita) y cuenta normal en caja, comisiones, sellos y reportes; no cambia horarios ni la reserva en línea. Un trigger impide que otros roles la creen.
+
 ### Finanzas (adelanto de la fase 2)
 
 - **Periodo estándar** (`src/admin/period.ts`, probado; `PeriodPicker` y `usePeriod`): Tickets, Utilidades, Comisiones, Cierre y Reportes eligen Día, Semana (de nómina), Mes o Personalizado (desde–hasta, hasta 366 días), con flechas y sin fechas futuras; queda en la dirección (`?periodo=…&desde=…&hasta=…`). Los periodos en curso se comparan con los mismos días del anterior. Cerrar, anticipos, bonos y pagos solo con «Semana»; con otro periodo el Cierre es de consulta y los bonos no se suman. Caja del día sigue siendo por día.

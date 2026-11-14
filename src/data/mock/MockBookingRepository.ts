@@ -572,6 +572,7 @@ export class MockBookingRepository implements BookingRepository {
     customer: { id: ID } | { name: string; phone: string; email: string }
     notes: string
     source: Exclude<AppointmentSource, 'online'>
+    afterHours?: boolean
   }): Promise<Appointment> {
     await this.delay()
     return this.exclusive(() => {
@@ -583,7 +584,15 @@ export class MockBookingRepository implements BookingRepository {
       const endsAt = new Date(Date.parse(startsAt) + durationMin * 60000).toISOString()
 
       let staffId: ID | null
-      if (input.source === 'walk_in') {
+      if (input.afterHours) {
+        // Outside hours: the chosen barber at the chosen time; only overlaps are refused.
+        if (input.staffId === 'any') throw new InvalidRequestError('Elige el barbero.')
+        if (localDate(endsAt, businessHours.timeZone) !== localDate(startsAt, businessHours.timeZone))
+          throw new InvalidRequestError('La cita debe terminar el mismo día.')
+        if (this.conflicts(input.staffId, startsAt, endsAt))
+          throw new InvalidRequestError('Ese barbero ya tiene algo en ese horario.')
+        staffId = input.staffId
+      } else if (input.source === 'walk_in') {
         // Walk-in: right now, with whoever is free (or the chosen barber), even off the 15-min grid.
         const candidates = staffForServices(this.db.staff, input.serviceIds).filter(
           (s) => input.staffId === 'any' || s.id === input.staffId,
@@ -618,6 +627,7 @@ export class MockBookingRepository implements BookingRepository {
         createdAt: this.now().toISOString(),
         loyaltyToken: card?.token ?? null,
         source: input.source,
+        ...(input.afterHours ? { afterHours: true } : {}),
       }
       this.db.appointments.push(appt)
       this.save([appt])

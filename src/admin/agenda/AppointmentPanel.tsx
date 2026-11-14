@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { Mail, Phone, UserRound } from 'lucide-react'
+import { Mail, Moon, Phone, UserRound } from 'lucide-react'
 import { routes } from '@/app/routes'
 import type { Appointment, LocalDate, Service, Staff } from '@/domain/types'
 import { Avatar } from '@/components/booking/Avatar'
@@ -285,6 +285,11 @@ export function AppointmentPanel({
                   <AdminStatusBadge status={a.status} />
                 )}
                 <span className="text-[13px] text-fg-muted">{sourceLabel[a.source ?? 'online']}</span>
+                {a.afterHours && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-fg/[0.06] px-2 py-0.5 text-[12px] font-medium">
+                    <Moon className="size-3.5" aria-hidden /> Fuera de horario
+                  </span>
+                )}
               </div>
               {open && (
                 <div className="flex flex-wrap gap-2">

@@ -133,6 +133,11 @@ export interface AdminNewAppointment {
   customer: PanelCustomer
   notes: string
   source: Exclude<AppointmentSource, 'online'>
+  /**
+   * «Fuera de horario» (owner, developer, manager): any time with the chosen
+   * barber, outside shop hours and shifts; only overlaps are refused.
+   */
+  afterHours?: boolean
 }
 
 export interface NewBlock {

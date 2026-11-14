@@ -17,9 +17,11 @@ import {
   localDate,
   localTime,
   money,
+  zonedInstant,
 } from '@/lib/time'
-import { useAdminAuth } from '../auth/AdminAuth'
-import { Input, SearchInput, Segmented } from '../ui/controls'
+import { useAdminAuth, useAdminSession } from '../auth/AdminAuth'
+import { isFinanceRole } from '../domain'
+import { Input, SearchInput, Segmented, Switch } from '../ui/controls'
 import { DatePicker } from '../ui/DatePicker'
 import { SidePanel } from '../ui/SidePanel'
 import { useToast } from '../ui/Toast'
@@ -204,8 +206,22 @@ type Period = 'Mañana' | 'Tarde' | 'Noche'
 const periodOf = (time: string): Period => (time < '12:00' ? 'Mañana' : time < '18:00' ? 'Tarde' : 'Noche')
 
 /** Barbers as buttons with their photo (radio group): one tap, no dropdown. */
-function BarberPicker({ staff, value, onChange }: { staff: Staff[]; value: string; onChange: (id: string) => void }) {
-  const options = [{ id: 'any', name: 'Primero disponible', photoUrl: null as string | null }, ...staff]
+function BarberPicker({
+  staff,
+  value,
+  onChange,
+  noAny,
+}: {
+  staff: Staff[]
+  value: string
+  onChange: (id: string) => void
+  /** Hide «Primero disponible» (out-of-hours needs a specific barber). */
+  noAny?: boolean
+}) {
+  const options = [
+    ...(noAny ? [] : [{ id: 'any', name: 'Primero disponible', photoUrl: null as string | null }]),
+    ...staff,
+  ]
   return (
     <div role="radiogroup" aria-label="Barbero" className="flex flex-wrap gap-2">
       {options.map((o, i) => {
@@ -354,10 +370,14 @@ export function NewAppointmentPanel({
   onClose: () => void
 }) {
   const { repo } = useAdminAuth()
+  const { user } = useAdminSession()
+  const canAfterHours = isFinanceRole(user.role)
   const { create } = useAgendaActions()
   const toast = useToast()
   const today = localDate(now, timeZone)
   const [kind, setKind] = useState<'cita' | 'walk_in'>('cita')
+  const [afterHours, setAfterHours] = useState(false)
+  const [ahTime, setAhTime] = useState('')
   const [serviceIds, setServiceIds] = useState<string[]>([])
   const [staffId, setStaffId] = useState<string>('any')
   const [date, setDate] = useState<LocalDate>('')
@@ -375,6 +395,8 @@ export function NewAppointmentPanel({
     setShownFor(draft)
     if (draft) {
       setKind(draft.kind)
+      setAfterHours(false)
+      setAhTime('')
       setServiceIds([])
       setStaffId(draft.staffId)
       setDate(draft.date < today ? today : draft.date)
@@ -394,7 +416,7 @@ export function NewAppointmentPanel({
   const { data: slots, isFetching } = useQuery({
     queryKey: ['admin', 'slots', 'new', forSlots.join(','), staffId, date],
     queryFn: () => repo.getAvailableSlots({ serviceIds: forSlots, staffId, date }),
-    enabled: !!draft && kind === 'cita' && forSlots.length > 0 && !!date,
+    enabled: !!draft && kind === 'cita' && !afterHours && forSlots.length > 0 && !!date,
   })
   const free = useMemo(() => slots?.filter((s) => s.available) ?? [], [slots])
   const picked = free.find((s) => s.startsAt === startsAt)
@@ -406,7 +428,7 @@ export function NewAppointmentPanel({
     if (match) setStartsAt(match.startsAt)
   }
   // Adding services can make the chosen time too short: say so and clear it.
-  if (startsAt && slots && !isFetching && !picked) {
+  if (!afterHours && startsAt && slots && !isFetching && !picked) {
     setNotice(`Con esos servicios ya no cabe a las ${formatTime12(localTime(startsAt, timeZone))}. Elige otra hora.`)
     setStartsAt('')
   }
@@ -418,18 +440,26 @@ export function NewAppointmentPanel({
   const who = picked?.staffId ? staff.find((s) => s.id === picked.staffId)?.name.split(' ')[0] : undefined
 
   const submit = () => {
-    if (!walkIn && !startsAt) return setError('Elige fecha y hora.')
+    if (afterHours) {
+      if (staffId === 'any') return setError('Elige el barbero.')
+      if (!walkIn && !/^\d{2}:\d{2}$/.test(ahTime)) return setError('Escribe la hora.')
+    } else if (!walkIn && !startsAt) return setError('Elige fecha y hora.')
     if (!serviceIds.length) return setError('Elige al menos un servicio.')
     if (!customer && !newCustomer.name.trim()) return setError('Elige un cliente o escribe el nombre del nuevo.')
     setError(null)
     create.mutate(
       {
         serviceIds,
-        staffId: walkIn ? staffId : (picked?.staffId ?? staffId),
-        startsAt: walkIn ? now.toISOString() : startsAt,
+        staffId: walkIn || afterHours ? staffId : (picked?.staffId ?? staffId),
+        startsAt: walkIn
+          ? now.toISOString()
+          : afterHours
+            ? zonedInstant(date, ahTime, timeZone).toISOString()
+            : startsAt,
         customer: customer ? { id: customer.id } : newCustomer,
         notes,
         source: walkIn ? 'walk_in' : 'panel',
+        ...(afterHours ? { afterHours: true } : {}),
       },
       {
         onSuccess: (a) => {
@@ -447,7 +477,11 @@ export function NewAppointmentPanel({
   }
 
   const summary = [
-    !walkIn && picked
+    afterHours ? 'Fuera de horario' : null,
+    !walkIn && afterHours && ahTime
+      ? `${capitalize(formatDay(date, "EEE d 'de' MMM"))}, ${formatTime12(ahTime)}`
+      : null,
+    !walkIn && !afterHours && picked
       ? `${capitalize(formatDay(date, "EEE d 'de' MMM"))}, ${formatTime12(picked.time)}${who ? ` con ${who}` : ''}`
       : null,
     chosen.length ? `${durationLabel(totalMin)} · ${money(totalPrice)}` : null,
@@ -498,6 +532,21 @@ export function NewAppointmentPanel({
         />
 
         <Step n={1} title={walkIn ? 'Con quién' : 'Cuándo y con quién'}>
+          {canAfterHours && (
+            <div className="rounded-lg border border-line p-4">
+              <Switch
+                label="Fuera de horario"
+                description="Para clientes que atiendes con la barbería cerrada o fuera del turno del barbero. Elige barbero y hora; cuenta normal en caja, comisiones y sellos. No cambia el horario ni lo que ven los clientes en línea."
+                checked={afterHours}
+                onChange={(on) => {
+                  setAfterHours(on)
+                  setError(null)
+                  setStartsAt('')
+                  if (on && staffId === 'any') setStaffId(staff[0]?.id ?? 'any')
+                }}
+              />
+            </div>
+          )}
           {!walkIn && (
             <DatePicker
               label="Fecha"
@@ -517,6 +566,7 @@ export function NewAppointmentPanel({
             </p>
             <BarberPicker
               staff={staff}
+              noAny={afterHours}
               value={staffId}
               onChange={(id) => {
                 setStaffId(id)
@@ -527,9 +577,19 @@ export function NewAppointmentPanel({
           </div>
           {walkIn ? (
             <p className="rounded-md bg-surface px-3 py-2.5 text-sm">
-              Empieza ahora, a las <strong className="tabular">{formatTime12(localTime(now, timeZone))}</strong>, con el
-              barbero libre.
+              Empieza ahora, a las <strong className="tabular">{formatTime12(localTime(now, timeZone))}</strong>,{' '}
+              {afterHours ? 'con el barbero elegido, aunque esté fuera de horario.' : 'con el barbero libre.'}
             </p>
+          ) : afterHours ? (
+            <Input
+              label="Hora"
+              type="time"
+              step={300}
+              value={ahTime}
+              onChange={(e) => setAhTime(e.target.value)}
+              hint="Cualquier hora; solo se revisa que el barbero no tenga otra cita encimada."
+              className="max-w-[200px]"
+            />
           ) : (
             <div className="grid gap-1.5">
               <p className="text-[13px] font-medium" aria-hidden>

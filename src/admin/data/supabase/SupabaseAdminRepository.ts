@@ -1136,7 +1136,26 @@ export class SupabaseAdminRepository implements AdminRepository {
     const date = localDate(startsAt, TZ)
 
     let staffId: ID | null
-    if (input.source === 'walk_in') {
+    if (input.afterHours) {
+      // Outside hours: the chosen barber at the chosen time; only overlaps are refused.
+      if (input.staffId === 'any') throw new InvalidRequestError('Elige el barbero.')
+      if (localDate(endsAt, TZ) !== date) throw new InvalidRequestError('La cita debe terminar el mismo día.')
+      const dayStart = zonedInstant(date, '00:00', TZ).toISOString()
+      const next = zonedInstant(addDays(date, 1), '00:00', TZ).toISOString()
+      const [day, blocks] = await Promise.all([
+        this.appointmentsBetween(dayStart, next),
+        this.blocksBetween(dayStart, next),
+      ])
+      const busy =
+        day.some(
+          (a) => a.staffId === input.staffId && isActiveStatus(a.status) && a.startsAt < endsAt && startsAt < a.endsAt,
+        ) ||
+        blocks.some(
+          (b) => (b.staffId === null || b.staffId === input.staffId) && b.startsAt < endsAt && startsAt < b.endsAt,
+        )
+      if (busy) throw new InvalidRequestError('Ese barbero ya tiene algo en ese horario.')
+      staffId = input.staffId
+    } else if (input.source === 'walk_in') {
       // Right now, with whoever is free (or the chosen barber), even off the 15-minute grid.
       const dayStart = zonedInstant(date, '00:00', TZ).toISOString()
       const next = zonedInstant(addDays(date, 1), '00:00', TZ).toISOString()
@@ -1176,6 +1195,7 @@ export class SupabaseAdminRepository implements AdminRepository {
         total_price: chosen.reduce((t, s) => t + s.price, 0),
         status: 'confirmed',
         source: input.source,
+        ...(input.afterHours ? { after_hours: true } : {}),
         notes: input.notes.trim(),
         loyalty_token: card?.token ?? null,
       })
@@ -1619,6 +1639,7 @@ interface AppointmentRow {
   total_price: number
   status: Appointment['status']
   source: AppointmentSource
+  after_hours?: boolean
   notes: string
   loyalty_token: string | null
   created_at: string
@@ -1718,6 +1739,7 @@ function toAppointment(r: AppointmentRow): Appointment {
     createdAt: iso(r.created_at),
     loyaltyToken: r.loyalty_token,
     source: r.source,
+    ...(r.after_hours ? { afterHours: true } : {}),
     ...(p
       ? {
           payment: {

@@ -535,7 +535,9 @@ export class MockAdminRepository implements AdminRepository {
     return this.booking.adminSetStatus(id, status)
   }
 
-  createAppointment(input: AdminNewAppointment): Promise<Appointment> {
+  async createAppointment(input: AdminNewAppointment): Promise<Appointment> {
+    if (input.afterHours && !isFinanceRole((await this.getSession())?.user.role))
+      throw new InvalidRequestError('Solo el dueño, el gerente o el desarrollador pueden agendar fuera de horario.')
     return this.booking.adminCreateAppointment(input)
   }
 

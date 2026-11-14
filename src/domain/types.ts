@@ -145,6 +145,8 @@ export interface Appointment {
   loyaltyToken: string | null
   /** Where it came from: the public site, the panel (phone, front desk) or a walk-in. */
   source?: AppointmentSource
+  /** Booked outside the shop's hours or the barber's shift («Fuera de horario», owner/manager only). */
+  afterHours?: boolean
   /** Recorded when the appointment is completed (feeds the daily cash count and finance). */
   payment?: AppointmentPayment
 }
