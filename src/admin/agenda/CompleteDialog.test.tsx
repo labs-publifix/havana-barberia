@@ -52,6 +52,7 @@ describe('CompleteDialog', () => {
         },
       }),
       expect.any(Boolean),
+      undefined, // no correction reason when charging
     )
   })
 })

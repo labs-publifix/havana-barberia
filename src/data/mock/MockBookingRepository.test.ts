@@ -352,6 +352,63 @@ describe('MockBookingRepository · staff actions', () => {
     )
   })
 
+  it('corrections: edit an open appointment; void or correct a charge (stamps follow, time kept); closed day blocks', async () => {
+    const { r } = repoAt('09:00')
+    const book = (startsAt: string) =>
+      r.adminCreateAppointment({
+        serviceIds: ['corte-adulto'],
+        staffId: 'isaac',
+        startsAt: iso(MONDAY, startsAt),
+        customer: ana,
+        notes: '',
+        source: 'panel',
+      })
+    const a = await book('11:00')
+    const edited = await r.adminEditAppointment(a.id, {
+      serviceIds: ['corte-adulto', 'corte-adulto'],
+      customerId: a.customerId,
+      notes: 'Viene con su hermano',
+    })
+    expect(edited).toMatchObject({ durationMin: a.durationMin * 2, totalPrice: a.totalPrice * 2 })
+
+    const b = await book('15:00')
+    await r.adminSetStatus(b.id, 'completed', CASH)
+    const stamps = () => r.snapshot().loyalty.find((c) => c.customerId === b.customerId)!.stamps
+    expect(stamps()).toBe(1)
+    await expect(r.adminVoidPayment(b.id, ' ')).rejects.toThrow('motivo')
+    await r.adminVoidPayment(b.id, 'Se cobró a la cita equivocada')
+    expect(r.snapshot().appointments.find((x) => x.id === b.id)).toMatchObject({ status: 'confirmed' })
+    expect(stamps()).toBe(0)
+
+    const charged = await r.adminSetStatus(b.id, 'completed', { ...CASH, method: 'card' })
+    const fixed = await r.adminCorrectPayment(
+      b.id,
+      { ...CASH, serviceIds: ['corte-adulto', 'corte-adulto'] },
+      'Fue efectivo y eran dos',
+      'Leo',
+    )
+    expect(fixed.appointment.payment).toMatchObject({
+      method: 'cash',
+      amount: a.totalPrice * 2,
+      paidAt: charged.appointment.payment!.paidAt,
+      correction: { by: 'Leo', reason: 'Fue efectivo y eran dos' },
+    })
+    expect(stamps()).toBe(1)
+
+    // Counter sale: correct, then a closed cash day blocks voiding it.
+    const p = r.snapshot().products.find((x) => x.active)!
+    const sale = await r.adminCreateSale({ items: [{ productId: p.id, qty: 1 }], staffId: 'isaac', method: 'cash' })
+    const sale2 = await r.adminCorrectSale(
+      sale.id,
+      { items: [{ productId: p.id, qty: 2 }], staffId: 'leonardo', method: 'card' },
+      'Eran dos',
+      'Leo',
+    )
+    expect(sale2).toMatchObject({ total: p.price * 2, staffId: 'leonardo', method: 'card' })
+    await r.adminCloseDay({ date: MONDAY, openingFund: 0, counted: 0, note: '', closedBy: 'Leo' })
+    await expect(r.adminVoidSale(sale.id, 'Duplicada')).rejects.toThrow('ya está cerrada')
+  })
+
   it('an appointment can be charged before it starts', async () => {
     const { r } = repoAt('09:00')
     const a = await r.adminCreateAppointment({
@@ -713,7 +770,7 @@ describe('MockBookingRepository · payment on completion', () => {
       'propina en pesos',
     )
     const { appointment } = await r.adminSetStatus(a.id, 'completed', { method: 'card', tip: 50, tipMethod: 'cash' })
-    expect(appointment.payment).toEqual({
+    expect(appointment.payment).toMatchObject({
       method: 'card',
       amount: 430,
       tip: 50,

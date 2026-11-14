@@ -3,7 +3,7 @@ import { ArrowLeftRight, Banknote, CreditCard, Minus, Plus, type LucideIcon } fr
 import { Alert } from '@/components/ui/Alert'
 import { buttonClass } from '@/components/ui/buttonClass'
 import { SidePanel } from '../ui/SidePanel'
-import type { Appointment, PaymentMethod, Product, Service } from '@/domain/types'
+import type { Appointment, AppointmentPayment, PaymentMethod, Product, Service } from '@/domain/types'
 import { cn } from '@/lib/cn'
 import { durationLabel, money } from '@/lib/time'
 import { methodLabels } from '../cash'
@@ -44,13 +44,16 @@ export function CompleteDialog({
   products = [],
   services = [],
   canAuthorize = false,
+  correcting,
+  onVoid,
 }: {
   appointment: Appointment
   open: boolean
   busy: boolean
   error: string | null
   onCancel: () => void
-  onConfirm: (payment: PaymentInput, printTicket: boolean) => void
+  /** In correction mode the payment carries the final services and `reason` is set. */
+  onConfirm: (payment: PaymentInput & { serviceIds?: string[] }, printTicket: boolean, reason?: string) => void
   /** Loyalty free cut available on this visit and what it covers. */
   reward?: { service: Service; amount: number } | null
   /** Products on sale. */
@@ -59,6 +62,10 @@ export function CompleteDialog({
   services?: Service[]
   /** The signed-in user is owner or manager (authorizes discounts themselves). */
   canAuthorize?: boolean
+  /** «Corregir cobro»: the charge being corrected (owner/developer); the form starts with it. */
+  correcting?: AppointmentPayment
+  /** «Anular cobro» (correction mode only). */
+  onVoid?: (reason: string) => void
 }) {
   const [method, setMethod] = useState<PaymentMethod | null>(null)
   const [hasTip, setHasTip] = useState(false)
@@ -75,23 +82,39 @@ export function CompleteDialog({
   const [split, setSplit] = useState(false)
   const [parts, setParts] = useState<Record<PaymentMethod, string>>({ cash: '', card: '', transfer: '' })
   const [print, setPrint] = useState(readPrint)
+  const [reason, setReason] = useState('')
+  const [confirmVoid, setConfirmVoid] = useState(false)
   const [openFor, setOpenFor] = useState<string | null>(null)
+  const fixing = !!correcting
   if (open && openFor !== a.id) {
     setOpenFor(a.id)
-    setMethod(null)
-    setHasTip(false)
-    setTip('')
-    setTipMethod(null)
+    const c = correcting
+    setMethod(c && !c.splits?.length ? c.method : null)
+    setHasTip(!!c?.tip)
+    setTip(c?.tip ? String(c.tip) : '')
+    setTipMethod(c?.tip ? c.tipMethod : null)
     setLocal(null)
-    setUseReward(false)
-    setQty({})
-    setShowProducts(false)
-    setAddQty({})
-    setShowServices(false)
-    setHasDiscount(false)
-    setDiscount({ amount: '', reason: '', email: '', password: '' })
-    setSplit(false)
-    setParts({ cash: '', card: '', transfer: '' })
+    setUseReward(!!c?.rewardServiceId)
+    setQty(Object.fromEntries((c?.products ?? []).map((i) => [i.productId, i.qty])))
+    setShowProducts(!!c?.products?.length)
+    // Correcting: the steppers hold every service charged (repeats included).
+    setAddQty(c ? a.serviceIds.reduce<Record<string, number>>((m, id) => ({ ...m, [id]: (m[id] ?? 0) + 1 }), {}) : {})
+    setShowServices(!!c)
+    setHasDiscount(!!c?.discount)
+    setDiscount({
+      amount: c?.discount ? String(c.discount.amount) : '',
+      reason: c?.discount?.reason ?? '',
+      email: '',
+      password: '',
+    })
+    setSplit(!!c?.splits?.length)
+    setParts({
+      cash: String(c?.splits?.find((x) => x.method === 'cash')?.amount ?? ''),
+      card: String(c?.splits?.find((x) => x.method === 'card')?.amount ?? ''),
+      transfer: String(c?.splits?.find((x) => x.method === 'transfer')?.amount ?? ''),
+    })
+    setReason('')
+    setConfirmVoid(false)
   }
   if (!open && openFor) setOpenFor(null)
 
@@ -108,12 +131,26 @@ export function CompleteDialog({
   const discountOff = hasDiscount ? num(discount.amount) : 0
   // Services added during the visit, at catalog price.
   // Any active service, also one already in the appointment (e.g. a second haircut for a brother).
-  const extra = services.filter((s) => s.active)
+  const extra = services.filter((s) => s.active || (fixing && a.serviceIds.includes(s.id)))
   const added = Object.entries(addQty).flatMap(([id, n]) => Array.from({ length: n }, () => id))
-  const addedTotal = added.reduce((t, id) => t + (services.find((s) => s.id === id)?.price ?? 0), 0)
+  const priceOf = (ids: string[]) => ids.reduce((t, id) => t + (services.find((s) => s.id === id)?.price ?? 0), 0)
+  const addedTotal = priceOf(added)
   const stepService = (id: string, d: number) =>
     setAddQty((q) => ({ ...q, [id]: Math.max(0, Math.min(10, (q[id] ?? 0) + d)) }))
-  const base = a.totalPrice + addedTotal
+  // Correcting: the final list keeps the original order; unchanged keeps the price it was booked at.
+  const finalIds = (() => {
+    if (!fixing) return [...(a.serviceIds ?? []), ...added]
+    const left = { ...addQty }
+    const ordered: string[] = []
+    for (const id of a.serviceIds)
+      if ((left[id] ?? 0) > 0) {
+        ordered.push(id)
+        left[id] = left[id]! - 1
+      }
+    return [...ordered, ...Object.entries(left).flatMap(([id, n]) => Array.from({ length: n }, () => id))]
+  })()
+  const unchanged = finalIds.join() === (a.serviceIds ?? []).join()
+  const base = fixing ? (unchanged ? a.totalPrice : priceOf(finalIds)) : a.totalPrice + addedTotal
   const servicesCharge = Math.max(0, base - rewardOff - discountOff)
   const sold = Object.entries(qty).filter(([, n]) => n > 0)
   const productsTotal = sold.reduce((t, [id, n]) => t + (products.find((p) => p.id === id)?.price ?? 0) * n, 0)
@@ -133,6 +170,8 @@ export function CompleteDialog({
   }
 
   const confirm = () => {
+    if (fixing && !finalIds.length) return setLocal('Deja al menos un servicio.')
+    if (fixing && !reason.trim()) return setLocal('Escribe el motivo de la corrección.')
     if (hasDiscount) {
       if (discountOff <= 0) return setLocal('Escribe el monto del descuento o desactívalo.')
       if (discountOff > base - rewardOff) return setLocal('El descuento no puede ser mayor a lo que se cobra.')
@@ -161,7 +200,7 @@ export function CompleteDialog({
         ...(useReward && reward ? { useReward: true } : {}),
         ...(splits ? { splits } : {}),
         ...(sold.length ? { products: sold.map(([productId, n]) => ({ productId, qty: n })) } : {}),
-        ...(added.length ? { addServiceIds: added } : {}),
+        ...(fixing ? { serviceIds: finalIds } : added.length ? { addServiceIds: added } : {}),
         ...(hasDiscount
           ? {
               discount: {
@@ -173,6 +212,7 @@ export function CompleteDialog({
           : {}),
       },
       print,
+      fixing ? reason.trim() : undefined,
     )
   }
 
@@ -184,15 +224,33 @@ export function CompleteDialog({
       open={open}
       wide
       onOpenChange={(o) => !o && onCancel()}
-      title="Completar y cobrar"
+      title={fixing ? 'Corregir cobro' : 'Completar y cobrar'}
       description={`${a.customer.name} · servicios ${money(base)}`}
       footer={
         <>
+          {fixing && onVoid && (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => {
+                if (!reason.trim()) return setLocal('Escribe el motivo para anular el cobro.')
+                if (!confirmVoid) return setConfirmVoid(true)
+                onVoid(reason.trim())
+              }}
+              className={buttonClass({
+                variant: confirmVoid ? 'danger' : 'ghost',
+                size: 'sm',
+                className: 'sm:mr-auto',
+              })}
+            >
+              {confirmVoid ? '¿Seguro? Anular cobro' : 'Anular cobro'}
+            </button>
+          )}
           <button type="button" onClick={onCancel} className={buttonClass({ variant: 'secondary', size: 'sm' })}>
             Volver
           </button>
           <button type="button" onClick={confirm} disabled={busy} className={buttonClass({ size: 'sm' })}>
-            {busy ? 'Guardando…' : `Completar · ${money(total)}`}
+            {busy ? 'Guardando…' : fixing ? `Guardar corrección · ${money(total)}` : `Completar · ${money(total)}`}
           </button>
         </>
       }
@@ -200,6 +258,24 @@ export function CompleteDialog({
       {/* One column that never grows past the panel: long product names truncate. */}
       <div className="grid grid-cols-[minmax(0,1fr)] gap-5">
         {(local || error) && <Alert tone="danger" title={(local || error)!} />}
+
+        {fixing && (
+          <div className="grid gap-2 rounded-lg border-[1.5px] border-warning-500/50 bg-warning-100/40 p-4">
+            <p className="text-sm">
+              Corriges lo que se cobró: cambia lo necesario y guarda. Se conserva la hora del cobro; los sellos, la
+              caja, las comisiones y los reportes se ajustan solos. Para quitarlo por completo usa «Anular cobro».
+            </p>
+            <Input
+              label="Motivo de la corrección"
+              placeholder="Ej. se marcó tarjeta y fue efectivo"
+              value={reason}
+              onChange={(e) => {
+                setReason(e.target.value)
+                setConfirmVoid(false)
+              }}
+            />
+          </div>
+        )}
 
         {reward && (
           <div className="rounded-lg border-[1.5px] border-aqua-800/40 bg-aqua-500/10 p-4">
@@ -218,16 +294,25 @@ export function CompleteDialog({
 
         {extra.length > 0 && (
           <div className="grid grid-cols-[minmax(0,1fr)] gap-3 rounded-lg border border-line p-4">
-            <Switch
-              label="Agregar servicios"
-              description={
-                added.length
-                  ? `${added.length} ${added.length === 1 ? 'servicio agregado' : 'servicios agregados'} · ${money(addedTotal)}`
-                  : 'Si pidió otro servicio (o el mismo otra vez, p. ej. para su hermano), agrégalo aquí; se cobra a precio de lista.'
-              }
-              checked={showServices}
-              onChange={setShowServices}
-            />
+            {fixing ? (
+              <div>
+                <p className="text-sm font-medium">Servicios cobrados</p>
+                <p className="text-[13px] text-fg-muted">
+                  Ajusta cantidades; si cambias la lista, se cobra a precio de lista.
+                </p>
+              </div>
+            ) : (
+              <Switch
+                label="Agregar servicios"
+                description={
+                  added.length
+                    ? `${added.length} ${added.length === 1 ? 'servicio agregado' : 'servicios agregados'} · ${money(addedTotal)}`
+                    : 'Si pidió otro servicio (o el mismo otra vez, p. ej. para su hermano), agrégalo aquí; se cobra a precio de lista.'
+                }
+                checked={showServices}
+                onChange={setShowServices}
+              />
+            )}
             {showServices && (
               <ul className="divide-y divide-line rounded-md border border-line" aria-label="Servicios para agregar">
                 {extra.map((s) => {
@@ -239,7 +324,7 @@ export function CompleteDialog({
                         <span className="block text-sm font-medium [overflow-wrap:anywhere]">{s.name}</span>
                         <span className="tabular text-[13px] text-fg-muted">
                           {money(s.price)} · {durationLabel(s.durationMin)}
-                          {inAppointment ? ' · ya está en la cita' : ''}
+                          {!fixing && inAppointment ? ' · ya está en la cita' : ''}
                         </span>
                       </span>
                       <button
@@ -477,7 +562,7 @@ export function CompleteDialog({
 
         <dl className="grid gap-1 rounded-lg bg-surface px-4 py-3 text-sm">
           <div className="flex justify-between">
-            <dt className="text-fg-muted">Servicios{addedTotal ? ' (con los agregados)' : ''}</dt>
+            <dt className="text-fg-muted">Servicios{!fixing && addedTotal ? ' (con los agregados)' : ''}</dt>
             <dd className="tabular">{money(base)}</dd>
           </div>
           {rewardOff > 0 && (

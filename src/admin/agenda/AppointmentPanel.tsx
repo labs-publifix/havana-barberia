@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { Mail, Moon, Phone, UserRound } from 'lucide-react'
 import { routes } from '@/app/routes'
@@ -19,6 +19,7 @@ import { useAdminAuth, useAdminSession } from '../auth/AdminAuth'
 import type { PaymentInput, StaffStatusChange } from '../domain'
 import { methodLabels, productsTotalOf, methodPhrases } from '../cash'
 import { CompleteDialog } from './CompleteDialog'
+import { EditAppointmentPanel } from './EditAppointmentPanel'
 import { DatePicker } from '../ui/DatePicker'
 import { Select } from '../ui/Select'
 import { SidePanel } from '../ui/SidePanel'
@@ -27,7 +28,7 @@ import { AdminStatusBadge } from '../ui/AdminStatusBadge'
 import { isLive, sourceLabel } from '../ui/appointmentStyle'
 import { canComplete, canMarkNoShow, isOpen } from './model'
 import { errorMessage, useAgendaActions } from './useAgendaActions'
-import { isFinanceRole } from '../domain'
+import { isFinanceRole, isOwnerRole } from '../domain'
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -157,6 +158,8 @@ export function AppointmentPanel({
   const [mode, setMode] = useState<'detail' | 'reschedule'>('detail')
   const [confirm, setConfirm] = useState<null | 'cancelled' | 'no_show'>(null)
   const [charging, setCharging] = useState(false)
+  const [fixing, setFixing] = useState(false)
+  const [editing, setEditing] = useState(false)
   const [chargeError, setChargeError] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [notes, setNotes] = useState(a?.notes ?? '')
@@ -166,14 +169,38 @@ export function AppointmentPanel({
     setNotes(a?.notes ?? '')
     setMode('detail')
     setError(null)
+    setFixing(false)
+    setEditing(false)
   }
 
   const { toleranceMin } = usePolicy()
   const { user } = useAdminSession()
+  // Corrections are for the owner and the developer only.
+  const isOwner = isOwnerRole(user.role)
+  const qc = useQueryClient()
   const { data: productsOnSale } = useQuery({
     queryKey: ['admin', 'products'],
     queryFn: () => repo.listProducts(),
-    enabled: charging,
+    enabled: charging || fixing,
+  })
+  const correct = useMutation({
+    mutationFn: (v: { payment: PaymentInput & { serviceIds?: string[] }; reason: string }) =>
+      repo.correctPayment(a!.id, { ...v.payment, serviceIds: v.payment.serviceIds ?? a!.serviceIds }, v.reason),
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: ['admin'] })
+      setFixing(false)
+      toast('Cobro corregido')
+    },
+    onError: (e) => setChargeError(errorMessage(e)),
+  })
+  const voidCharge = useMutation({
+    mutationFn: (reason: string) => repo.voidPayment(a!.id, reason),
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: ['admin'] })
+      setFixing(false)
+      toast('Cobro anulado: la cita quedó sin cobrar')
+    },
+    onError: (e) => setChargeError(errorMessage(e)),
   })
   const { data: card } = useQuery({
     queryKey: ['admin', 'day', 'loyalty', a?.customerId],
@@ -255,6 +282,15 @@ export function AppointmentPanel({
               >
                 Cancelar cita
               </button>
+              {isOwner && (
+                <button
+                  type="button"
+                  onClick={() => setEditing(true)}
+                  className={buttonClass({ variant: 'secondary', size: 'sm' })}
+                >
+                  Editar cita
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => setMode('reschedule')}
@@ -371,8 +407,27 @@ export function AppointmentPanel({
                       ? `Pago mixto: ${a.payment.splits.map((x) => `${methodLabels[x.method]} ${money(x.amount)}`).join(' + ')}`
                       : `Pagó con ${methodLabels[a.payment.method].toLowerCase()}`}
                   </p>
+                  {a.payment.correction && (
+                    <p className="text-[13px] text-fg-muted">
+                      Corregido por {a.payment.correction.by} el{' '}
+                      {capitalize(formatDateLong(localDate(a.payment.correction.at, timeZone)))} ·{' '}
+                      {a.payment.correction.reason}
+                    </p>
+                  )}
                 </dl>
                 <TicketButtons ticket={() => ticketFromAppointment(a, services, barber?.name, card)} />
+                {isOwner && a.status === 'completed' && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setChargeError(null)
+                      setFixing(true)
+                    }}
+                    className={buttonClass({ variant: 'secondary', size: 'sm', className: 'justify-self-start' })}
+                  >
+                    Corregir cobro
+                  </button>
+                )}
               </Section>
             )}
 
@@ -533,6 +588,25 @@ export function AppointmentPanel({
         services={services}
         canAuthorize={isFinanceRole(user.role)}
       />
+      {isOwner && a.payment && (
+        <CompleteDialog
+          appointment={a}
+          open={fixing}
+          busy={correct.isPending || voidCharge.isPending}
+          error={chargeError}
+          onCancel={() => setFixing(false)}
+          onConfirm={(payment, _print, reason) => correct.mutate({ payment, reason: reason ?? '' })}
+          onVoid={(reason) => voidCharge.mutate(reason)}
+          correcting={a.payment}
+          reward={a.payment.rewardServiceId || rewardAvailable(card, now) ? rewardFor(a.serviceIds, services) : null}
+          products={productsOnSale ?? []}
+          services={services}
+          canAuthorize
+        />
+      )}
+      {isOwner && isOpen(a) && (
+        <EditAppointmentPanel appointment={a} services={services} open={editing} onClose={() => setEditing(false)} />
+      )}
     </>
   )
 }

@@ -1,4 +1,4 @@
-import type { Appointment, ID, LocalDate, Service, Staff, StaffCommission } from '@/domain/types'
+import type { Appointment, Correction, ID, LocalDate, Service, Staff, StaffCommission } from '@/domain/types'
 import { addDays, formatDay, localDate, weekdayOf } from '@/lib/time'
 import { commissionOn } from './team/model'
 
@@ -110,6 +110,8 @@ export interface ProductSale {
   staffId: ID | null
   method: 'cash' | 'card' | 'transfer'
   total: number
+  /** Set when the owner corrected this sale afterwards. */
+  correction?: Correction
 }
 
 export interface EarningLine {

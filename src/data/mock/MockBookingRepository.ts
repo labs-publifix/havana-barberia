@@ -6,6 +6,7 @@ import type {
   AppointmentSource,
   Customer,
   ID,
+  LocalDate,
   LoyaltyCard,
   NewAppointment,
   PaymentMethod,
@@ -22,7 +23,7 @@ import type {
 } from '@/domain/types'
 import { bookingPolicy, businessHours } from '@/config/business'
 import { computeSlots, isActiveStatus, nearestAvailable, staffForServices, totalDuration } from '@/lib/availability'
-import { addDays, localDate, toMinutes, weekdayOf, zonedInstant } from '@/lib/time'
+import { addDays, formatDay, localDate, toMinutes, weekdayOf, zonedInstant } from '@/lib/time'
 import { normalizeMxPhone } from '@/lib/phone'
 import {
   DAY_NAMES,
@@ -476,6 +477,7 @@ export class MockBookingRepository implements BookingRepository {
           a.loyaltyToken = card.token
         }
       }
+      if (status === 'completed' && a.payment) a.payment.stampAdded = stampAdded
       this.save()
       return { appointment: clone(a), loyalty: card ? clone(card) : null, stampAdded }
     })
@@ -540,6 +542,7 @@ export class MockBookingRepository implements BookingRepository {
     }
 
     // Everything checked: redeem the reward (the card starts over; this visit adds no stamp).
+    const loyaltyBefore = reward && card ? { stamps: card.stamps, rewardExpiresAt: card.rewardExpiresAt } : undefined
     if (reward && card) {
       card.stamps = 0
       card.rewardExpiresAt = null
@@ -551,6 +554,7 @@ export class MockBookingRepository implements BookingRepository {
       tipMethod: payment.tip > 0 ? payment.tipMethod : method,
       paidAt: this.now().toISOString(),
       ...(reward ? { rewardServiceId: reward.service.id, rewardAmount: reward.amount } : {}),
+      ...(loyaltyBefore ? { loyaltyBefore } : {}),
       ...(splits ? { splits } : {}),
       ...(products.length ? { products } : {}),
       ...(d
@@ -951,6 +955,206 @@ export class MockBookingRepository implements BookingRepository {
       ;(this.db.sales ??= []).push(sale)
       this.save()
       return clone(sale)
+    })
+  }
+
+  // ── Corrections (owner and developer; same rules as the database) ───────
+
+  /** A closed cash day (of `at`) or payroll week (of `day`) must be reopened first. */
+  private assertUnclosed(at: string, day: LocalDate) {
+    const d = localDate(at, businessHours.timeZone)
+    if ((this.db.dailyCloses ?? []).some((c) => c.date === d))
+      throw new InvalidRequestError(
+        `La caja del ${formatDay(d, 'dd/MM/yyyy')} ya está cerrada. Reábrela en Ventas › Caja del día para corregir.`,
+      )
+    const week = (this.db.payrollCloses ?? []).find((c) => day >= c.weekStart && day <= c.weekEnd)
+    if (week)
+      throw new InvalidRequestError(
+        `La semana de nómina del ${formatDay(week.weekStart, 'dd/MM/yyyy')} ya está cerrada. Reábrela en Cierre y nómina para corregir.`,
+      )
+  }
+
+  /** Undo a charge: stamps card back as it was, payment removed, appointment open again. */
+  private undoCharge(a: Appointment) {
+    const p = a.payment!
+    const card = this.db.loyalty.find((c) => c.customerId === a.customerId)
+    if (card && p.rewardServiceId) {
+      card.stamps = p.loyaltyBefore?.stamps ?? card.goal
+      card.rewardExpiresAt =
+        p.loyaltyBefore?.rewardExpiresAt ?? new Date(this.now().getTime() + 30 * 86400000).toISOString()
+    } else if (
+      card &&
+      (p.stampAdded ?? this.db.services.some((s) => a.serviceIds.includes(s.id) && s.loyaltyEligible))
+    ) {
+      card.stamps = Math.max(0, card.stamps - 1)
+      if (card.stamps < card.goal) card.rewardExpiresAt = null
+    }
+    delete a.payment
+    a.status = 'confirmed'
+  }
+
+  private charged(id: ID) {
+    const a = this.db.appointments.find((x) => x.id === id)
+    if (!a) throw new NotFoundError('esa cita')
+    if (a.status !== 'completed' || !a.payment) throw new InvalidRequestError('Esta cita no está cobrada.')
+    this.assertUnclosed(a.payment.paidAt, localDate(a.startsAt, businessHours.timeZone))
+    return a
+  }
+
+  async adminVoidPayment(id: ID, reason: string): Promise<void> {
+    await this.delay()
+    return this.exclusive(() => {
+      if (!reason.trim()) throw new InvalidRequestError('Escribe el motivo.')
+      this.undoCharge(this.charged(id))
+      this.save()
+    })
+  }
+
+  async adminCorrectPayment(
+    id: ID,
+    payment: CompletePayment & { serviceIds: ID[] },
+    reason: string,
+    by: string,
+  ): Promise<{ appointment: Appointment; loyalty: LoyaltyCard | null; stampAdded: boolean }> {
+    await this.delay()
+    const before = await this.exclusive(() => {
+      if (!reason.trim()) throw new InvalidRequestError('Escribe el motivo de la corrección.')
+      const a = this.charged(id)
+      if (!payment.serviceIds.length) throw new InvalidRequestError('Deja al menos un servicio.')
+      const services = payment.serviceIds.map((sid) => {
+        const s = this.db.services.find((x) => x.id === sid)
+        if (!s) throw new InvalidRequestError('Alguno de los servicios ya no existe.')
+        return s
+      })
+      const snapshot = clone(a)
+      const paidAt = a.payment!.paidAt
+      this.undoCharge(a)
+      if (payment.serviceIds.join() !== a.serviceIds.join()) {
+        a.serviceIds = [...payment.serviceIds]
+        a.totalPrice = services.reduce((t, s) => t + s.price, 0)
+      }
+      return { snapshot, paidAt }
+    })
+    try {
+      const rest: CompletePayment = { ...payment }
+      delete (rest as Partial<typeof payment>).serviceIds
+      const res = await this.adminSetStatus(id, 'completed', rest)
+      return this.exclusive(() => {
+        const a = this.db.appointments.find((x) => x.id === id)!
+        a.payment = {
+          ...a.payment!,
+          paidAt: before.paidAt,
+          correction: { at: this.now().toISOString(), by, reason: reason.trim() },
+        }
+        this.save()
+        return { ...res, appointment: clone(a) }
+      })
+    } catch (e) {
+      // The new charge was refused: put the original back as it was.
+      await this.exclusive(() => {
+        const i = this.db.appointments.findIndex((x) => x.id === id)
+        this.db.appointments[i] = before.snapshot
+        const card = this.db.loyalty.find((c) => c.customerId === before.snapshot.customerId)
+        const p = before.snapshot.payment!
+        if (card && p.rewardServiceId) {
+          card.stamps = 0
+          card.rewardExpiresAt = null
+        } else if (card && p.stampAdded) card.stamps = Math.min(card.goal, card.stamps + 1)
+        this.save()
+      })
+      throw e
+    }
+  }
+
+  /** Services, customer and notes of an appointment not charged yet; overlaps are refused. */
+  async adminEditAppointment(
+    id: ID,
+    change: { serviceIds: ID[]; customerId: ID; notes: string },
+  ): Promise<Appointment> {
+    await this.delay()
+    return this.exclusive(() => {
+      const a = this.db.appointments.find((x) => x.id === id)
+      if (!a) throw new NotFoundError('esa cita')
+      if (a.status !== 'booked' && a.status !== 'confirmed')
+        throw new InvalidRequestError('Esta cita ya está cerrada; para un cobro usa «Corregir cobro».')
+      if (!change.serviceIds.length) throw new InvalidRequestError('Elige al menos un servicio.')
+      const services = change.serviceIds.map((sid) => {
+        const s = this.db.services.find((x) => x.id === sid && x.active)
+        if (!s) throw new InvalidRequestError('Alguno de los servicios ya no está disponible.')
+        return s
+      })
+      const customer = this.db.customers.find((c) => c.id === change.customerId)
+      if (!customer) throw new NotFoundError('ese cliente')
+      const durationMin = services.reduce((t, s) => t + s.durationMin, 0)
+      const endsAt = new Date(Date.parse(a.startsAt) + durationMin * 60000).toISOString()
+      if (this.conflicts(a.staffId, a.startsAt, endsAt, a.id))
+        throw new InvalidRequestError('Con esos servicios se encima con otra cita del barbero.')
+      Object.assign(a, {
+        serviceIds: [...change.serviceIds],
+        durationMin,
+        endsAt,
+        totalPrice: services.reduce((t, s) => t + s.price, 0),
+        customerId: customer.id,
+        customer: { name: customer.name, phone: customer.phone, email: customer.email },
+        loyaltyToken:
+          customer.id === a.customerId
+            ? a.loyaltyToken
+            : (this.db.loyalty.find((c) => c.customerId === customer.id)?.token ?? null),
+        notes: change.notes.trim(),
+      })
+      this.save([a])
+      return clone(a)
+    })
+  }
+
+  private soldSale(id: ID) {
+    const s = (this.db.sales ?? []).find((x) => x.id === id)
+    if (!s) throw new NotFoundError('esa venta')
+    this.assertUnclosed(s.at, localDate(s.at, businessHours.timeZone))
+    return s
+  }
+
+  async adminCorrectSale(
+    id: ID,
+    input: { items: { productId: ID; qty: number }[]; staffId: ID; method: PaymentMethod },
+    reason: string,
+    by: string,
+  ): Promise<ProductSale> {
+    await this.delay()
+    return this.exclusive(() => {
+      if (!reason.trim()) throw new InvalidRequestError('Escribe el motivo de la corrección.')
+      const sale = this.soldSale(id)
+      if (!['cash', 'card', 'transfer'].includes(input.method)) throw new InvalidRequestError('Elige cómo pagó.')
+      if (!input.staffId) throw new InvalidRequestError('Elige quién lo vendió.')
+      if (!this.db.staff.some((s) => s.id === input.staffId)) throw new NotFoundError('ese barbero')
+      const items = input.items
+        .filter((i) => i.qty > 0)
+        .map((i) => {
+          const p = this.db.products.find((x) => x.id === i.productId)
+          if (!p) throw new InvalidRequestError('Alguno de los productos ya no existe.')
+          if (!Number.isInteger(i.qty) || i.qty > 99) throw new InvalidRequestError('Revisa las cantidades.')
+          return { productId: p.id, name: p.name, qty: i.qty, price: p.price, commission: p.commission }
+        })
+      if (!items.length) throw new InvalidRequestError('Deja al menos un producto o anula la venta.')
+      Object.assign(sale, {
+        items,
+        staffId: input.staffId,
+        method: input.method,
+        total: items.reduce((t, i) => t + i.price * i.qty, 0),
+        correction: { at: this.now().toISOString(), by, reason: reason.trim() },
+      })
+      this.save()
+      return clone(sale)
+    })
+  }
+
+  async adminVoidSale(id: ID, reason: string): Promise<void> {
+    await this.delay()
+    return this.exclusive(() => {
+      if (!reason.trim()) throw new InvalidRequestError('Escribe el motivo.')
+      this.soldSale(id)
+      this.db.sales = (this.db.sales ?? []).filter((s) => s.id !== id)
+      this.save()
     })
   }
 

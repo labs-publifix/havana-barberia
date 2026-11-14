@@ -1208,6 +1208,71 @@ export class SupabaseAdminRepository implements AdminRepository {
     return toAppointment(res.data!)
   }
 
+  // ── Corrections (owner and developer) ─────────────────────────────────
+  async editAppointment(id: ID, change: { serviceIds: ID[]; customerId: ID; notes: string }): Promise<Appointment> {
+    const { error } = await this.db.rpc('edit_appointment', {
+      p_id: id,
+      p_service_ids: change.serviceIds,
+      p_customer_id: change.customerId,
+      p_notes: change.notes,
+    })
+    if (error) {
+      if (error.code === '23P01') throw new InvalidRequestError('Con esos servicios se encima con otra cita del barbero.')
+      friendly(error)
+    }
+    return (await this.appointment(id))!
+  }
+
+  async correctPayment(
+    id: ID,
+    payment: PaymentInput & { serviceIds: ID[] },
+    reason: string,
+  ): Promise<StatusChangeResult> {
+    const { error } = await this.db.rpc('correct_payment', {
+      p_id: id,
+      p_payment: {
+        method: payment.method,
+        tip: payment.tip,
+        tipMethod: payment.tipMethod,
+        useReward: !!payment.useReward,
+        splits: payment.splits ?? null,
+        products: payment.products ?? [],
+        serviceIds: payment.serviceIds,
+        ...(payment.discount ? { discount: { amount: payment.discount.amount, reason: payment.discount.reason } } : {}),
+      },
+      p_reason: reason,
+    })
+    if (error) friendly(error)
+    const a = (await this.appointment(id))!
+    return { appointment: a, loyalty: await this.loyaltyOf(a.customerId), stampAdded: false }
+  }
+
+  async voidPayment(id: ID, reason: string): Promise<void> {
+    const { error } = await this.db.rpc('void_payment', { p_id: id, p_reason: reason })
+    if (error) friendly(error)
+  }
+
+  async correctSale(
+    id: ID,
+    sale: { items: { productId: ID; qty: number }[]; staffId: ID; method: PaymentMethod },
+    reason: string,
+  ): Promise<ProductSale> {
+    const { data, error } = await this.db.rpc('correct_sale', {
+      p_id: id,
+      p_items: sale.items,
+      p_staff_id: sale.staffId,
+      p_method: sale.method,
+      p_reason: reason,
+    })
+    if (error) friendly(error)
+    return toSale(data as SaleRow)
+  }
+
+  async voidSale(id: ID, reason: string): Promise<void> {
+    const { error } = await this.db.rpc('void_sale', { p_id: id, p_reason: reason })
+    if (error) friendly(error)
+  }
+
   async rescheduleAppointment(id: ID, change: { startsAt: string; staffId: ID }): Promise<Appointment> {
     const a = await this.appointment(id)
     if (!a) throw new NotFoundError('esa cita')
@@ -1626,6 +1691,9 @@ interface PaymentRow {
   splits: { method: PaymentMethod; amount: number }[] | null
   products: SoldProduct[] | null
   discount: { amount: number; reason: string; authorizedBy: string; authorizedByName: string } | null
+  corrected_at?: string | null
+  corrected_by_name?: string | null
+  correction_reason?: string | null
 }
 interface AppointmentRow {
   id: string
@@ -1677,6 +1745,9 @@ interface SaleRow {
   staff_id: string | null
   method: PaymentMethod
   total: number
+  corrected_at?: string | null
+  corrected_by_name?: string | null
+  correction_reason?: string | null
 }
 interface AwardRow {
   week_start: string
@@ -1754,6 +1825,15 @@ function toAppointment(r: AppointmentRow): Appointment {
             ...(p.splits ? { splits: p.splits } : {}),
             ...(p.products ? { products: p.products } : {}),
             ...(p.discount ? { discount: p.discount } : {}),
+            ...(p.corrected_at
+              ? {
+                  correction: {
+                    at: iso(p.corrected_at),
+                    by: p.corrected_by_name ?? '',
+                    reason: p.correction_reason ?? '',
+                  },
+                }
+              : {}),
           },
         }
       : {}),
@@ -1794,6 +1874,9 @@ const toSale = (r: SaleRow): ProductSale => ({
   staffId: r.staff_id,
   method: r.method,
   total: r.total,
+  ...(r.corrected_at
+    ? { correction: { at: iso(r.corrected_at), by: r.corrected_by_name ?? '', reason: r.correction_reason ?? '' } }
+    : {}),
 })
 
 const toMove = (r: CashMoveRow): CashMove => ({

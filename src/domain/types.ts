@@ -172,6 +172,18 @@ export interface AppointmentPayment {
   products?: SoldProduct[]
   /** Discount on the services, authorized by the owner or a manager. */
   discount?: { amount: number; reason: string; authorizedBy: ID; authorizedByName: string }
+  /** Set when the owner corrected this charge afterwards. */
+  correction?: Correction
+  /** What the charge did to the stamps card (lets a correction undo it). */
+  stampAdded?: boolean
+  loyaltyBefore?: { stamps: number; rewardExpiresAt: Instant | null }
+}
+
+/** Who corrected a charge or a sale, when and why (owner or developer). */
+export interface Correction {
+  at: Instant
+  by: string
+  reason: string
 }
 
 export interface SoldProduct {
