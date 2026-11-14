@@ -1,7 +1,7 @@
 import { useId, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Minus, Package, Plus, Printer, ShoppingBag } from 'lucide-react'
+import { Minus, Package, Pencil, Plus, Printer, ShoppingBag } from 'lucide-react'
 import { Alert } from '@/components/ui/Alert'
 import { buttonClass } from '@/components/ui/buttonClass'
 import { Skeleton } from '@/components/ui/Skeleton'
@@ -11,11 +11,13 @@ import { capitalize, formatDay, formatTime12, localDate, localTime, money } from
 import { periodLabel } from '../period'
 import { PeriodPicker } from '../ui/PeriodPicker'
 import { usePeriod } from '../usePeriod'
-import { useAdminAuth } from '../auth/AdminAuth'
+import { useAdminAuth, useAdminSession } from '../auth/AdminAuth'
+import { isOwnerRole } from '../domain'
+import type { ProductSale } from '../finance'
 import { errorMessage } from '../agenda/useAgendaActions'
 import { cashSummary, methodLabels, productsTotalOf } from '../cash'
 import { printTicket, ticketFromAppointment, ticketFromSale, type TicketData } from '../ticket'
-import { Segmented, Switch } from '../ui/controls'
+import { Input, Segmented, Switch } from '../ui/controls'
 import { Card, PageHeader, StatCard } from '../ui/Panel'
 import { Select } from '../ui/Select'
 import { SidePanel } from '../ui/SidePanel'
@@ -35,6 +37,8 @@ interface Ticket {
   method: PaymentMethod
   total: number
   ticket: () => TicketData
+  /** Counter sale behind this ticket (it can be corrected by the owner). */
+  sale?: ProductSale
 }
 
 /** Ventas (phase-2 preview): every ticket of the week (paid appointments and counter sales of products). */
@@ -43,6 +47,9 @@ function TicketsView() {
   const { period, setPeriod, today, weekStartDay } = usePeriod('week')
   const { from, to } = period
   const [open, setOpen] = useState(false)
+  const [fixing, setFixing] = useState<ProductSale | null>(null)
+  const { user } = useAdminSession()
+  const isOwner = isOwnerRole(user.role)
   const toast = useToast()
   const { data } = useQuery({ queryKey: ['admin', 'finance', from, to], queryFn: () => repo.getFinance(from, to) })
 
@@ -79,11 +86,14 @@ function TicketsView() {
       at: s.at,
       kind: 'producto' as const,
       title: 'Venta de productos',
-      detail: s.items.map((i) => (i.qty > 1 ? `${i.qty} × ${i.name}` : i.name)).join(', '),
+      detail:
+        s.items.map((i) => (i.qty > 1 ? `${i.qty} × ${i.name}` : i.name)).join(', ') +
+        (s.correction ? ` · corregida: ${s.correction.reason}` : ''),
       staff: name(s.staffId),
       method: s.method,
       total: s.total,
       ticket: () => ticketFromSale(s, s.staffId ? name(s.staffId) : undefined),
+      sale: s,
     })),
   ].sort((a, b) => b.at.localeCompare(a.at))
 
@@ -140,6 +150,16 @@ function TicketsView() {
                   >
                     <Printer className="size-4" aria-hidden />
                   </button>
+                  {isOwner && t.sale && (
+                    <button
+                      type="button"
+                      onClick={() => setFixing(t.sale!)}
+                      aria-label={`Corregir venta de ${formatTime12(localTime(t.at, tz))}`}
+                      className="grid size-10 place-items-center rounded-full text-fg-muted hover:bg-fg/5 hover:text-fg focus-visible:outline focus-visible:outline-2 focus-visible:outline-focus"
+                    >
+                      <Pencil className="size-4" aria-hidden />
+                    </button>
+                  )}
                 </span>
               </li>
             ))}
@@ -149,6 +169,14 @@ function TicketsView() {
         )}
       </Card>
       <SalePanel open={open} onClose={() => setOpen(false)} staff={data.staff.filter((s) => s.active)} />
+      {isOwner && (
+        <SalePanel
+          open={!!fixing}
+          editing={fixing}
+          onClose={() => setFixing(null)}
+          staff={data.staff.filter((s) => s.active || s.id === fixing?.staffId)}
+        />
+      )}
     </div>
   )
 }
@@ -157,10 +185,13 @@ function SalePanel({
   open,
   onClose,
   staff,
+  editing,
 }: {
   open: boolean
   onClose: () => void
   staff: { id: string; name: string }[]
+  /** «Corregir venta» (owner and developer): the sale being corrected. */
+  editing?: ProductSale | null
 }) {
   const { repo } = useAdminAuth()
   const qc = useQueryClient()
@@ -175,6 +206,19 @@ function SalePanel({
   const [method, setMethod] = useState<PaymentMethod>('cash')
   const [error, setError] = useState<string | null>(null)
   const [print, setPrint] = useState(false)
+  const [reason, setReason] = useState('')
+  const [confirmVoid, setConfirmVoid] = useState(false)
+  const [loadedFor, setLoadedFor] = useState<string | null>(null)
+  if (open && editing && loadedFor !== editing.id) {
+    setLoadedFor(editing.id)
+    setQty(Object.fromEntries(editing.items.map((i) => [i.productId, i.qty])))
+    setStaffId(editing.staffId ?? '')
+    setMethod(editing.method)
+    setReason('')
+    setConfirmVoid(false)
+    setError(null)
+  }
+  if (!open && loadedFor) setLoadedFor(null)
   const items = Object.entries(qty).filter(([, n]) => n > 0)
   const total = items.reduce((t, [id, n]) => t + (products?.find((p) => p.id === id)?.price ?? 0) * n, 0)
 
@@ -201,31 +245,89 @@ function SalePanel({
     onError: (e) => setError(errorMessage(e)),
   })
   const step = (id: string, d: number) => setQty((q) => ({ ...q, [id]: Math.max(0, Math.min(99, (q[id] ?? 0) + d)) }))
+  const done = async (message: string) => {
+    await qc.invalidateQueries({ queryKey: ['admin'] })
+    toast(message)
+    onClose()
+  }
+  const correct = useMutation({
+    mutationFn: () =>
+      repo.correctSale(
+        editing!.id,
+        { items: items.map(([productId, n]) => ({ productId, qty: n })), staffId, method },
+        reason,
+      ),
+    onSuccess: (s) => done(`Venta corregida · ${money(s.total)}`),
+    onError: (e) => setError(errorMessage(e)),
+  })
+  const voidSale = useMutation({
+    mutationFn: () => repo.voidSale(editing!.id, reason),
+    onSuccess: () => done('Venta anulada'),
+    onError: (e) => setError(errorMessage(e)),
+  })
+  const busy = save.isPending || correct.isPending || voidSale.isPending
 
   return (
     <SidePanel
       open={open}
       onOpenChange={(o) => !o && onClose()}
-      title="Registrar venta"
-      description="Productos vendidos en mostrador, sin cita. Los que se venden en una cita se agregan al cobrarla."
+      title={editing ? 'Corregir venta' : 'Registrar venta'}
+      description={
+        editing
+          ? 'Cambia productos, quién la vendió o la forma de pago. Se conserva la hora de la venta.'
+          : 'Productos vendidos en mostrador, sin cita. Los que se venden en una cita se agregan al cobrarla.'
+      }
       footer={
         <>
+          {editing && (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => {
+                if (!reason.trim()) return setError('Escribe el motivo para anular la venta.')
+                if (!confirmVoid) return setConfirmVoid(true)
+                voidSale.mutate()
+              }}
+              className={buttonClass({
+                variant: confirmVoid ? 'danger' : 'ghost',
+                size: 'sm',
+                className: 'sm:mr-auto',
+              })}
+            >
+              {confirmVoid ? '¿Seguro? Anular venta' : 'Anular venta'}
+            </button>
+          )}
           <button type="button" onClick={onClose} className={buttonClass({ variant: 'secondary', size: 'sm' })}>
             Cancelar
           </button>
           <button
             type="button"
-            disabled={!items.length || !staffId || save.isPending}
-            onClick={() => save.mutate()}
+            disabled={!items.length || !staffId || busy}
+            onClick={() => {
+              if (!editing) return save.mutate()
+              if (!reason.trim()) return setError('Escribe el motivo de la corrección.')
+              correct.mutate()
+            }}
             className={buttonClass({ size: 'sm' })}
           >
-            Cobrar {money(total)}
+            {editing ? `Guardar corrección · ${money(total)}` : `Cobrar ${money(total)}`}
           </button>
         </>
       }
     >
       <div className="grid grid-cols-[minmax(0,1fr)] gap-5">
         {error && <Alert tone="danger" title={error} />}
+        {editing && (
+          <Input
+            label="Motivo de la corrección"
+            placeholder="Ej. eran dos piezas"
+            value={reason}
+            onChange={(e) => {
+              setReason(e.target.value)
+              setConfirmVoid(false)
+            }}
+          />
+        )}
         <div className="grid gap-4">
           <div className="grid gap-1.5">
             <p className="text-[13px] font-medium">Forma de pago</p>
@@ -250,14 +352,14 @@ function SalePanel({
         </div>
         {!products ? (
           <Skeleton className="h-48 rounded-lg" />
-        ) : products.filter((p) => p.active).length === 0 ? (
+        ) : products.filter((p) => p.active || qty[p.id]).length === 0 ? (
           <p className="text-sm text-fg-muted">
             No hay productos a la venta. Agrégalos en Servicios y precios › Productos.
           </p>
         ) : (
           <ul className="divide-y divide-line rounded-md border border-line" aria-label="Productos">
             {products
-              .filter((p) => p.active)
+              .filter((p) => p.active || qty[p.id])
               .map((p) => {
                 const n = qty[p.id] ?? 0
                 return (

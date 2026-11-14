@@ -541,6 +541,57 @@ export class MockAdminRepository implements AdminRepository {
     return this.booking.adminCreateAppointment(input)
   }
 
+  /** Corrections are for the owner and the developer only (as in the database). */
+  private async owner(what: string): Promise<AdminUser> {
+    const me = (await this.getSession())?.user
+    if (!me || !isOwnerRole(me.role)) throw new InvalidRequestError(`Solo el dueño o el desarrollador pueden ${what}.`)
+    return me
+  }
+
+  async editAppointment(id: ID, change: { serviceIds: ID[]; customerId: ID; notes: string }): Promise<Appointment> {
+    await this.owner('editar una cita')
+    return this.booking.adminEditAppointment(id, change)
+  }
+
+  async correctPayment(
+    id: ID,
+    payment: PaymentInput & { serviceIds: ID[] },
+    reason: string,
+  ): Promise<StatusChangeResult> {
+    const me = await this.owner('corregir un cobro')
+    const { discount, ...rest } = payment
+    return this.booking.adminCorrectPayment(
+      id,
+      {
+        ...rest,
+        ...(discount
+          ? { discount: { amount: discount.amount, reason: discount.reason, authorizedBy: me.id, authorizedByName: me.name } }
+          : {}),
+      },
+      reason,
+      me.name,
+    )
+  }
+
+  async voidPayment(id: ID, reason: string): Promise<void> {
+    await this.owner('anular un cobro')
+    return this.booking.adminVoidPayment(id, reason)
+  }
+
+  async correctSale(
+    id: ID,
+    sale: { items: { productId: ID; qty: number }[]; staffId: ID; method: PaymentMethod },
+    reason: string,
+  ): Promise<ProductSale> {
+    const me = await this.owner('corregir una venta')
+    return this.booking.adminCorrectSale(id, sale, reason, me.name)
+  }
+
+  async voidSale(id: ID, reason: string): Promise<void> {
+    await this.owner('anular una venta')
+    return this.booking.adminVoidSale(id, reason)
+  }
+
   rescheduleAppointment(id: ID, change: { startsAt: string; staffId: ID }): Promise<Appointment> {
     return this.booking.adminReschedule(id, change)
   }

@@ -88,6 +88,19 @@ export interface AdminRepository {
   updateAppointmentNotes(id: ID, notes: string): Promise<Appointment>
   createBlock(input: NewBlock): Promise<TimeBlock>
   deleteBlock(id: ID): Promise<void>
+  // Corrections (owner and developer only; a reason is required where there is money).
+  /** Services, customer and notes of an appointment that is not charged yet. */
+  editAppointment(id: ID, change: { serviceIds: ID[]; customerId: ID; notes: string }): Promise<Appointment>
+  /** Replace a charge (same time, cash day and week); stamps follow. Errors: closed day or week. */
+  correctPayment(id: ID, payment: PaymentInput & { serviceIds: ID[] }, reason: string): Promise<StatusChangeResult>
+  /** Undo a charge: the appointment is open again and the stamps card goes back. */
+  voidPayment(id: ID, reason: string): Promise<void>
+  correctSale(
+    id: ID,
+    sale: { items: { productId: ID; qty: number }[]; staffId: ID; method: PaymentMethod },
+    reason: string,
+  ): Promise<ProductSale>
+  voidSale(id: ID, reason: string): Promise<void>
   findCustomers(query: string): Promise<Customer[]>
   getLoyaltyForCustomer(customerId: ID): Promise<LoyaltyCard | null>
 
