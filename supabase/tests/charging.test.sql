@@ -38,6 +38,16 @@ select pg_temp.check((select status from public.appointments where id = 'a1') = 
 select public.complete_appointment('a5', '{"method":"card","tip":0}');
 select pg_temp.check((select status from public.appointments where id = 'a5') = 'completed', 'se puede cobrar antes de la hora de la cita');
 
+-- A service added during the visit joins the appointment at catalog price.
+insert into public.appointments (id, customer_id, staff_id, service_ids, starts_at, ends_at, duration_min, total_price, status) values
+  ('a6', 'c2', 'leonardo', '{bigote}', now() + interval '4 days', now() + interval '4 days 15 minutes', 15, 150, 'confirmed');
+select public.complete_appointment('a6', '{"method":"cash","tip":0,"addServices":["corte-adulto","bigote"]}');
+select pg_temp.check(
+  (select service_ids = '{bigote,corte-adulto}' and total_price = 150 + (select price from public.services where id = 'corte-adulto') from public.appointments where id = 'a6')
+  and (select amount from public.payments where appointment_id = 'a6') = 150 + (select price from public.services where id = 'corte-adulto'),
+  'servicio agregado al cobrar: se suma a la cita y al cobro'
+);
+
 -- Reception can't discount without an owner's or manager's approval.
 do $$ begin
   perform public.complete_appointment('a3', '{"method":"cash","tip":0,"discount":{"amount":30,"reason":"Promo"}}');

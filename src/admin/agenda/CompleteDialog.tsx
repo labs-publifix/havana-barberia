@@ -1,11 +1,11 @@
 import { useState, type KeyboardEvent } from 'react'
-import { ArrowLeftRight, Banknote, CreditCard, Minus, Plus, type LucideIcon } from 'lucide-react'
+import { ArrowLeftRight, Banknote, Check, CreditCard, Minus, Plus, type LucideIcon } from 'lucide-react'
 import { Alert } from '@/components/ui/Alert'
 import { buttonClass } from '@/components/ui/buttonClass'
 import { SidePanel } from '../ui/SidePanel'
 import type { Appointment, PaymentMethod, Product, Service } from '@/domain/types'
 import { cn } from '@/lib/cn'
-import { money } from '@/lib/time'
+import { durationLabel, money } from '@/lib/time'
 import { methodLabels } from '../cash'
 import type { PaymentInput } from '../domain'
 import { Input, Segmented, Switch } from '../ui/controls'
@@ -42,6 +42,7 @@ export function CompleteDialog({
   onConfirm,
   reward,
   products = [],
+  services = [],
   canAuthorize = false,
 }: {
   appointment: Appointment
@@ -54,6 +55,8 @@ export function CompleteDialog({
   reward?: { service: Service; amount: number } | null
   /** Products on sale. */
   products?: Product[]
+  /** Catalog services (active ones can be added to the visit). */
+  services?: Service[]
   /** The signed-in user is owner or manager (authorizes discounts themselves). */
   canAuthorize?: boolean
 }) {
@@ -65,6 +68,8 @@ export function CompleteDialog({
   const [useReward, setUseReward] = useState(false)
   const [qty, setQty] = useState<Record<string, number>>({})
   const [showProducts, setShowProducts] = useState(false)
+  const [added, setAdded] = useState<string[]>([])
+  const [showServices, setShowServices] = useState(false)
   const [hasDiscount, setHasDiscount] = useState(false)
   const [discount, setDiscount] = useState({ amount: '', reason: '', email: '', password: '' })
   const [split, setSplit] = useState(false)
@@ -81,6 +86,8 @@ export function CompleteDialog({
     setUseReward(false)
     setQty({})
     setShowProducts(false)
+    setAdded([])
+    setShowServices(false)
     setHasDiscount(false)
     setDiscount({ amount: '', reason: '', email: '', password: '' })
     setSplit(false)
@@ -99,10 +106,14 @@ export function CompleteDialog({
 
   const rewardOff = useReward && reward ? reward.amount : 0
   const discountOff = hasDiscount ? num(discount.amount) : 0
-  const services = Math.max(0, a.totalPrice - rewardOff - discountOff)
+  // Services added during the visit, at catalog price.
+  const extra = services.filter((s) => s.active && !a.serviceIds.includes(s.id))
+  const addedTotal = added.reduce((t, id) => t + (services.find((s) => s.id === id)?.price ?? 0), 0)
+  const base = a.totalPrice + addedTotal
+  const servicesCharge = Math.max(0, base - rewardOff - discountOff)
   const sold = Object.entries(qty).filter(([, n]) => n > 0)
   const productsTotal = sold.reduce((t, [id, n]) => t + (products.find((p) => p.id === id)?.price ?? 0) * n, 0)
-  const charge = services + productsTotal
+  const charge = servicesCharge + productsTotal
   const tipAmount = hasTip ? num(tip) : 0
   const total = charge + tipAmount
   const splitSum = num(parts.cash) + num(parts.card) + num(parts.transfer)
@@ -120,7 +131,7 @@ export function CompleteDialog({
   const confirm = () => {
     if (hasDiscount) {
       if (discountOff <= 0) return setLocal('Escribe el monto del descuento o desactívalo.')
-      if (discountOff > a.totalPrice - rewardOff) return setLocal('El descuento no puede ser mayor a lo que se cobra.')
+      if (discountOff > base - rewardOff) return setLocal('El descuento no puede ser mayor a lo que se cobra.')
       if (!discount.reason.trim()) return setLocal('Escribe el motivo del descuento.')
       if (!canAuthorize && (!discount.email.trim() || !discount.password))
         return setLocal('El descuento necesita el correo y la contraseña del dueño o gerente.')
@@ -146,6 +157,7 @@ export function CompleteDialog({
         ...(useReward && reward ? { useReward: true } : {}),
         ...(splits ? { splits } : {}),
         ...(sold.length ? { products: sold.map(([productId, n]) => ({ productId, qty: n })) } : {}),
+        ...(added.length ? { addServiceIds: added } : {}),
         ...(hasDiscount
           ? {
               discount: {
@@ -169,7 +181,7 @@ export function CompleteDialog({
       wide
       onOpenChange={(o) => !o && onCancel()}
       title="Completar y cobrar"
-      description={`${a.customer.name} · servicios ${money(a.totalPrice)}`}
+      description={`${a.customer.name} · servicios ${money(base)}`}
       footer={
         <>
           <button type="button" onClick={onCancel} className={buttonClass({ variant: 'secondary', size: 'sm' })}>
@@ -197,6 +209,59 @@ export function CompleteDialog({
               checked={useReward}
               onChange={setUseReward}
             />
+          </div>
+        )}
+
+        {extra.length > 0 && (
+          <div className="grid grid-cols-[minmax(0,1fr)] gap-3 rounded-lg border border-line p-4">
+            <Switch
+              label="Agregar servicios"
+              description={
+                added.length
+                  ? `${added.length} ${added.length === 1 ? 'servicio agregado' : 'servicios agregados'} · ${money(addedTotal)}`
+                  : 'Si durante la cita pidió otro servicio, agrégalo aquí y se cobra con su precio de lista.'
+              }
+              checked={showServices}
+              onChange={setShowServices}
+            />
+            {showServices && (
+              <ul className="divide-y divide-line rounded-md border border-line" aria-label="Servicios para agregar">
+                {extra.map((s) => {
+                  const on = added.includes(s.id)
+                  return (
+                    <li key={s.id} className="flex items-center gap-2 px-3 py-2">
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-sm font-medium [overflow-wrap:anywhere]">{s.name}</span>
+                        <span className="tabular text-[13px] text-fg-muted">
+                          {money(s.price)} · {durationLabel(s.durationMin)}
+                        </span>
+                      </span>
+                      <button
+                        type="button"
+                        aria-pressed={on}
+                        onClick={() => setAdded((x) => (on ? x.filter((id) => id !== s.id) : [...x, s.id]))}
+                        className={buttonClass({
+                          variant: on ? 'primary' : 'secondary',
+                          size: 'sm',
+                          className: 'shrink-0',
+                        })}
+                      >
+                        {on ? (
+                          <>
+                            <Check className="size-4" aria-hidden /> Agregado
+                          </>
+                        ) : (
+                          <>
+                            <Plus className="size-4" aria-hidden /> Agregar
+                          </>
+                        )}
+                        <span className="sr-only"> {s.name}</span>
+                      </button>
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
           </div>
         )}
 
@@ -407,8 +472,8 @@ export function CompleteDialog({
 
         <dl className="grid gap-1 rounded-lg bg-surface px-4 py-3 text-sm">
           <div className="flex justify-between">
-            <dt className="text-fg-muted">Servicios</dt>
-            <dd className="tabular">{money(a.totalPrice)}</dd>
+            <dt className="text-fg-muted">Servicios{addedTotal ? ' (con los agregados)' : ''}</dt>
+            <dd className="tabular">{money(base)}</dd>
           </div>
           {rewardOff > 0 && (
             <div className="flex justify-between">

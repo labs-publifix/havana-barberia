@@ -1087,6 +1087,7 @@ export class SupabaseAdminRepository implements AdminRepository {
         useReward: !!payment.useReward,
         splits: payment.splits ?? null,
         products: payment.products ?? [],
+        addServices: payment.addServiceIds ?? [],
         ...(discount ? { discount } : {}),
       },
     })
