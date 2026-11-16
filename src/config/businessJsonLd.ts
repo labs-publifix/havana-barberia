@@ -8,6 +8,10 @@ const DAY = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', '
  * schema.org BarberShop for the home page. Written into the static HTML at
  * build time with the configured hours, then refreshed in the browser with
  * the hours from Ajustes › Horario (LocalBusinessJsonLd).
+ *
+ * No aggregateRating: Google rejects ratings a business publishes about
+ * itself («tipo de objeto <parent_node> no válido»); the stars come from the
+ * Google Business Profile.
  */
 export function businessJsonLd(weekly: WeeklySchedule = business.hours.weekly) {
   return {
@@ -35,12 +39,6 @@ export function businessJsonLd(weekly: WeeklySchedule = business.hours.weekly) {
     openingHoursSpecification: weekly.flatMap((ranges, wd) =>
       ranges.map((r) => ({ '@type': 'OpeningHoursSpecification', dayOfWeek: DAY[wd], opens: r.start, closes: r.end })),
     ),
-    aggregateRating: {
-      '@type': 'AggregateRating',
-      ratingValue: business.rating.value,
-      reviewCount: business.rating.count,
-      bestRating: 5,
-    },
     potentialAction: {
       '@type': 'ReserveAction',
       target: { '@type': 'EntryPoint', urlTemplate: `${SITE_URL}/reservar`, actionPlatform: ['https://schema.org/DesktopWebPlatform', 'https://schema.org/MobileWebPlatform'] },
