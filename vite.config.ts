@@ -6,6 +6,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath, URL } from 'node:url'
 import { SEO_PAGES, seoHead, sitemapXml } from './src/config/seo'
 import { businessJsonLd, jsonLdScript } from './src/config/businessJsonLd'
+import { LOGO_SIZES } from './src/components/logoSizes'
 
 const SEO_MARK = /<!--seo-->[\s\S]*?<!--\/seo-->/
 const seoBlock = (path: string, extra = '') => `<!--seo-->\n    ${seoHead(path, extra)}\n    <!--/seo-->`
@@ -70,6 +71,10 @@ function preloadHero(): Plugin {
         // Home hero poster (LCP): 640w and 1280w versions, chosen by the browser.
         const poster = files.find((f) => /(^|\/)hero-poster-[\w-]+\.webp$/.test(f) && !/-(640|blur)-/.test(f))
         const poster640 = files.find((f) => /(^|\/)hero-poster-640-[\w-]+\.webp$/.test(f))
+        // The navbar logo is the LCP element on phones: fetch it with the HTML,
+        // not after the app renders (same srcset and sizes as <Logo>).
+        const logo320 = files.find((f) => /(^|\/)logo-white-320-[\w-]+\.webp$/.test(f))
+        const logo640 = files.find((f) => /(^|\/)logo-white-640-[\w-]+\.webp$/.test(f))
         // The display heading uses Geist 700: fetch it early so the LCP text does not wait.
         const font = files.find((f) => /geist-sans-latin-700-normal-[\w-]+\.woff2$/.test(f))
         const tags = [
@@ -83,6 +88,22 @@ function preloadHero(): Plugin {
                     href: `${base}${poster}`,
                     imagesrcset: `${base}${poster640} 640w, ${base}${poster} 1280w`,
                     imagesizes: '100vw',
+                    fetchpriority: 'high',
+                  },
+                  injectTo: 'head' as const,
+                },
+              ]
+            : []),
+          ...(logo320 && logo640
+            ? [
+                {
+                  tag: 'link',
+                  attrs: {
+                    rel: 'preload',
+                    as: 'image',
+                    href: `${base}${logo320}`,
+                    imagesrcset: `${base}${logo320} 320w, ${base}${logo640} 640w`,
+                    imagesizes: LOGO_SIZES,
                     fetchpriority: 'high',
                   },
                   injectTo: 'head' as const,
@@ -115,6 +136,10 @@ export default defineConfig(({ mode }) => {
     build: {
       target: 'es2022',
       assetsInlineLimit: 0,
+      rollupOptions: {
+        // The demo data has no side effects: the real build (Supabase) drops it.
+        treeshake: { moduleSideEffects: (id) => !id.includes('/src/data/mock/') },
+      },
     },
     test: {
       environment: 'jsdom',

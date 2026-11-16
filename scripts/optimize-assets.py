@@ -8,7 +8,8 @@ Sources (kept in the repo, never served directly):
   brand/logo-{white,black}-source.png   5525x3604 RGBA
   services/*-source.png                 1024x768
   team/*-source.png                     1024x1024 and 768x1024
-  video/hero-loop.mp4                   served as-is (poster extracted here)
+  video/hero-loop.mp4                   served as-is on tablet and desktop (poster extracted here)
+  video/hero-loop-480.mp4               phones (<768 px), re-encoded here
 
 Never upscales: every output is at most the source size.
 Requires Pillow and ffmpeg.
@@ -91,6 +92,9 @@ for src in sorted((A / "team").glob("*-source.png")):
 
 # --- Video poster (first frame) and a blurred version for the scrolled backdrop ---------
 print("video")
+subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", str(A / "video" / "hero-loop.mp4"), "-vf", "scale=854:480",
+                "-c:v", "libx264", "-profile:v", "high", "-preset", "slow", "-crf", "28", "-pix_fmt", "yuv420p", "-an",
+                "-movflags", "+faststart", str(A / "video" / "hero-loop-480.mp4")], check=True)
 frame = A / "video" / "_frame0.png"
 subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", str(A / "video" / "hero-loop.mp4"), "-frames:v", "1", str(frame)], check=True)
 poster = Image.open(frame).convert("RGB")
