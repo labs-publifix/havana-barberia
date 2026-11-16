@@ -1,0 +1,56 @@
+import type { WeeklySchedule } from '@/domain/types'
+import { business } from './business'
+import { OG_IMAGE, SITE_URL } from './seo'
+
+const DAY = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+
+/**
+ * schema.org BarberShop for the home page. Written into the static HTML at
+ * build time with the configured hours, then refreshed in the browser with
+ * the hours from Ajustes › Horario (LocalBusinessJsonLd).
+ */
+export function businessJsonLd(weekly: WeeklySchedule = business.hours.weekly) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'BarberShop',
+    '@id': `${SITE_URL}/#barberia`,
+    name: business.name,
+    description: 'Barbería en Querétaro: corte, fade, barba, afeitado y faciales. Reserva en línea.',
+    url: `${SITE_URL}/`,
+    telephone: '+52 442 537 7844',
+    image: SITE_URL + OG_IMAGE.path,
+    logo: `${SITE_URL}/apple-touch-icon.png`,
+    priceRange: '$$',
+    currenciesAccepted: 'MXN',
+    address: {
+      '@type': 'PostalAddress',
+      streetAddress: 'Prol. Av. Zaragoza 46, Las Plazas',
+      addressLocality: 'Santiago de Querétaro',
+      addressRegion: 'Querétaro',
+      postalCode: '76180',
+      addressCountry: 'MX',
+    },
+    areaServed: { '@type': 'City', name: 'Santiago de Querétaro' },
+    hasMap: business.reviewsHref,
+    openingHoursSpecification: weekly.flatMap((ranges, wd) =>
+      ranges.map((r) => ({ '@type': 'OpeningHoursSpecification', dayOfWeek: DAY[wd], opens: r.start, closes: r.end })),
+    ),
+    aggregateRating: {
+      '@type': 'AggregateRating',
+      ratingValue: business.rating.value,
+      reviewCount: business.rating.count,
+      bestRating: 5,
+    },
+    potentialAction: {
+      '@type': 'ReserveAction',
+      target: { '@type': 'EntryPoint', urlTemplate: `${SITE_URL}/reservar`, actionPlatform: ['https://schema.org/DesktopWebPlatform', 'https://schema.org/MobileWebPlatform'] },
+      result: { '@type': 'Reservation', name: 'Cita en Havana Barbería' },
+    },
+    ...(business.instagramUrl ? { sameAs: [business.instagramUrl] } : {}),
+  }
+}
+
+export const JSON_LD_ID = 'ld-business'
+
+export const jsonLdScript = (data: object) =>
+  `<script type="application/ld+json" id="${JSON_LD_ID}">${JSON.stringify(data).replace(/</g, '\\u003c')}</script>`

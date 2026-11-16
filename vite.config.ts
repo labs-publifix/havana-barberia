@@ -1,7 +1,53 @@
 /// <reference types="vitest/config" />
 import { defineConfig, loadEnv, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
 import { fileURLToPath, URL } from 'node:url'
+import { SEO_PAGES, seoHead, sitemapXml } from './src/config/seo'
+import { businessJsonLd, jsonLdScript } from './src/config/businessJsonLd'
+
+const SEO_MARK = /<!--seo-->[\s\S]*?<!--\/seo-->/
+const seoBlock = (path: string, extra = '') => `<!--seo-->\n    ${seoHead(path, extra)}\n    <!--/seo-->`
+
+/**
+ * Search metadata. Every public page gets its own static HTML with its title,
+ * description, canonical and Open Graph tags (servicios.html and so on: Pages
+ * serves /servicios from it with a 200, not through 404.html), plus
+ * sitemap.xml. Only the build at the site root is indexed; other bases (the
+ * demo) are noindex.
+ */
+function seoPages(): Plugin {
+  let base = '/'
+  let outDir = 'dist'
+  return {
+    name: 'havana:seo-pages',
+    configResolved(config) {
+      base = config.base
+      outDir = config.build.outDir
+    },
+    transformIndexHtml: {
+      order: 'pre',
+      handler: (html) =>
+        // A function, so «$$» in the JSON-LD is not read as a replacement pattern.
+        html.replace('<!--seo-->', () =>
+          seoBlock('/', base === '/' ? jsonLdScript(businessJsonLd()) : '<meta name="robots" content="noindex" />'),
+        ),
+    },
+    writeBundle() {
+      if (base !== '/') return
+      const index = readFileSync(join(outDir, 'index.html'), 'utf8')
+      if (!SEO_MARK.test(index)) throw new Error('index.html has no <!--seo--> block')
+      for (const path of Object.keys(SEO_PAGES)) {
+        if (path === '/') continue
+        const file = join(outDir, `${path.slice(1)}.html`)
+        mkdirSync(dirname(file), { recursive: true })
+        writeFileSync(file, index.replace(SEO_MARK, () => seoBlock(path)))
+      }
+      writeFileSync(join(outDir, 'sitemap.xml'), sitemapXml(new Date().toISOString().slice(0, 10)))
+    },
+  }
+}
 
 /**
  * Injects <link rel="preload"> for the hero image and the heading font so the
@@ -64,7 +110,7 @@ export default defineConfig(({ mode }) => {
   const base = env.VITE_BASE || '/havana-barberia/'
   return {
     base,
-    plugins: [react(), preloadHero()],
+    plugins: [react(), preloadHero(), seoPages()],
     resolve: { alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) } },
     build: {
       target: 'es2022',

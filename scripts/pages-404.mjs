@@ -9,5 +9,10 @@ const base = process.argv[2] ?? '/demo/'
 const redirect = `<script>(function(){var b=${JSON.stringify(base)},l=location;if(l.pathname.indexOf(b)===0&&l.pathname!==b){var q=l.search?"&"+l.search.slice(1):"";l.replace(b+"?p="+encodeURIComponent(l.pathname.slice(b.length-1))+q+l.hash)}})()</script>`
 const html = readFileSync('dist/index.html', 'utf8')
 if (!html.includes('<head>')) throw new Error('dist/index.html has no <head>')
-writeFileSync('dist/404.html', html.replace('<head>', `<head>${redirect}`))
+// Not a page for search engines: its own title and noindex instead of the home
+// page's canonical, Open Graph and structured data (the app sets the title).
+const head = '<title>Havana Barbería</title>\n    <meta name="robots" content="noindex" />'
+const seo = /<!--seo-->[\s\S]*?<!--\/seo-->/
+if (!seo.test(html)) throw new Error('dist/index.html has no <!--seo--> block')
+writeFileSync('dist/404.html', html.replace('<head>', `<head>${redirect}`).replace(seo, () => head))
 console.log('dist/404.html written')

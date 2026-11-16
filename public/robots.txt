@@ -3,3 +3,10 @@ Allow: /
 Disallow: /admin
 Disallow: /demo/
 Disallow: /__ui
+# Personal links sent by e-mail (appointment, confirmation, loyalty card, unsubscribe).
+Disallow: /cita/
+Disallow: /confirmacion/
+Disallow: /lealtad/
+Disallow: /baja/
+
+Sitemap: https://havanabarberia.com/sitemap.xml
