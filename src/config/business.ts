@@ -45,6 +45,10 @@ export const business = {
   // TODO(confirm-whatsapp): confirm the WhatsApp number with the client.
   whatsappHref: 'https://wa.me/524425377844',
   website: 'https://havanabarberia.com',
+  /** Public contact e-mail (privacy requests). */
+  email: 'havanabarberia24@gmail.com',
+  /** Legal owner, as named in the privacy notice. */
+  legalOwner: 'Leonardo Gómez Ríos',
   directionsHref: `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(`Havana Barbería, ${address}`)}`,
   // TODO(google-rating): static for now; replace with the live value later.
   rating: { value: 4.8, count: 257 },
