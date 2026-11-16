@@ -4,6 +4,10 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+  # Daily rebuild (03:17 in Querétaro): the prerendered pages pick up prices,
+  # barbers and policies changed in the panel.
+  schedule:
+    - cron: '17 9 * * *'
 
 permissions:
   contents: read
@@ -52,6 +56,12 @@ jobs:
       # /admin/…) open; deep links under /demo/ go to the demo, keeping path and #hash.
       - name: 404 fallback for both builds
         run: node scripts/pages-404.mjs /demo/
+      # Public pages (/, /servicios, /politicas, /privacidad) get their HTML
+      # rendered in Chrome with live data, so they paint before any JavaScript.
+      # After the 404 step: the fallback stays an empty shell. A page that
+      # can't be rendered is left client-rendered; the deploy goes on.
+      - name: Prerender the public pages
+        run: node scripts/prerender.mjs dist
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

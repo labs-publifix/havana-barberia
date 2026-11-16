@@ -25,6 +25,16 @@
   animation-delay: var(--d, 0ms);
 }
 
+/* ---------- Prerendered pages (src/app/boot.ts) ----------
+   The HTML is already on screen: the app that takes its place must not
+   replay the entrance, and nothing fades while it swaps in. */
+html[data-prerendered] .hero-in {
+  animation: none;
+}
+html.booting [data-reveal] {
+  transition: none;
+}
+
 /* ---------- Fixed hero backdrop: blur and veil grow with --hero-progress ---------- */
 .hero-backdrop {
   --p: var(--hero-progress, 0);

@@ -1,7 +1,9 @@
-import { StrictMode } from 'react'
+import { StrictMode, startTransition } from 'react'
 import { createRoot } from 'react-dom/client'
 import App from './App'
 import { AppProviders } from './app/AppProviders'
+import { createQueryClient } from './app/queryClient'
+import { mountPoint, whenReady } from './app/boot'
 import { createBookingRepository } from './data'
 import './styles/index.css'
 
@@ -32,11 +34,24 @@ if (accountLink && window.location.pathname !== setPasswordPath) {
 }
 
 const repository = createBookingRepository()
+const client = createQueryClient()
+const { container, swap, prerendered } = mountPoint()
 
-createRoot(document.getElementById('root')!).render(
+const app = (
   <StrictMode>
-    <AppProviders repository={repository}>
+    <AppProviders repository={repository} client={client}>
       <App />
     </AppProviders>
-  </StrictMode>,
+  </StrictMode>
 )
+const root = createRoot(container)
+// Behind a prerendered page nothing waits on this render: let React split it
+// into small chunks so taps and scrolls on the static page stay responsive.
+if (prerendered) startTransition(() => root.render(app))
+else root.render(app)
+
+void whenReady(container, client).then((state) => {
+  swap()
+  // scripts/prerender.mjs waits for this before taking the snapshot.
+  document.documentElement.dataset.ready = state
+})

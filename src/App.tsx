@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect } from 'react'
+import { lazy, Suspense, useEffect, useRef } from 'react'
 import { BrowserRouter, Route, Routes, useLocation } from 'react-router-dom'
 import Home from '@/pages/Home'
 
@@ -26,9 +26,15 @@ const galleryEnabled = import.meta.env.DEV || import.meta.env.VITE_UI_GALLERY ==
 /** Router basename comes from VITE_BASE ("/havana-barberia/" or "/"). */
 const basename = import.meta.env.BASE_URL.replace(/\/$/, '') || '/'
 
+/** Top of the page on route changes; not on the first load (keeps the scroll of a prerendered page). */
 function ScrollToTop() {
   const { pathname } = useLocation()
+  const first = useRef(true)
   useEffect(() => {
+    if (first.current) {
+      first.current = false
+      return
+    }
     window.scrollTo(0, 0)
   }, [pathname])
   return null
@@ -36,7 +42,7 @@ function ScrollToTop() {
 
 export function AppRoutes() {
   return (
-    <Suspense fallback={<div className="min-h-dvh bg-page" aria-busy="true" />}>
+    <Suspense fallback={<div className="min-h-dvh bg-page" aria-busy="true" data-route-loading="" />}>
       <ScrollToTop />
       <Routes>
         <Route path="/" element={<Home />} />
