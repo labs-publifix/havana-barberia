@@ -3,6 +3,7 @@ import white640 from '@/assets/brand/logo-white-640.webp'
 import black320 from '@/assets/brand/logo-black-320.webp'
 import black640 from '@/assets/brand/logo-black-640.webp'
 import { cn } from '@/lib/cn'
+import { LOGO_SIZES } from './logoSizes'
 
 export type LogoVariant = 'white' | 'black'
 
@@ -33,7 +34,7 @@ export function Logo({
     <img
       src={small}
       srcSet={`${small} 320w, ${large} 640w`}
-      sizes="(min-width: 768px) 200px, 140px"
+      sizes={LOGO_SIZES}
       alt="Havana Barbería"
       width={320}
       height={204}

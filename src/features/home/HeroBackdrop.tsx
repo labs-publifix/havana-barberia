@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type RefObject } from 'react'
 import videoUrl from '@/assets/video/hero-loop.mp4'
+import video480 from '@/assets/video/hero-loop-480.mp4'
 import posterUrl from '@/assets/video/hero-poster.webp'
 import poster640 from '@/assets/video/hero-poster-640.webp'
 import posterBlur from '@/assets/video/hero-poster-blur.webp'
@@ -20,6 +21,8 @@ export function HeroBackdrop({ coverRef }: { coverRef: RefObject<Element | null>
   const reduced = useReducedMotion()
   const saveData = useSaveData()
   const isMobile = useMediaQuery('(max-width: 767px), (pointer: coarse)')
+  // Phones get the 480p loop (≈170 KB instead of 1.2 MB); it sits under a dark veil.
+  const isPhone = useMediaQuery('(max-width: 767px)')
   const allowVideo = !reduced && !saveData
   const [src, setSrc] = useState<string | null>(null)
   const [covered, setCovered] = useState(false)
@@ -27,14 +30,14 @@ export function HeroBackdrop({ coverRef }: { coverRef: RefObject<Element | null>
   // Defer the video until the page (and the poster) has loaded.
   useEffect(() => {
     if (!allowVideo) return
-    const start = () => setSrc(videoUrl)
+    const start = () => setSrc(isPhone ? video480 : videoUrl)
     if (document.readyState === 'complete') {
       const id = window.setTimeout(start, 300)
       return () => window.clearTimeout(id)
     }
     window.addEventListener('load', start, { once: true })
     return () => window.removeEventListener('load', start)
-  }, [allowVideo])
+  }, [allowVideo, isPhone])
 
   // Covered by the solid sections (gallery onward): the backdrop is invisible, so pause.
   useEffect(() => {

@@ -80,6 +80,10 @@ export function Hero() {
             className="hero-in text-[clamp(2.25rem,9.2vw,5.75rem)] font-semibold leading-[1] tracking-[-0.04em]"
             style={delay(90)}
           >
+            {/* Search words inside the H1, as a quiet line above the headline. */}
+            <span className="mb-3 block text-[13px] font-semibold uppercase leading-none tracking-[0.16em] text-white/80 md:mb-4 md:text-sm">
+              Barbería en Querétaro
+            </span>{' '}
             <span className="block whitespace-nowrap">Donde el corte</span>{' '}
             <span className="block whitespace-nowrap font-light italic tracking-[-0.03em]">se vuelve oficio.</span>
           </h1>
