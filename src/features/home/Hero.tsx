@@ -38,7 +38,7 @@ function InfoLine() {
           </span>
         ))}
       </span>
-      <span className="whitespace-nowrap">
+      <span className="whitespace-nowrap" data-live="">
         <span className="mr-2.5 hidden text-gray-400 sm:inline" aria-hidden>
           ·
         </span>

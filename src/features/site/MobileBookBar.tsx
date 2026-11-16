@@ -34,7 +34,9 @@ export function MobileBookBar({ watchId = 'inicio' }: { watchId?: string }) {
       <div className="pb-safe mx-auto flex max-w-xl items-center justify-between gap-4 px-4 pt-3">
         <p className="flex min-w-0 items-center gap-2 whitespace-nowrap text-[13px] text-gray-300">
           <span className={cn('size-2 rounded-full', status.open ? 'bg-aqua-400' : 'bg-gray-500')} aria-hidden />
-          <span className="tabular">{status.short}</span>
+          <span className="tabular" data-live="">
+            {status.short}
+          </span>
         </p>
         <Link
           to={routes.book()}

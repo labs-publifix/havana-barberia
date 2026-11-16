@@ -168,7 +168,9 @@ export function SiteNav({ startFloating = false }: { startFloating?: boolean }) 
                     </Link>
                   </nav>
                   <div className="mt-auto grid gap-3 pb-4">
-                    <p className="text-sm text-gray-300">{status.label}</p>
+                    <p className="text-sm text-gray-300" data-live="">
+                      {status.label}
+                    </p>
                     <Link
                       to={routes.book()}
                       onClick={() => setMenuOpen(false)}

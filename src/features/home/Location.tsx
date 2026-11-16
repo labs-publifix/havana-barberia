@@ -72,7 +72,9 @@ export function Location() {
               )}
             >
               <span className="size-1.5 rounded-full bg-current" aria-hidden />
-              <span className="tabular">{status.open ? 'Abierto ahora' : status.short}</span>
+              <span className="tabular" data-live="">
+                {status.open ? 'Abierto ahora' : status.short}
+              </span>
             </span>
           </div>
           <table className="w-full text-left">
