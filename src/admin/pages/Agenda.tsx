@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useQueries } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
-import { Ban, CalendarPlus, ChevronLeft, ChevronRight, Footprints } from 'lucide-react'
+import { Ban, CalendarPlus, ChevronLeft, ChevronRight } from 'lucide-react'
 import { CalendarConnect } from '../agenda/CalendarConnect'
 import { useNow } from '@/app/useNow'
 import { Avatar } from '@/components/booking/Avatar'
@@ -248,23 +248,15 @@ export default function Agenda() {
               />
             </div>
           )}
+          {/* Walk-ins: the «Walk-in» button in the top bar (every screen). */}
           {canManage && (
-            <>
-              <button
-                type="button"
-                onClick={() => setBlockDraft({ mode: 'new', staffId: barberParam, date })}
-                className={buttonClass({ variant: 'secondary', size: 'sm' })}
-              >
-                <Ban className="size-4" strokeWidth={1.75} aria-hidden /> Bloquear
-              </button>
-              <button
-                type="button"
-                onClick={() => startNew('walk_in', { date: today })}
-                className={buttonClass({ variant: 'secondary', size: 'sm' })}
-              >
-                <Footprints className="size-4" strokeWidth={1.75} aria-hidden /> Walk-in
-              </button>
-            </>
+            <button
+              type="button"
+              onClick={() => setBlockDraft({ mode: 'new', staffId: barberParam, date })}
+              className={buttonClass({ variant: 'secondary', size: 'sm' })}
+            >
+              <Ban className="size-4" strokeWidth={1.75} aria-hidden /> Bloquear
+            </button>
           )}
         </div>
       </div>

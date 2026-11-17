@@ -24,17 +24,20 @@ function Clock() {
   const tz = business.hours.timeZone
   const date = capitalize(formatInTimeZone(now, tz, "EEEE d 'de' MMMM", { locale: es }))
   return (
-    <p className="tabular hidden whitespace-nowrap text-sm text-fg-muted md:block">
+    // From 1280px (the shop's screen); narrower, the booking buttons need the room.
+    <p className="tabular hidden whitespace-nowrap text-sm text-fg-muted xl:block">
       {date} · <span className="font-semibold text-fg">{formatTime12(localTime(now, tz))}</span>
     </p>
   )
 }
 
 /**
- * Always-visible "Agendar cita" for calls and WhatsApp messages: opens the
- * booking panel on any screen ("N" does the same). Barbers do not book.
+ * Always-visible booking buttons, on any screen. Barbers do not book.
+ * - "Walk-in" ("W"): someone who just walked in; the booking panel opens in
+ *   walk-in mode and the appointment starts at the current minute.
+ * - "Agendar cita" ("N"): calls and WhatsApp messages.
  */
-function BookButton() {
+function BookButtons() {
   const { user } = useAdminSession()
   const { repo } = useAdminAuth()
   const booking = useNewAppointment()
@@ -44,13 +47,15 @@ function BookButton() {
   useEffect(() => {
     if (off) return
     const onKey = (e: KeyboardEvent) => {
-      if ((e.key !== 'n' && e.key !== 'N') || e.metaKey || e.ctrlKey || e.altKey) return
+      if (e.metaKey || e.ctrlKey || e.altKey) return
+      const key = e.key.toLowerCase()
+      if (key !== 'n' && key !== 'w') return
       const el = e.target as HTMLElement
       if (el.closest('input, textarea, select, [contenteditable], [role="listbox"], [role="menu"]')) return
       // Not while a panel, dialog or popover is open.
       if (document.querySelector('[role="dialog"][data-state="open"]')) return
       e.preventDefault()
-      booking.open()
+      booking.open(key === 'w' ? { kind: 'walk_in' } : undefined)
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -58,18 +63,32 @@ function BookButton() {
 
   if (off) return null
   return (
-    <button
-      type="button"
-      onClick={() => booking.open()}
-      aria-keyshortcuts="N"
-      className={buttonClass({ size: 'sm', className: 'shrink-0 max-sm:w-10 max-sm:px-0' })}
-    >
-      <Plus className="size-4" strokeWidth={2} aria-hidden />
-      <span className="max-sm:sr-only">Agendar cita</span>
-      <span className="hidden coarse:hidden xl:inline-grid">
-        <Kbd>N</Kbd>
-      </span>
-    </button>
+    <>
+      <button
+        type="button"
+        onClick={() => booking.open({ kind: 'walk_in' })}
+        aria-keyshortcuts="W"
+        className={buttonClass({ variant: 'secondary', size: 'sm', className: 'shrink-0' })}
+      >
+        <Plus className="size-4 max-sm:hidden" strokeWidth={2} aria-hidden />
+        Walk-in
+        <span className="hidden coarse:hidden xl:inline-grid">
+          <Kbd>W</Kbd>
+        </span>
+      </button>
+      <button
+        type="button"
+        onClick={() => booking.open()}
+        aria-keyshortcuts="N"
+        className={buttonClass({ size: 'sm', className: 'shrink-0 max-sm:w-10 max-sm:px-0' })}
+      >
+        <Plus className="size-4" strokeWidth={2} aria-hidden />
+        <span className="max-sm:sr-only">Agendar cita</span>
+        <span className="hidden coarse:hidden xl:inline-grid">
+          <Kbd>N</Kbd>
+        </span>
+      </button>
+    </>
   )
 }
 
@@ -185,7 +204,7 @@ export function AdminLayout() {
               </Tip>
               <h1 className="min-w-0 flex-1 truncate text-lg font-semibold tracking-[-0.015em] md:text-xl">{title}</h1>
               <Clock />
-              <BookButton />
+              <BookButtons />
               <NotificationBell />
               <span aria-hidden className="hidden h-6 w-px bg-line md:block" />
               <UserMenu />
