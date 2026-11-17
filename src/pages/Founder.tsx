@@ -29,9 +29,10 @@ function StoryFigure({
   className?: string
   imgClassName?: string
 }) {
-  const w1 = img.widths[1]
+  const w1 = img.widths[img.widths.length - 1]!
   return (
-    <figure className={cn('grid gap-3', className)}>
+    // Small originals are never stretched past their real width.
+    <figure className={cn('grid gap-3', className)} style={w1 < 600 ? { maxWidth: w1 } : undefined}>
       <img
         src={pub(storySrc(img))}
         srcSet={storySrcSet(img)
