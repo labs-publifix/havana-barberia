@@ -58,7 +58,7 @@ export const founder = {
   facts: [
     { label: 'Origen', value: 'Cuba' },
     { label: 'En el oficio desde', value: 'los 12 años' },
-    { label: 'En México desde', value: '2023' },
+    { label: 'Experiencia', value: 'Más de 15 años' },
     { label: 'Fundador de', value: 'Havana Barbería y Cubita' },
   ],
   /** Header photo (4:5 crop of the Havana Barbería shoot), the page's LCP image. */
@@ -70,6 +70,14 @@ export const founder = {
     caption: '',
   } satisfies StoryImage,
   /** «Quién es». */
+  /** «Quién es», right column on desktop (under the text). */
+  clientPhoto: {
+    base: '/img/leonardo-gomez-rios-moldeado-cliente',
+    widths: [640, 1067],
+    ratio: 1600 / 1067,
+    alt: 'Leonardo Gómez Ríos peinando a un cliente con secadora y cepillo en Havana Barbería',
+    caption: 'Cada servicio termina con el acabado: secadora, cepillo y fijación.',
+  } satisfies StoryImage,
   craftPhoto: {
     base: '/img/leonardo-gomez-rios-moldeado-secadora',
     widths: [640, 1066],
@@ -174,6 +182,13 @@ export const founder = {
   brand: {
     name: 'Cubita',
     description: 'Línea de productos profesionales para el cuidado y tratamiento del cabello y la barba.',
+    image: {
+      base: '/img/cubita-productos-capilares-leonardo-gomez-rios',
+      widths: [640, 1200],
+      ratio: 896 / 1200,
+      alt: 'Productos Cubita: shampoos, aceites para barba, pomadas y tratamiento capilar',
+      caption: '',
+    } satisfies StoryImage,
   },
 }
 

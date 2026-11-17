@@ -182,6 +182,8 @@ export default function Founder() {
                 sizes="(min-width: 640px) 440px, 92vw"
                 className="max-w-[440px] lg:hidden"
               />
+              {/* Desktop: fills the space under the text. */}
+              <StoryFigure img={founder.clientPhoto} sizes="440px" className="hidden max-w-[440px] lg:grid" />
             </Reveal>
           </div>
         </section>
@@ -286,7 +288,21 @@ export default function Founder() {
             </div>
 
             <Reveal delay={120} className="grid content-start">
-              <div className="grid gap-4 rounded-2xl border border-white/10 bg-ink-900 p-6 md:p-10">
+              <div className="grid gap-4 overflow-hidden rounded-2xl border border-white/10 bg-ink-900 p-6 md:p-10">
+                <img
+                  src={pub(storySrc(founder.brand.image))}
+                  srcSet={storySrcSet(founder.brand.image)
+                    .split(', ')
+                    .map((p) => pub(p))
+                    .join(', ')}
+                  sizes="(min-width: 1024px) 480px, 88vw"
+                  alt={founder.brand.image.alt}
+                  width={1200}
+                  height={896}
+                  loading="lazy"
+                  decoding="async"
+                  className="h-auto w-full rounded-xl bg-ink-800"
+                />
                 <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-aqua-400">Su línea capilar</p>
                 <h2 className="text-[clamp(2.5rem,6vw,4rem)] font-semibold leading-none tracking-[-0.04em]">
                   {founder.brand.name}
