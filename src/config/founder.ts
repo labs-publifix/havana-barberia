@@ -61,6 +61,23 @@ export const founder = {
     { label: 'En México desde', value: '2023' },
     { label: 'Fundador de', value: 'Havana Barbería y Cubita' },
   ],
+  /** Header photo (4:5 crop of the Havana Barbería shoot), the page's LCP image. */
+  portrait: {
+    base: '/img/leonardo-gomez-rios-retrato-havana-barberia',
+    widths: [480, 640, 960],
+    ratio: 5 / 4,
+    alt: 'Leonardo Gómez Ríos, fundador de Havana Barbería, cortando el cabello con tijera a un cliente',
+    caption: '',
+  } satisfies StoryImage,
+  /** «Quién es». */
+  craftPhoto: {
+    base: '/img/leonardo-gomez-rios-moldeado-secadora',
+    widths: [640, 1066],
+    ratio: 1600 / 1066,
+    alt: 'Leonardo Gómez Ríos moldeando el cabello de un cliente con secadora, en blanco y negro',
+    caption: 'El moldeado con secadora, parte de su servicio completo.',
+  } satisfies StoryImage,
+  /** Full Havana Barbería photo: structured data and share image. */
   hero: {
     base: '/img/leonardo-gomez-rios-barbero-havana-barberia',
     widths: [800, 1600],
