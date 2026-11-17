@@ -113,6 +113,26 @@ export function computeSlots(input: AvailabilityInput): Slot[] {
 /** Total duration of the chosen services. */
 export const totalDuration = (services: { durationMin: number }[]) => services.reduce((s, x) => s + x.durationMin, 0)
 
+/**
+ * The services of a booking in order, repeats included (two haircuts count
+ * twice in duration and price). null when an id is unknown or, with
+ * `activeOnly`, inactive.
+ */
+export function servicesFor<S extends { id: string; active: boolean }>(
+  catalog: S[],
+  ids: string[],
+  activeOnly = true,
+): S[] | null {
+  if (!ids.length) return null
+  const out: S[] = []
+  for (const id of ids) {
+    const s = catalog.find((x) => x.id === id && (!activeOnly || x.active))
+    if (!s) return null
+    out.push(s)
+  }
+  return out
+}
+
 /** Available slots closest in time to `target` (for "that slot was just taken"). */
 export function nearestAvailable(slots: Slot[], target: string, count = 3): Slot[] {
   const t = Date.parse(target)
