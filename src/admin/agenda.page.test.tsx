@@ -200,6 +200,39 @@ describe('admin agenda', () => {
     expect(await screen.findByRole('dialog', { name: 'Agendar cita' })).toBeInTheDocument()
   })
 
+  it('"Walk-in" in the top bar opens the panel in walk-in mode and starts at the current minute', async () => {
+    // Only Date is faked: the walk-in takes the clock at the moment it is saved.
+    vi.useFakeTimers({ toFake: ['Date'], shouldAdvanceTime: true })
+    vi.setSystemTime(zonedInstant(DATE, '11:31', TZ))
+    try {
+      const { user, booking } = await renderAgenda('u-reception')
+      await user.click(screen.getByRole('button', { name: /Walk-in/ }))
+      const panel = await screen.findByRole('dialog', { name: 'Registrar walk-in' })
+      expect(within(panel).getByText(/Empieza ahora, a las/)).toHaveTextContent('11:31 a. m.')
+      await user.click(
+        within(within(panel).getByRole('radiogroup', { name: 'Barbero' })).getByRole('radio', { name: 'Leonardo' }),
+      )
+      await user.click(within(panel).getByRole('checkbox', { name: /Corte de cabello adulto/ }))
+      await user.type(within(panel).getByLabelText('Nombre'), 'Iván Soto')
+      await user.click(within(panel).getByRole('button', { name: 'Registrar walk-in' }))
+
+      expect(await screen.findByText('Walk-in registrado con Leonardo')).toBeInTheDocument()
+      const made = booking.snapshot().appointments.find((a) => a.customer.name === 'Iván Soto')
+      expect(made).toMatchObject({ staffId: 'leonardo', source: 'walk_in' })
+      expect(new Date(made!.startsAt).getTime()).toBe(zonedInstant(DATE, '11:31', TZ).getTime())
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('the W key opens the walk-in panel from any screen', async () => {
+    const { user } = await renderAgenda('u-owner', '')
+    await user.click(screen.getByRole('link', { name: 'Vista general' }))
+    await screen.findByText('Siguiente cita')
+    await user.keyboard('w')
+    expect(await screen.findByRole('dialog', { name: 'Registrar walk-in' })).toBeInTheDocument()
+  })
+
   it('refuses to block time that has appointments', async () => {
     const { user } = await renderAgenda('u-owner')
     await user.click(screen.getByRole('button', { name: 'Bloquear' }))
@@ -223,6 +256,7 @@ describe('admin agenda', () => {
     await column('Agenda de Isaac Fuentes')
     expect(screen.queryByRole('list', { name: 'Agenda de Leonardo Gómez' })).toBeNull()
     expect(screen.queryByRole('button', { name: /Agendar cita/ })).toBeNull()
+    expect(screen.queryByRole('button', { name: /Walk-in/ })).toBeNull()
     const panel = await openAppointment(user, 'Agenda de Isaac Fuentes', /Pablo Ríos/)
     expect(within(panel).getByRole('button', { name: 'Completar y cobrar' })).toBeEnabled()
     expect(within(panel).queryByRole('button', { name: 'Cancelar cita' })).toBeNull()

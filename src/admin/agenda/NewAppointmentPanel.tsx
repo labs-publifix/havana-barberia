@@ -451,8 +451,9 @@ export function NewAppointmentPanel({
       {
         serviceIds,
         staffId: walkIn || afterHours ? staffId : (picked?.staffId ?? staffId),
+        // Walk-in: the exact minute it is saved (11:31, 11:56…), not the panel's clock.
         startsAt: walkIn
-          ? now.toISOString()
+          ? new Date().toISOString()
           : afterHours
             ? zonedInstant(date, ahTime, timeZone).toISOString()
             : startsAt,
