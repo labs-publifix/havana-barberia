@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Appointment, AppointmentPayment } from '@/domain/types'
-import { cashSummary, productsSold } from './cash'
+import { cashAlerts, cashDayStatus, cashSummary, productsSold } from './cash'
 
 let n = 0
 const appt = (status: Appointment['status'], payment?: Partial<AppointmentPayment>): Appointment =>
@@ -73,6 +73,43 @@ describe('cashSummary', () => {
     expect(productsSold([ticket], [counter])).toEqual([
       { at: counter.at, name: 'Aceite de barba', qty: 2, total: 580, customer: null },
       { at: '2026-11-12T01:30:00Z', name: 'Pomada Fijación Media', qty: 1, total: 390, customer: 'Mathias' },
+    ])
+  })
+})
+
+describe('cashDayStatus', () => {
+  const day = (date: string, extra: Partial<Parameters<typeof cashDayStatus>[0]> = {}) => ({
+    date,
+    appointments: [] as unknown[],
+    sales: [] as unknown[],
+    moves: [] as unknown[],
+    close: null as { difference: number } | null,
+    ...extra,
+  })
+  const today = '2026-11-17'
+
+  it('flags a past day with activity and no close, and a close that did not match', () => {
+    expect(cashDayStatus(day('2026-11-16', { appointments: [{}] }), today)).toBe('missing')
+    expect(cashDayStatus(day('2026-11-16', { moves: [{}] }), today)).toBe('missing')
+    expect(cashDayStatus(day('2026-11-16', { close: { difference: -50 } }), today)).toBe('mismatch')
+    expect(cashDayStatus(day('2026-11-16', { close: { difference: 0 } }), today)).toBe('ok')
+  })
+
+  it('does not flag today, nor a day with nothing to close', () => {
+    expect(cashDayStatus(day(today, { appointments: [{}] }), today)).toBe('open')
+    expect(cashDayStatus(day('2026-11-15'), today)).toBe('idle')
+  })
+
+  it('lists only the days that need attention', () => {
+    const days = [
+      day('2026-11-14', { appointments: [{}] }),
+      day('2026-11-15'),
+      day('2026-11-16', { close: { difference: 20 } }),
+      day(today, { sales: [{}] }),
+    ]
+    expect(cashAlerts(days, today).map((a) => [a.day.date, a.status])).toEqual([
+      ['2026-11-14', 'missing'],
+      ['2026-11-16', 'mismatch'],
     ])
   })
 })

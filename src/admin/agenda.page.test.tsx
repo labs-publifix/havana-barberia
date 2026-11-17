@@ -177,6 +177,35 @@ describe('admin agenda', () => {
     expect(made).toMatchObject({ staffId: 'isaac', status: 'confirmed', source: 'panel' })
   })
 
+  it('books the same service twice and more than one service, as when charging', async () => {
+    const { user, booking } = await renderAgenda('u-reception')
+    await user.click(screen.getByRole('button', { name: /Agendar cita/ }))
+    const panel = await screen.findByRole('dialog', { name: 'Agendar cita' })
+    await user.click(
+      within(within(panel).getByRole('radiogroup', { name: 'Barbero' })).getByRole('radio', { name: 'Isaac' }),
+    )
+    await user.click(within(panel).getByRole('checkbox', { name: /Corte de cabello adulto/ }))
+    await user.click(within(panel).getByRole('button', { name: 'Agregar otro de Corte de cabello adulto' }))
+    expect(within(panel).getByLabelText('Cantidad de Corte de cabello adulto')).toHaveTextContent('2')
+    await user.click(within(panel).getByRole('checkbox', { name: /Delineado de corte/ }))
+    // 45 + 45 + 30 minutes = 2 h: 1:15 p. m. no longer fits (Isaac rests 2–3 p. m.); 5:00 p. m. does.
+    const hours = within(panel).getByRole('radiogroup', { name: 'Hora' })
+    await user.click(await within(hours).findByRole('radio', { name: '5:00 p. m.' }))
+    expect(within(hours).queryByRole('radio', { name: '1:15 p. m.' })).toBeNull()
+    await user.type(within(panel).getByLabelText('Nombre'), 'Hermanos Díaz')
+    await user.type(within(panel).getByLabelText('Teléfono'), '4425550102')
+    expect(within(panel).getByText(/2 h · \$800/)).toBeInTheDocument()
+    await user.click(within(panel).getByRole('button', { name: 'Agendar cita' }))
+
+    expect(await screen.findByText(/Cita agendada: Mié 4 de nov, 5:00 p\. m\. con Isaac/)).toBeInTheDocument()
+    const made = booking.snapshot().appointments.find((a) => a.customer.name === 'Hermanos Díaz')
+    expect(made).toMatchObject({
+      serviceIds: ['corte-adulto', 'corte-adulto', 'delineado-corte'],
+      durationMin: 120,
+      totalPrice: 800,
+    })
+  })
+
   it('warns when the chosen time no longer fits the services and clears it', async () => {
     const { user } = await renderAgenda('u-reception')
     await user.click(screen.getByRole('button', { name: /Agendar cita/ }))

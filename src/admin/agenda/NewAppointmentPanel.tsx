@@ -1,6 +1,6 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Check, Scissors, UserRound, X } from 'lucide-react'
+import { Check, Minus, Plus, Scissors, UserRound, X } from 'lucide-react'
 import type { Customer, LocalDate, Service, ServiceCategory, Slot, Staff } from '@/domain/types'
 import { Avatar } from '@/components/booking/Avatar'
 import { Alert } from '@/components/ui/Alert'
@@ -61,35 +61,70 @@ function ServicePicker({
                 {c.name}
               </p>
               {items.map((s) => {
-                const on = value.includes(s.id)
+                const n = value.filter((x) => x === s.id).length
+                const on = n > 0
+                const less = () => {
+                  const i = value.lastIndexOf(s.id)
+                  onChange(value.filter((_, j) => j !== i))
+                }
                 return (
-                  <label
+                  <div
                     key={s.id}
                     className={cn(
-                      'flex min-h-11 cursor-pointer items-center gap-3 border-b border-line px-3 py-2 text-sm last:border-0',
+                      'flex items-center gap-2 border-b border-line pr-2 last:border-0',
                       on ? 'bg-selected' : 'hover:bg-fg/[0.03]',
                     )}
                   >
-                    <input
-                      type="checkbox"
-                      checked={on}
-                      onChange={() => onChange(on ? value.filter((x) => x !== s.id) : [...value, s.id])}
-                      className="peer sr-only"
-                    />
-                    <span
-                      aria-hidden
-                      className={cn(
-                        'grid size-5 shrink-0 place-items-center rounded border-[1.5px] peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-focus',
-                        on ? 'border-ink-950 bg-ink-950 text-white' : 'border-line-strong bg-raised',
-                      )}
-                    >
-                      {on && <Check className="size-3.5" strokeWidth={3} />}
-                    </span>
-                    <span className="min-w-0 flex-1 truncate">{s.name}</span>
-                    <span className="tabular shrink-0 text-fg-muted">
-                      {durationLabel(s.durationMin)} · {money(s.price)}
-                    </span>
-                  </label>
+                    <label className="flex min-h-11 min-w-0 flex-1 cursor-pointer items-center gap-3 py-2 pl-3 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={on}
+                        onChange={() => onChange(on ? value.filter((x) => x !== s.id) : [...value, s.id])}
+                        className="peer sr-only"
+                      />
+                      <span
+                        aria-hidden
+                        className={cn(
+                          'grid size-5 shrink-0 place-items-center rounded border-[1.5px] peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-focus',
+                          on ? 'border-ink-950 bg-ink-950 text-white' : 'border-line-strong bg-raised',
+                        )}
+                      >
+                        {on && <Check className="size-3.5" strokeWidth={3} />}
+                      </span>
+                      <span className="min-w-0 flex-1 truncate">{s.name}</span>
+                      <span className="tabular shrink-0 text-fg-muted">
+                        {durationLabel(s.durationMin)} · {money(s.price)}
+                      </span>
+                    </label>
+                    {/* The same service more than once (e.g. two haircuts), as when charging. */}
+                    {on && (
+                      <span className="flex shrink-0 items-center gap-1">
+                        <button
+                          type="button"
+                          aria-label={`Quitar uno de ${s.name}`}
+                          onClick={less}
+                          className="grid size-8 place-items-center rounded-full border border-line bg-raised hover:border-fg focus-visible:outline focus-visible:outline-2 focus-visible:outline-focus"
+                        >
+                          <Minus className="size-3.5" aria-hidden />
+                        </button>
+                        <span
+                          className="tabular w-5 text-center text-sm font-semibold"
+                          aria-label={`Cantidad de ${s.name}`}
+                        >
+                          {n}
+                        </span>
+                        <button
+                          type="button"
+                          aria-label={`Agregar otro de ${s.name}`}
+                          disabled={n >= 10}
+                          onClick={() => onChange([...value, s.id])}
+                          className="grid size-8 place-items-center rounded-full border border-line bg-raised hover:border-fg focus-visible:outline focus-visible:outline-2 focus-visible:outline-focus disabled:opacity-30"
+                        >
+                          <Plus className="size-3.5" aria-hidden />
+                        </button>
+                      </span>
+                    )}
+                  </div>
                 )
               })}
             </div>
@@ -433,7 +468,8 @@ export function NewAppointmentPanel({
     setStartsAt('')
   }
 
-  const chosen = services.filter((s) => serviceIds.includes(s.id))
+  // In order, repeats included (two haircuts count twice).
+  const chosen = serviceIds.map((id) => services.find((s) => s.id === id)).filter((s): s is Service => !!s)
   const totalMin = chosen.reduce((m, s) => m + s.durationMin, 0)
   const totalPrice = chosen.reduce((m, s) => m + s.price, 0)
   const walkIn = kind === 'walk_in'

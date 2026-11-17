@@ -68,6 +68,7 @@ export function founderJsonLd(dateModified: string) {
         '@id': CUBITA_ID,
         name: founder.brand.name,
         description: founder.brand.description,
+        image: `${SITE_URL}${founder.brand.image.base}-1200.webp`,
         founder: { '@id': PERSON_ID },
       },
       {

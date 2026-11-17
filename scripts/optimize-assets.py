@@ -99,6 +99,8 @@ FOUNDER = {
     "inicios-cuba": ("leonardo-gomez-rios-inicios-cuba", (640, 1053)),
     "barba": ("leonardo-gomez-rios-barbero", (640, 1200)),
     "secadora-bn": ("leonardo-gomez-rios-moldeado-secadora", (640, 1066)),
+    "secadora-cliente": ("leonardo-gomez-rios-moldeado-cliente", (640, 1067)),
+    "cubita-productos": ("cubita-productos-capilares-leonardo-gomez-rios", (640, 1200)),
 }
 print("founder")
 # 2023 milestone: the shop today (same photo as /servicios › El lugar, 382x510 original).

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { BookingPolicy, BusinessHours, Staff, TimeBlock } from '@/domain/types'
-import { computeSlots, nearestAvailable, staffForServices, totalDuration, type BusyAppointment } from '.'
+import { computeSlots, nearestAvailable, servicesFor, staffForServices, totalDuration, type BusyAppointment } from '.'
 import { zonedInstant } from '@/lib/time'
 
 const TZ = 'America/Mexico_City'
@@ -239,5 +239,24 @@ describe('helpers', () => {
     const inactive = { ...barber('x', 0), active: false }
     expect(staffForServices([leo, partial, isaac, inactive], ['corte']).map((s) => s.id)).toEqual(['isaac', 'leo', 'p'])
     expect(staffForServices([leo, partial, isaac], ['corte', 'barba']).map((s) => s.id)).toEqual(['isaac', 'leo'])
+  })
+})
+
+describe('servicesFor', () => {
+  const catalog = [
+    { id: 'corte', active: true, durationMin: 45 },
+    { id: 'barba', active: true, durationMin: 30 },
+    { id: 'viejo', active: false, durationMin: 15 },
+  ]
+  it('keeps order and repeats, so repeated services add up', () => {
+    const s = servicesFor(catalog, ['corte', 'barba', 'corte'])!
+    expect(s.map((x) => x.id)).toEqual(['corte', 'barba', 'corte'])
+    expect(totalDuration(s)).toBe(120)
+  })
+  it('refuses unknown, inactive or empty lists', () => {
+    expect(servicesFor(catalog, ['corte', 'nope'])).toBeNull()
+    expect(servicesFor(catalog, ['viejo'])).toBeNull()
+    expect(servicesFor(catalog, ['viejo'], false)?.length).toBe(1)
+    expect(servicesFor(catalog, [])).toBeNull()
   })
 })

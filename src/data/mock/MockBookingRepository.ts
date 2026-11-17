@@ -22,7 +22,7 @@ import type {
   BookingPolicy,
 } from '@/domain/types'
 import { bookingPolicy, businessHours } from '@/config/business'
-import { computeSlots, isActiveStatus, nearestAvailable, staffForServices, totalDuration } from '@/lib/availability'
+import { computeSlots, isActiveStatus, nearestAvailable, servicesFor, staffForServices, totalDuration } from '@/lib/availability'
 import { addDays, formatDay, localDate, toMinutes, weekdayOf, zonedInstant } from '@/lib/time'
 import { normalizeMxPhone } from '@/lib/phone'
 import {
@@ -258,8 +258,9 @@ export class MockBookingRepository implements BookingRepository {
   }
 
   private slotsFor(q: SlotQuery, policy = this.policy): Slot[] {
-    const services = this.db.services.filter((s) => s.active && q.serviceIds.includes(s.id))
-    if (services.length !== q.serviceIds.length || services.length === 0) return []
+    // Repeats count: two haircuts take twice as long.
+    const services = servicesFor(this.db.services, q.serviceIds)
+    if (!services) return []
     const candidates = staffForServices(this.db.staff, q.serviceIds)
     const staff: Staff[] = q.staffId === 'any' ? candidates : candidates.filter((s) => s.id === q.staffId)
     return computeSlots({
@@ -581,9 +582,9 @@ export class MockBookingRepository implements BookingRepository {
   }): Promise<Appointment> {
     await this.delay()
     return this.exclusive(() => {
-      const services = this.db.services.filter((s) => s.active && input.serviceIds.includes(s.id))
-      if (services.length === 0 || services.length !== input.serviceIds.length)
-        throw new InvalidRequestError('Elige al menos un servicio.')
+      // In order, repeats included (e.g. two haircuts): duration and price count each one.
+      const services = servicesFor(this.db.services, input.serviceIds)
+      if (!services || services.length > 20) throw new InvalidRequestError('Elige al menos un servicio.')
       const durationMin = totalDuration(services)
       const startsAt = new Date(input.startsAt).toISOString()
       const endsAt = new Date(Date.parse(startsAt) + durationMin * 60000).toISOString()

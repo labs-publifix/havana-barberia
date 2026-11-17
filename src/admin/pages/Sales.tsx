@@ -23,7 +23,7 @@ import { Select } from '../ui/Select'
 import { SidePanel } from '../ui/SidePanel'
 import { useToast } from '../ui/Toast'
 import { TabPanel, Tabs } from '../ui/Tabs'
-import { CashDayView } from '../sales/CashDayView'
+import { CashView } from '../sales/CashView'
 
 const tz = business.hours.timeZone
 
@@ -401,7 +401,7 @@ function SalePanel({
 
 type SalesTab = 'tickets' | 'caja'
 
-/** Ventas in two tabs: the week's tickets and the day's cash drawer (?vista=caja). */
+/** Ventas in two tabs: tickets and the cash drawer by day, week, month or range (?vista=caja). */
 export default function Sales() {
   const [params, setParams] = useSearchParams()
   const tab: SalesTab = params.get('vista') === 'caja' ? 'caja' : 'tickets'
@@ -425,11 +425,11 @@ export default function Sales() {
         }
         tabs={[
           { value: 'tickets', label: 'Tickets' },
-          { value: 'caja', label: 'Caja del día' },
+          { value: 'caja', label: 'Caja' },
         ]}
       />
       <TabPanel idBase={idBase} value={tab}>
-        {tab === 'caja' ? <CashDayView /> : <TicketsView />}
+        {tab === 'caja' ? <CashView /> : <TicketsView />}
       </TabPanel>
     </div>
   )
