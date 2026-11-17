@@ -42,7 +42,8 @@ export function businessJsonLd(weekly: WeeklySchedule = business.hours.weekly) {
     ),
     // Same @id as the Person on his profile page (founderJsonLd).
     founder: { '@type': 'Person', '@id': `${SITE_URL}${FOUNDER_PATH}#persona`, name: founder.name, url: `${SITE_URL}${FOUNDER_PATH}` },
-    foundingDate: '2023',
+    // Same opening date as the Google Business Profile.
+    foundingDate: '2024-07-29',
     potentialAction: {
       '@type': 'ReserveAction',
       target: { '@type': 'EntryPoint', urlTemplate: `${SITE_URL}/reservar`, actionPlatform: ['https://schema.org/DesktopWebPlatform', 'https://schema.org/MobileWebPlatform'] },

@@ -32,6 +32,14 @@ describe('founder page', () => {
     expect(businessJsonLd().founder['@id']).toBe(PERSON_ID)
   })
 
+  it('dates: in Mexico since 2023, Havana Barbería opened in July 2024', () => {
+    const t = founder.timeline.map((m) => `${m.when}: ${m.paragraphs.join(' ')}`).join('\n')
+    expect(t).toMatch(/2023: En 2023 dio el salto decisivo al mudarse a México/)
+    expect(t).toMatch(/2024: En julio de 2024 abrió Havana Barbería/)
+    expect(t).not.toMatch(/2023[^\n]*apertura de Havana/)
+    expect(businessJsonLd().foundingDate).toBe('2024-07-29')
+  })
+
   it('keeps the agreed wording (no medical or result claims)', () => {
     const text = JSON.stringify(founder)
     expect(text).not.toMatch(/cirug/i)
