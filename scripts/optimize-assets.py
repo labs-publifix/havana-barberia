@@ -98,6 +98,7 @@ FOUNDER = {
     "havana-barberia": ("leonardo-gomez-rios-barbero-havana-barberia", (800, 1600)),
     "inicios-cuba": ("leonardo-gomez-rios-inicios-cuba", (640, 1053)),
     "barba": ("leonardo-gomez-rios-barbero", (640, 1200)),
+    "secadora-bn": ("leonardo-gomez-rios-moldeado-secadora", (640, 1066)),
 }
 print("founder")
 # 2023 milestone: the shop today (same photo as /servicios › El lugar, 382x510 original).
@@ -105,12 +106,18 @@ Image.open(A / "shop" / "interior-source.jpg").convert("RGB").save(
     PUBLIC / "img" / "havana-barberia-interior-queretaro-382.webp", "WEBP", quality=84, method=6)
 (PUBLIC / "img").mkdir(exist_ok=True)
 for key, (name, widths) in FOUNDER.items():
-    # The early photo is black and white: one channel is lighter.
-    im = Image.open(A / "founder" / f"{key}-source.jpg").convert("L" if key == "inicios-cuba" else "RGB")
+    # Black-and-white photos: one channel is lighter.
+    im = Image.open(A / "founder" / f"{key}-source.jpg").convert("L" if key in ("inicios-cuba", "secadora-bn") else "RGB")
     for w in widths:
         # The early photo is grainy film: a lower quality keeps it light without visible loss.
         webp(resize_w(im, w), PUBLIC / "img" / f"{name}-{w}.webp", quality=66 if key == "inicios-cuba" else 80)
     if key == "havana-barberia":
+        # Header portrait: 4:5 crop centered on Leonardo (the shop's logo on his shirt shows).
+        cw = round(im.height * 4 / 5)
+        x0 = 1000 - cw // 2
+        portrait = im.crop((x0, 0, x0 + cw, im.height))
+        for w in (480, 640, 960):
+            webp(resize_w(portrait, w), PUBLIC / "img" / f"leonardo-gomez-rios-retrato-havana-barberia-{w}.webp", quality=76)
         # Same photo as JPEG for the structured data (widest support).
         big = resize_w(im, 1600)
         big.save(PUBLIC / "img" / f"{name}-1600.jpg", "JPEG", quality=82, optimize=True, progressive=True)

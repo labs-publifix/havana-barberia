@@ -6,7 +6,6 @@ import { routes } from '@/app/routes'
 import { useDocumentTitle } from '@/app/useDocumentTitle'
 import { business } from '@/config/business'
 import { founder, isFounderStaff, storySrc, storySrcSet, type StoryImage } from '@/config/founder'
-import { barberPhoto } from '@/features/home/media'
 import { SiteNav } from '@/features/site/SiteNav'
 import { SiteFooter } from '@/features/site/SiteFooter'
 import { SkipLink } from '@/features/site/SkipLink'
@@ -62,8 +61,7 @@ export default function Founder() {
   useDocumentTitle(founder.name)
   const { data: staff } = useStaff()
   const me = staff?.find(isFounderStaff)
-  // The panel's photo wins; the bundled portrait while there is none (or no data yet).
-  const portrait = barberPhoto({ id: 'leonardo', photoUrl: me?.photoUrl ?? null }, 'portrait')
+  const portrait = founder.portrait
   const book = routes.bookWith({ staffId: me?.id })
 
   return (
@@ -131,22 +129,22 @@ export default function Founder() {
               </div>
             </div>
 
-            {portrait && (
-              <div className="relative mx-auto w-full max-w-sm lg:max-w-none">
-                <img
-                  src={portrait.src}
-                  srcSet={portrait.srcSet}
-                  sizes="(min-width: 1024px) 420px, (min-width: 640px) 384px, 92vw"
-                  alt={`Retrato de ${founder.name}, barbero y fundador de Havana Barbería`}
-                  width={portrait.width ?? 800}
-                  height={portrait.height ?? 1000}
-                  decoding="async"
-                  {...{ fetchpriority: 'high' }}
-                  style={{ objectPosition: portrait.position }}
-                  className="aspect-[4/5] w-full rounded-2xl border border-white/10 bg-ink-900 object-cover"
-                />
-              </div>
-            )}
+            <div className="relative mx-auto w-full max-w-sm lg:max-w-none">
+              <img
+                src={pub(storySrc(portrait))}
+                srcSet={storySrcSet(portrait)
+                  .split(', ')
+                  .map((p) => pub(p))
+                  .join(', ')}
+                sizes="(min-width: 1024px) 420px, (min-width: 640px) 384px, 92vw"
+                alt={portrait.alt}
+                width={960}
+                height={1200}
+                decoding="async"
+                {...{ fetchpriority: 'high' }}
+                className="aspect-[4/5] w-full rounded-2xl border border-white/10 bg-ink-900 object-cover"
+              />
+            </div>
           </div>
 
           {/* Quick facts */}
@@ -172,10 +170,18 @@ export default function Founder() {
                   Barbero, estilista <Light>y formulador.</Light>
                 </DisplayHeading>
               </Reveal>
+              {/* Desktop: the photo fills the column under the heading. */}
+              <Reveal delay={140} className="mt-6 hidden lg:block">
+                <StoryFigure img={founder.craftPhoto} sizes="440px" className="max-w-[440px]" />
+              </Reveal>
             </div>
             <Reveal delay={120} className="grid content-start gap-8">
               <p className="text-[17px] leading-relaxed text-gray-200 md:text-xl md:leading-relaxed">{founder.intro}</p>
-              <StoryFigure img={founder.hero} sizes="(min-width: 1024px) 620px, 92vw" />
+              <StoryFigure
+                img={founder.craftPhoto}
+                sizes="(min-width: 640px) 440px, 92vw"
+                className="max-w-[440px] lg:hidden"
+              />
             </Reveal>
           </div>
         </section>
