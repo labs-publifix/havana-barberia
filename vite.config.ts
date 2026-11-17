@@ -6,6 +6,8 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath, URL } from 'node:url'
 import { SEO_PAGES, seoHead, sitemapXml } from './src/config/seo'
 import { businessJsonLd, jsonLdScript } from './src/config/businessJsonLd'
+import { FOUNDER_PATH } from './src/config/founder'
+import { founderJsonLd } from './src/config/founderJsonLd'
 import { LOGO_SIZES } from './src/components/logoSizes'
 
 const SEO_MARK = /<!--seo-->[\s\S]*?<!--\/seo-->/
@@ -39,13 +41,18 @@ function seoPages(): Plugin {
       if (base !== '/') return
       const index = readFileSync(join(outDir, 'index.html'), 'utf8')
       if (!SEO_MARK.test(index)) throw new Error('index.html has no <!--seo--> block')
+      const today = new Date().toISOString().slice(0, 10)
+      // Structured data of each page besides home (which carries the BarberShop).
+      const extra: Record<string, string> = {
+        [FOUNDER_PATH]: jsonLdScript(founderJsonLd(today), 'ld-founder'),
+      }
       for (const path of Object.keys(SEO_PAGES)) {
         if (path === '/') continue
         const file = join(outDir, `${path.slice(1)}.html`)
         mkdirSync(dirname(file), { recursive: true })
-        writeFileSync(file, index.replace(SEO_MARK, () => seoBlock(path)))
+        writeFileSync(file, index.replace(SEO_MARK, () => seoBlock(path, extra[path])))
       }
-      writeFileSync(join(outDir, 'sitemap.xml'), sitemapXml(new Date().toISOString().slice(0, 10)))
+      writeFileSync(join(outDir, 'sitemap.xml'), sitemapXml(today))
     },
   }
 }

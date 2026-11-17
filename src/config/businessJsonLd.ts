@@ -1,5 +1,6 @@
 import type { WeeklySchedule } from '@/domain/types'
 import { business } from './business'
+import { FOUNDER_PATH, founder } from './founder'
 import { OG_IMAGE, SITE_URL } from './seo'
 
 const DAY = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
@@ -39,6 +40,9 @@ export function businessJsonLd(weekly: WeeklySchedule = business.hours.weekly) {
     openingHoursSpecification: weekly.flatMap((ranges, wd) =>
       ranges.map((r) => ({ '@type': 'OpeningHoursSpecification', dayOfWeek: DAY[wd], opens: r.start, closes: r.end })),
     ),
+    // Same @id as the Person on his profile page (founderJsonLd).
+    founder: { '@type': 'Person', '@id': `${SITE_URL}${FOUNDER_PATH}#persona`, name: founder.name, url: `${SITE_URL}${FOUNDER_PATH}` },
+    foundingDate: '2023',
     potentialAction: {
       '@type': 'ReserveAction',
       target: { '@type': 'EntryPoint', urlTemplate: `${SITE_URL}/reservar`, actionPlatform: ['https://schema.org/DesktopWebPlatform', 'https://schema.org/MobileWebPlatform'] },
@@ -50,5 +54,5 @@ export function businessJsonLd(weekly: WeeklySchedule = business.hours.weekly) {
 
 export const JSON_LD_ID = 'ld-business'
 
-export const jsonLdScript = (data: object) =>
-  `<script type="application/ld+json" id="${JSON_LD_ID}">${JSON.stringify(data).replace(/</g, '\\u003c')}</script>`
+export const jsonLdScript = (data: object, id = JSON_LD_ID) =>
+  `<script type="application/ld+json" id="${id}">${JSON.stringify(data).replace(/</g, '\\u003c')}</script>`
