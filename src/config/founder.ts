@@ -3,7 +3,8 @@
  * (/barberos/leonardo-gomez-rios). Text approved by Leo (noviembre de 2026),
  * edited only for spelling and accuracy: the shop's address is the one on the
  * site, «tratamientos de reconstrucción capilar» and no promises about product
- * results (COFEPRIS). Photos live in public/img with descriptive names
+ * results (COFEPRIS). Dates: moved to Mexico in 2023; Havana Barbería opened
+ * in July 2024 (as in the Google Business Profile). Photos live in public/img with descriptive names
  * (scripts/optimize-assets.py). No imports: vite.config.ts reads this file.
  */
 
@@ -109,10 +110,18 @@ export const founder = {
     },
     {
       when: '2023',
+      place: 'México',
+      title: 'El salto a México',
+      paragraphs: [
+        'En 2023 dio el salto decisivo al mudarse a México, el país donde materializaría su visión empresarial.',
+      ],
+    },
+    {
+      when: '2024',
       place: 'Querétaro, México',
       title: 'Havana Barbería y Cubita',
       paragraphs: [
-        'En 2023 dio el salto decisivo al mudarse a México, donde materializó su visión empresarial con la apertura de Havana Barbería en Santiago de Querétaro.',
+        'En julio de 2024 abrió Havana Barbería en Santiago de Querétaro.',
         'De forma paralela fundó y formuló Cubita, una línea especializada de productos profesionales para el cuidado y tratamiento del cabello y la barba.',
       ],
       image: {

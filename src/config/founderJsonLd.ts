@@ -69,7 +69,6 @@ export function founderJsonLd(dateModified: string) {
         name: founder.brand.name,
         description: founder.brand.description,
         founder: { '@id': PERSON_ID },
-        foundingDate: '2023',
       },
       {
         '@type': 'BreadcrumbList',

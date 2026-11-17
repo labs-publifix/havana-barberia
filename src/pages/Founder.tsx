@@ -287,8 +287,8 @@ export default function Founder() {
                 </h2>
                 <p className="text-base leading-relaxed text-gray-300 md:text-[17px]">{founder.brand.description}</p>
                 <p className="text-base leading-relaxed text-gray-300 md:text-[17px]">
-                  Fundada y formulada por Leonardo en 2023, con activos de alta concentración y pensada para el uso
-                  diario en barbería.
+                  Fundada y formulada por Leonardo, con activos de alta concentración y pensada para el uso diario en
+                  barbería.
                 </p>
               </div>
             </Reveal>
