@@ -1,16 +1,17 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ChevronLeft, ChevronRight, Lock, Trash2 } from 'lucide-react'
+import { Lock, Trash2 } from 'lucide-react'
 import { Alert } from '@/components/ui/Alert'
 import { Badge } from '@/components/ui/Badge'
 import { buttonClass } from '@/components/ui/buttonClass'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { business } from '@/config/business'
 import { cn } from '@/lib/cn'
-import { addDays, capitalize, formatDateLong, formatTime12, localDate, localTime, money } from '@/lib/time'
+import type { LocalDate } from '@/domain/types'
+import { capitalize, formatDateLong, formatTime12, localDate, localTime, money } from '@/lib/time'
 import { useAdminAuth, useAdminSession } from '../auth/AdminAuth'
 import { errorMessage } from '../agenda/useAgendaActions'
-import { cashSummary, methodLabels, productsSold } from '../cash'
+import { cashDayStatus, cashSummary, methodLabels, productsSold } from '../cash'
 import { expectedCash } from '../finance'
 import { Input, Segmented } from '../ui/controls'
 import { Card } from '../ui/Panel'
@@ -25,14 +26,13 @@ const digits = (v: string) => v.replace(/\D/g, '').slice(0, 7)
  * count (arqueo) that closes the drawer. A closed day can't change unless the
  * owner or a manager reopens it.
  */
-export function CashDayView() {
+export function CashDayView({ date }: { date: LocalDate }) {
   const { repo } = useAdminAuth()
   const { user } = useAdminSession()
   const canReopen = isFinanceRole(user.role)
   const qc = useQueryClient()
   const toast = useToast()
   const today = localDate(new Date(), tz)
-  const [date, setDate] = useState(today)
   const { data } = useQuery({ queryKey: ['admin', 'cash-day', date], queryFn: () => repo.getCashDay(date) })
   const [move, setMove] = useState({ kind: 'out' as 'out' | 'in', amount: '', concept: '' })
   const [count, setCount] = useState({ fund: '', counted: '', note: '' })
@@ -63,45 +63,7 @@ export function CashDayView() {
   })
   const reopen = useMutation({ mutationFn: () => repo.reopenDay(date), onSuccess: refresh, onError })
 
-  const nav =
-    'grid size-10 place-items-center rounded-full text-fg-muted hover:bg-fg/5 hover:text-fg focus-visible:outline focus-visible:outline-2 focus-visible:outline-focus disabled:opacity-30'
-  const header = (
-    <div className="flex flex-wrap items-center gap-2">
-      <button type="button" aria-label="Día anterior" onClick={() => setDate(addDays(date, -1))} className={nav}>
-        <ChevronLeft className="size-5" strokeWidth={1.75} aria-hidden />
-      </button>
-      <p className="min-w-[200px] text-center text-[15px] font-semibold" aria-live="polite">
-        {capitalize(formatDateLong(date))}
-      </p>
-      <button
-        type="button"
-        aria-label="Día siguiente"
-        disabled={date >= today}
-        onClick={() => setDate(addDays(date, 1))}
-        className={nav}
-      >
-        <ChevronRight className="size-5" strokeWidth={1.75} aria-hidden />
-      </button>
-      {date !== today && (
-        <button
-          type="button"
-          onClick={() => setDate(today)}
-          className={buttonClass({ variant: 'secondary', size: 'sm' })}
-        >
-          Hoy
-        </button>
-      )}
-    </div>
-  )
-
-  if (!data) {
-    return (
-      <div className="grid gap-4">
-        {header}
-        <Skeleton className="h-64 rounded-lg" aria-busy="true" />
-      </div>
-    )
-  }
+  if (!data) return <Skeleton className="h-64 rounded-lg" aria-busy="true" />
 
   const cash = cashSummary(data.appointments, data.sales)
   const sold = productsSold(data.appointments, data.sales)
@@ -115,20 +77,40 @@ export function CashDayView() {
   })
   const counted = closed ? closed.counted : count.counted === '' ? null : Number(count.counted)
   const diff = counted === null ? null : counted - (closed ? closed.expected : expected)
+  const status = cashDayStatus(data, today)
 
   return (
     <div className="grid grid-cols-[minmax(0,1fr)] gap-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        {header}
+      <div className="flex flex-wrap items-center gap-2">
+        <h2 className="mr-auto text-[15px] font-semibold">{capitalize(formatDateLong(date))}</h2>
         {closed ? (
-          <Badge tone="success">
+          <Badge tone={status === 'mismatch' ? 'danger' : 'success'}>
             <Lock className="size-3.5" aria-hidden /> Cerrada por {closed.closedBy} ·{' '}
             {formatTime12(localTime(closed.closedAt, tz))}
           </Badge>
+        ) : status === 'missing' ? (
+          <Badge tone="danger">Sin corte de caja</Badge>
         ) : (
           <Badge tone="warning">Caja abierta</Badge>
         )}
       </div>
+      {status === 'missing' && (
+        <Alert tone="danger" title="No se hizo el corte de caja de este día.">
+          Hubo cobros o movimientos y la caja quedó abierta. Cuenta el efectivo y ciérrala, o revisa con quien atendió.
+        </Alert>
+      )}
+      {status === 'mismatch' && closed && (
+        <Alert
+          tone="danger"
+          title={
+            closed.difference > 0
+              ? `La caja no cuadró: sobraron ${money(closed.difference)}.`
+              : `La caja no cuadró: faltaron ${money(-closed.difference)}.`
+          }
+        >
+          {closed.note ? `Nota del cierre: ${closed.note}` : 'Revisa los cobros y movimientos del día.'}
+        </Alert>
+      )}
       {error && <Alert tone="danger" title={error} />}
 
       <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-2">
@@ -157,7 +139,7 @@ export function CashDayView() {
                 ['Cobros en efectivo', cash.charges.cash],
                 ['Propinas en efectivo', cash.tips.cash],
                 ['Entradas', ins],
-                ['Salidas', -outs],
+                ['Salidas', outs ? -outs : 0],
               ] as const
             ).map(([k, v]) => (
               <div key={k} className="flex justify-between gap-3">
@@ -207,7 +189,11 @@ export function CashDayView() {
               <p
                 className={cn(
                   'rounded-md px-4 py-3 text-sm font-semibold',
-                  diff === 0 ? 'bg-success-100 text-success-700' : 'bg-warning-100 text-warning-700',
+                  diff === 0
+                    ? 'bg-success-100 text-success-700'
+                    : closed
+                      ? 'bg-red-100 text-red-700'
+                      : 'bg-warning-100 text-warning-700',
                 )}
                 aria-live="polite"
               >

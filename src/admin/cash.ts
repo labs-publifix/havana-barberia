@@ -135,3 +135,34 @@ export function productsSold(
     ),
   ].sort((a, b) => a.at.localeCompare(b.at))
 }
+
+/**
+ * How a day's drawer stands, for the warnings in Ventas › Caja:
+ * - ok: closed and the count matched.
+ * - mismatch: closed but the count didn't match (red).
+ * - missing: a past day with charges, sales or cash moves and no close (red).
+ * - open: today, not closed yet.
+ * - idle: nothing happened and nothing to close.
+ */
+export type CashDayStatus = 'ok' | 'mismatch' | 'missing' | 'open' | 'idle'
+
+export function cashDayStatus(
+  day: {
+    date: string
+    appointments: unknown[]
+    sales: unknown[]
+    moves: unknown[]
+    close: { difference: number } | null
+  },
+  today: string,
+): CashDayStatus {
+  if (day.close) return day.close.difference === 0 ? 'ok' : 'mismatch'
+  if (day.date >= today) return 'open'
+  return day.appointments.length || day.sales.length || day.moves.length ? 'missing' : 'idle'
+}
+
+/** The days that need attention (no close or the count didn't match), oldest first. */
+export const cashAlerts = <D extends Parameters<typeof cashDayStatus>[0]>(days: D[], today: string) =>
+  days
+    .map((d) => ({ day: d, status: cashDayStatus(d, today) }))
+    .filter((x) => x.status === 'missing' || x.status === 'mismatch')

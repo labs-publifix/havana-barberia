@@ -156,6 +156,8 @@ export interface AdminRepository {
   reopenWeek(weekStart: LocalDate): Promise<void>
   // Daily cash (desk roles). Changes are refused once the day is closed.
   getCashDay(date: LocalDate): Promise<CashDay>
+  /** One CashDay per date from `from` to `to` (inclusive): Caja by week, month or range and its warnings. */
+  getCashRange(from: LocalDate, to: LocalDate): Promise<CashDay[]>
   addCashMove(input: { date: LocalDate; kind: 'out' | 'in'; amount: number; concept: string }): Promise<CashMove>
   deleteCashMove(id: ID): Promise<void>
   /** Save the count; the expected cash is computed on the server. */

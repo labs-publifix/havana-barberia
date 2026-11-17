@@ -281,6 +281,13 @@ export class MockAdminRepository implements AdminRepository {
     return this.booking.adminCashDay(date)
   }
 
+  async getCashRange(from: LocalDate, to: LocalDate): Promise<CashDay[]> {
+    await this.delay()
+    const days: CashDay[] = []
+    for (let d = from; d <= to; d = addDays(d, 1)) days.push(this.booking.adminCashDay(d))
+    return days
+  }
+
   async addCashMove(input: {
     date: LocalDate
     kind: 'out' | 'in'

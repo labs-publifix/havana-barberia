@@ -31,7 +31,14 @@ import {
   type StaffRow,
 } from '@/data/supabase/rows'
 import { addDays, localDate, toMinutes, weekdayOf, zonedInstant } from '@/lib/time'
-import { computeSlots, isActiveStatus, nearestAvailable, staffForServices, totalDuration } from '@/lib/availability'
+import {
+  computeSlots,
+  isActiveStatus,
+  nearestAvailable,
+  servicesFor,
+  staffForServices,
+  totalDuration,
+} from '@/lib/availability'
 import { normalizeMxPhone } from '@/lib/phone'
 import { policyError } from '@/lib/policy'
 import { daysOutsideShop, outsideShopHours, scheduleErrors, shopHoursErrors, DAY_NAMES } from '@/lib/schedule'
@@ -1011,8 +1018,9 @@ export class SupabaseAdminRepository implements AdminRepository {
   /** Staff book from now on (no minimum notice) and up to 90 days ahead. */
   async getAvailableSlots(q: SlotQuery): Promise<Slot[]> {
     const [{ staff, services }, row] = await Promise.all([this.teamAndServices(), this.settingsRow()])
-    const chosen = services.filter((s) => s.active && q.serviceIds.includes(s.id))
-    if (!chosen.length || chosen.length !== q.serviceIds.length) return []
+    // Repeats count: two haircuts take twice as long.
+    const chosen = servicesFor(services, q.serviceIds)
+    if (!chosen) return []
     const candidates = staffForServices(staff, q.serviceIds)
     const dayStart = zonedInstant(q.date, '00:00', TZ).toISOString()
     const next = zonedInstant(addDays(q.date, 1), '00:00', TZ).toISOString()
@@ -1127,9 +1135,9 @@ export class SupabaseAdminRepository implements AdminRepository {
 
   async createAppointment(input: AdminNewAppointment): Promise<Appointment> {
     const { staff, services } = await this.teamAndServices()
-    const chosen = services.filter((s) => s.active && input.serviceIds.includes(s.id))
-    if (!chosen.length || chosen.length !== input.serviceIds.length)
-      throw new InvalidRequestError('Elige al menos un servicio.')
+    // In order, repeats included (e.g. two haircuts): duration and price count each one.
+    const chosen = servicesFor(services, input.serviceIds)
+    if (!chosen || chosen.length > 20) throw new InvalidRequestError('Elige al menos un servicio.')
     const durationMin = totalDuration(chosen)
     const startsAt = new Date(input.startsAt).toISOString()
     const endsAt = new Date(Date.parse(startsAt) + durationMin * 60000).toISOString()
@@ -1217,7 +1225,8 @@ export class SupabaseAdminRepository implements AdminRepository {
       p_notes: change.notes,
     })
     if (error) {
-      if (error.code === '23P01') throw new InvalidRequestError('Con esos servicios se encima con otra cita del barbero.')
+      if (error.code === '23P01')
+        throw new InvalidRequestError('Con esos servicios se encima con otra cita del barbero.')
       friendly(error)
     }
     return (await this.appointment(id))!
@@ -1585,6 +1594,63 @@ export class SupabaseAdminRepository implements AdminRepository {
       moves: must<CashMoveRow[]>(moves).map(toMove),
       close: c ? toDailyClose(c) : null,
     }
+  }
+
+  async getCashRange(from: LocalDate, to: LocalDate): Promise<CashDay[]> {
+    const start = zonedInstant(from, '00:00', TZ).toISOString()
+    const end = zonedInstant(addDays(to, 1), '00:00', TZ).toISOString()
+    // Up to a year of rows: read in pages (the API returns at most 1000 per request).
+    const page = async <T>(
+      make: (a: number, b: number) => PromiseLike<{ data: unknown; error: { message: string; code?: string } | null }>,
+    ) => {
+      const out: T[] = []
+      for (let a = 0; ; a += 1000) {
+        const rows = must<T[]>(
+          (await make(a, a + 999)) as { data: T[] | null; error: { message: string; code?: string } | null },
+        )
+        out.push(...rows)
+        if (rows.length < 1000) return out
+      }
+    }
+    const [paid, sales, moves, closes] = await Promise.all([
+      page<{ appointment_id: string }>((a, b) =>
+        this.db
+          .from('payments')
+          .select('appointment_id')
+          .gte('paid_at', start)
+          .lt('paid_at', end)
+          .order('paid_at')
+          .range(a, b),
+      ),
+      page<SaleRow>((a, b) =>
+        this.db.from('product_sales').select('*').gte('at', start).lt('at', end).order('at').range(a, b),
+      ),
+      page<CashMoveRow>((a, b) =>
+        this.db.from('cash_moves').select('*').gte('date', from).lte('date', to).order('at').range(a, b),
+      ),
+      page<DailyCloseRow>((a, b) =>
+        this.db.from('daily_closes').select('*').gte('date', from).lte('date', to).order('date').range(a, b),
+      ),
+    ])
+    const ids = paid.map((p) => p.appointment_id)
+    const appointments: Appointment[] = []
+    for (let i = 0; i < ids.length; i += 150) {
+      const chunk = ids.slice(i, i + 150)
+      appointments.push(
+        ...must<AppointmentRow[]>(await this.db.from('appointments').select(APPT).in('id', chunk)).map(toAppointment),
+      )
+    }
+    const byDate = new Map<LocalDate, CashDay>()
+    for (let d = from; d <= to; d = addDays(d, 1))
+      byDate.set(d, { date: d, appointments: [], sales: [], moves: [], close: null })
+    for (const a of appointments) if (a.payment) byDate.get(localDate(a.payment.paidAt, TZ))?.appointments.push(a)
+    for (const s of sales.map(toSale)) byDate.get(localDate(s.at, TZ))?.sales.push(s)
+    for (const m of moves.map(toMove)) byDate.get(m.date)?.moves.push(m)
+    for (const c of closes) {
+      const day = byDate.get(c.date)
+      if (day) day.close = toDailyClose(c)
+    }
+    return [...byDate.values()]
   }
 
   async addCashMove(input: {
