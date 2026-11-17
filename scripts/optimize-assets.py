@@ -100,6 +100,9 @@ FOUNDER = {
     "barba": ("leonardo-gomez-rios-barbero", (640, 1200)),
 }
 print("founder")
+# 2023 milestone: the shop today (same photo as /servicios › El lugar, 382x510 original).
+Image.open(A / "shop" / "interior-source.jpg").convert("RGB").save(
+    PUBLIC / "img" / "havana-barberia-interior-queretaro-382.webp", "WEBP", quality=84, method=6)
 (PUBLIC / "img").mkdir(exist_ok=True)
 for key, (name, widths) in FOUNDER.items():
     # The early photo is black and white: one channel is lighter.

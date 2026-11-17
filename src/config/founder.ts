@@ -27,7 +27,8 @@ export const isFounderStaff = (s: { id: string; name: string }) =>
 export interface StoryImage {
   /** Public path without the width suffix, e.g. /img/leonardo-gomez-rios-inicios-cuba */
   base: string
-  widths: [number, number]
+  /** Available widths, smallest first (one when the original is small). */
+  widths: number[]
   /** Height / width. */
   ratio: number
   alt: string
@@ -114,6 +115,13 @@ export const founder = {
         'En 2023 dio el salto decisivo al mudarse a México, donde materializó su visión empresarial con la apertura de Havana Barbería en Santiago de Querétaro.',
         'De forma paralela fundó y formuló Cubita, una línea especializada de productos profesionales para el cuidado y tratamiento del cabello y la barba.',
       ],
+      image: {
+        base: '/img/havana-barberia-interior-queretaro',
+        widths: [382],
+        ratio: 510 / 382,
+        alt: 'Interior de Havana Barbería en Querétaro: sillones de barbero negros y dorados bajo luces hexagonales',
+        caption: 'Havana Barbería hoy, en Santiago de Querétaro.',
+      },
     },
     {
       when: 'Hoy',
