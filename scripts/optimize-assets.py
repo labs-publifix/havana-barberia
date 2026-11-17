@@ -8,6 +8,7 @@ Sources (kept in the repo, never served directly):
   brand/logo-{white,black}-source.png   5525x3604 RGBA
   services/*-source.png                 1024x768
   team/*-source.png                     1024x1024 and 768x1024
+  founder/*-source.jpg                  Leonardo's story photos → public/img/leonardo-gomez-rios-*
   video/hero-loop.mp4                   served as-is on tablet and desktop (poster extracted here)
   video/hero-loop-480.mp4               phones (<768 px), re-encoded here
 
@@ -89,6 +90,27 @@ for src in sorted((A / "team").glob("*-source.png")):
     card = im.crop((cx, cy, cx + cs, cy + cs))
     for s in (120, 240):
         webp(card.resize((s, s), Image.LANCZOS), A / "team" / f"{name}-card-{s}.webp", quality=85)
+
+# --- Founder story (/barberos/leonardo-gomez-rios): served from public/img with stable,
+# descriptive names (Google Images, JSON-LD), plus the page's 1200x630 share image.
+FOUNDER = {
+    # source: (public name, widths)
+    "havana-barberia": ("leonardo-gomez-rios-barbero-havana-barberia", (800, 1600)),
+    "inicios-cuba": ("leonardo-gomez-rios-inicios-cuba", (640, 1053)),
+    "barba": ("leonardo-gomez-rios-barbero", (640, 1200)),
+}
+print("founder")
+(PUBLIC / "img").mkdir(exist_ok=True)
+for key, (name, widths) in FOUNDER.items():
+    # The early photo is black and white: one channel is lighter.
+    im = Image.open(A / "founder" / f"{key}-source.jpg").convert("L" if key == "inicios-cuba" else "RGB")
+    for w in widths:
+        # The early photo is grainy film: a lower quality keeps it light without visible loss.
+        webp(resize_w(im, w), PUBLIC / "img" / f"{name}-{w}.webp", quality=66 if key == "inicios-cuba" else 80)
+    if key == "havana-barberia":
+        # Same photo as JPEG for the structured data (widest support).
+        big = resize_w(im, 1600)
+        big.save(PUBLIC / "img" / f"{name}-1600.jpg", "JPEG", quality=82, optimize=True, progressive=True)
 
 # --- Video poster (first frame) and a blurred version for the scrolled backdrop ---------
 print("video")

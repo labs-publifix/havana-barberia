@@ -19,7 +19,13 @@ import { chromium } from '@playwright/test'
 
 const dist = process.argv[2] ?? 'dist'
 /** Path → file. The booking flow is left out on purpose. */
-const PAGES = { '/': 'index.html', '/servicios': 'servicios.html', '/politicas': 'politicas.html', '/privacidad': 'privacidad.html' }
+const PAGES = {
+  '/': 'index.html',
+  '/servicios': 'servicios.html',
+  '/barberos/leonardo-gomez-rios': 'barberos/leonardo-gomez-rios.html',
+  '/politicas': 'politicas.html',
+  '/privacidad': 'privacidad.html',
+}
 const ROOT = '<div id="root"></div>'
 const HTML_TAG = '<html lang="es-MX">'
 

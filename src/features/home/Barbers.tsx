@@ -4,6 +4,7 @@ import { buttonClass } from '@/components/ui/buttonClass'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { useStaff } from '@/app/queries'
 import { routes } from '@/app/routes'
+import { isFounderStaff } from '@/config/founder'
 import { DisplayHeading, Eyebrow, Light } from '@/features/site/Section'
 import { Reveal } from '@/features/site/Reveal'
 import { barberPhoto, initials } from './media'
@@ -98,6 +99,14 @@ export function Barbers() {
                         Reservar con {firstName}
                       </Link>
                     </div>
+                    {isFounderStaff(s) && (
+                      <Link
+                        to={routes.founder}
+                        className="inline-flex min-h-tap items-center justify-self-start rounded-sm text-sm font-semibold text-white underline decoration-white/40 underline-offset-[6px] transition-colors hover:decoration-aqua-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-aqua-400"
+                      >
+                        Conoce su historia
+                      </Link>
+                    )}
                   </div>
                 </article>
               )}

@@ -37,6 +37,9 @@ export function SiteFooter() {
           <Link to={routes.services} className={link}>
             Todos los servicios
           </Link>
+          <Link to={routes.founder} className={link}>
+            Nuestro fundador
+          </Link>
         </nav>
         <div className="grid content-start">
           <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-gray-400">Contacto</p>

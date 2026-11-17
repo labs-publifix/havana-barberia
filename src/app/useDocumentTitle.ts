@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { SEO_PAGES, canonicalUrl } from '@/config/seo'
+import { OG_IMAGE, SEO_PAGES, SITE_URL, canonicalUrl } from '@/config/seo'
 
 const SUFFIX = 'Havana Barbería'
 
@@ -49,6 +49,11 @@ export function useDocumentTitle(title: string | null, opts: { noindex?: boolean
       meta('property', 'og:url', url)
       meta('property', 'og:title', page.title)
       meta('property', 'og:description', page.description)
+      meta('property', 'og:type', page.ogType ?? 'website')
+      const image = page.image ?? OG_IMAGE
+      meta('property', 'og:image', SITE_URL + image.path)
+      meta('property', 'og:image:alt', image.alt)
+      meta('name', 'twitter:image', SITE_URL + image.path)
       meta('name', 'twitter:title', page.title)
       meta('name', 'twitter:description', page.description)
     } else {

@@ -4,6 +4,7 @@ import Home from '@/pages/Home'
 
 const Booking = lazy(() => import('@/pages/Booking'))
 const Services = lazy(() => import('@/pages/Services'))
+const Founder = lazy(() => import('@/pages/Founder'))
 const Confirmation = lazy(() => import('@/pages/Confirmation'))
 const ManageAppointment = lazy(() => import('@/pages/ManageAppointment'))
 const Loyalty = lazy(() => import('@/pages/Loyalty'))
@@ -47,6 +48,7 @@ export function AppRoutes() {
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/servicios" element={<Services />} />
+        <Route path="/barberos/leonardo-gomez-rios" element={<Founder />} />
         <Route path="/reservar" element={bookingOpen ? <Booking /> : <BookingSoon />} />
         <Route path="/confirmacion/:token" element={bookingOpen ? <Confirmation /> : <BookingSoon />} />
         <Route path="/cita/:token" element={bookingOpen ? <ManageAppointment /> : <BookingSoon />} />

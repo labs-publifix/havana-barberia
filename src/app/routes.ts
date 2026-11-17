@@ -26,6 +26,8 @@ export const routes = {
     return s ? `/reservar?${s}` : '/reservar'
   },
   services: '/servicios',
+  /** Leonardo Gómez Ríos, founder (src/config/founder.ts). */
+  founder: '/barberos/leonardo-gomez-rios',
   policies: '/politicas',
   privacy: '/privacidad',
   gallery: '/__ui',
