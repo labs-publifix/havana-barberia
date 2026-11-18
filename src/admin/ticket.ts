@@ -1,12 +1,13 @@
+import logoUrl from '@/assets/brand/logo-ticket.png'
 import { business } from '@/config/business'
 import type { Appointment, PaymentMethod, Service } from '@/domain/types'
-import { capitalize, formatDateLong, formatTime12, localDate, localTime, money } from '@/lib/time'
+import { formatTime12, localDate, localTime, money } from '@/lib/time'
 import { methodLabels } from './cash'
 import type { ProductSale } from './finance'
 
 /**
- * Printable sale ticket, 80 mm wide (the standard thermal roll; it also prints
- * fine on letter paper). Not a tax receipt. jsPDF is loaded only when a ticket
+ * Printable sale ticket for the shop's 58 mm thermal printer (5 cm roll).
+ * Not a tax receipt. jsPDF is loaded only when a ticket
  * is generated, so it never weighs on the panel.
  */
 export interface TicketData {
@@ -87,78 +88,153 @@ export function ticketTotals(t: TicketData) {
   return { subtotal, charged, total: charged + t.tip }
 }
 
-const WIDTH = 80
-const M = 5
+/**
+ * Page size: the shop prints on a POS-58 thermal printer whose roll is 5 cm
+ * wide (48 mm printable). The page is 50 mm wide with 3 mm margins, and as
+ * tall as the content, so no paper is wasted.
+ */
+export const TICKET_WIDTH_MM = 50
+const WIDTH = TICKET_WIDTH_MM
+const M = 3
+const LOGO_W = 30
+const LOGO_RATIO = 306 / 480
 
-/** Build the PDF (80 mm wide, as tall as the content). */
-export async function ticketPdf(t: TicketData) {
+const dmy = (d: string) => d.split('-').reverse().join('/')
+const handle = (url: string | null) => (url ? `@${url.replace(/\/+$/, '').split('/').pop()}` : null)
+
+/** The black logo as PNG bytes (jsPDF can't embed WebP); null if it can't be loaded. */
+async function loadLogo(): Promise<Uint8Array | null> {
+  try {
+    const res = await fetch(logoUrl)
+    return res.ok ? new Uint8Array(await res.arrayBuffer()) : null
+  } catch {
+    return null
+  }
+}
+
+/** Build the PDF (50 mm wide, as tall as the content). */
+export async function ticketPdf(t: TicketData, opts: { logo?: Uint8Array | null } = {}) {
   const { jsPDF } = await import('jspdf')
+  const logo = opts.logo === undefined ? await loadLogo() : opts.logo
+  const inner = WIDTH - M * 2
   // Measure first on a tall page, then lay out again on a page cut to fit.
   const draw = (doc: InstanceType<typeof jsPDF>) => {
-    let y = 8
-    const inner = WIDTH - M * 2
+    let y = 4
+    doc.setTextColor(0)
+    const lh = (size: number) => size * 0.4
     const center = (text: string, size: number, bold = false) => {
       doc.setFont('helvetica', bold ? 'bold' : 'normal').setFontSize(size)
       for (const line of doc.splitTextToSize(text, inner) as string[]) {
+        y += lh(size)
         doc.text(line, WIDTH / 2, y, { align: 'center' })
-        y += size * 0.42
       }
+      y += 0.6
     }
-    const row = (left: string, right: string, size = 8.5, bold = false) => {
+    /** Text on the left (wraps), amount on the right of its first line. */
+    const row = (left: string, right = '', size = 7.5, bold = false) => {
       doc.setFont('helvetica', bold ? 'bold' : 'normal').setFontSize(size)
-      const lines = doc.splitTextToSize(left, inner - 22) as string[]
+      const room = right ? inner - doc.getTextWidth(right) - 2 : inner
+      const lines = doc.splitTextToSize(left, room) as string[]
       lines.forEach((line, i) => {
+        y += lh(size)
         doc.text(line, M, y)
-        if (i === 0) doc.text(right, WIDTH - M, y, { align: 'right' })
-        y += size * 0.45
+        if (i === 0 && right) doc.text(right, WIDTH - M, y, { align: 'right' })
+        y += 0.7
       })
     }
-    const rule = () => {
-      y += 1
-      doc
-        .setLineDashPattern([0.8, 0.8], 0)
-        .setLineWidth(0.2)
-        .line(M, y, WIDTH - M, y)
-      y += 4
+    /** "Label: value" with the label in bold. */
+    const field = (label: string, value: string, size = 7.5) => {
+      doc.setFont('helvetica', 'bold').setFontSize(size)
+      const lw = doc.getTextWidth(`${label} `)
+      doc.setFont('helvetica', 'normal')
+      const lines = doc.splitTextToSize(value, inner - lw) as string[]
+      lines.forEach((line, i) => {
+        y += lh(size)
+        if (i === 0) doc.setFont('helvetica', 'bold').text(label, M, y).setFont('helvetica', 'normal')
+        doc.text(line, M + lw, y)
+        y += 0.7
+      })
+    }
+    const rule = (solid = false) => {
+      y += 1.4
+      doc.setLineWidth(solid ? 0.35 : 0.25)
+      doc.setLineDashPattern(solid ? [] : [0.8, 0.8], 0)
+      doc.line(M, y, WIDTH - M, y)
+      doc.setLineDashPattern([], 0)
+      y += 1.2
     }
 
-    center(business.name.toUpperCase(), 13, true)
-    y += 1
-    for (const line of business.addressLines) center(line, 7.5)
-    center(`Tel. ${business.phoneDisplay}`, 7.5)
+    // Header: logo and contact details.
+    if (logo) {
+      const h = LOGO_W * LOGO_RATIO
+      doc.addImage(logo, 'PNG', (WIDTH - LOGO_W) / 2, y, LOGO_W, h)
+      y += h + 1.5
+    } else {
+      center(business.name.toUpperCase(), 12, true)
+    }
+    for (const line of business.addressLines) center(line, 6.5)
+    center(`Tel. y WhatsApp: ${business.phoneDisplay}`, 6.5)
+    center(business.website.replace(/^https?:\/\//, ''), 6.5)
+    const ig = handle(business.instagramUrl)
+    if (ig) center(`Instagram ${ig}`, 6.5)
+    rule(true)
+
+    // Sale data.
+    center('TICKET DE VENTA', 8.5, true)
+    y += 0.4
+    field('Folio:', t.folio)
+    field('Fecha:', dmy(localDate(t.at, tz)))
+    field('Hora:', formatTime12(localTime(t.at, tz)))
+    if (t.customer) field('Cliente:', t.customer)
+    if (t.staff) field('Atendió:', t.staff)
     rule()
-    const date = capitalize(formatDateLong(localDate(t.at, tz)))
-    row(`Ticket ${t.folio}`, formatTime12(localTime(t.at, tz)), 8.5, true)
-    row(date, '', 8)
-    if (t.customer) row(`Cliente: ${t.customer}`, '', 8)
-    if (t.staff) row(`Atendió: ${t.staff}`, '', 8)
+
+    // Items: description and amount; quantity × unit price underneath.
+    row('Descripción', 'Importe', 6.5, true)
+    y += 0.3
+    for (const i of t.items) {
+      row(i.name, money(i.price * i.qty), 7.5)
+      if (i.qty > 1) row(`   ${i.qty} x ${money(i.price)}`, '', 6.5)
+    }
+    for (const d of t.discounts ?? []) row(d.label, `-${money(d.amount)}`, 7.5)
     rule()
-    for (const i of t.items) row(i.qty > 1 ? `${i.qty} × ${i.name}` : i.name, money(i.price * i.qty))
-    for (const d of t.discounts ?? []) row(d.label, `-${money(d.amount)}`)
-    rule()
+
+    // Totals and payment.
     const totals = ticketTotals(t)
-    if (t.discounts?.length || t.tip) row('Subtotal', money(totals.charged))
+    const off = totals.subtotal - totals.charged
+    row('Subtotal', money(totals.subtotal))
+    if (off) row('Descuentos', `-${money(off)}`)
     if (t.tip) row(`Propina (${methodLabels[t.tipMethod].toLowerCase()})`, money(t.tip))
-    y += 0.5
-    row('TOTAL', money(totals.total), 11, true)
-    y += 0.5
-    if (t.splits?.length)
-      for (const x of t.splits) row(`Pago ${methodLabels[x.method].toLowerCase()}`, money(x.amount), 8)
-    else row(`Pago: ${methodLabels[t.method]}`, '', 8)
+    y += 0.6
+    row('TOTAL', money(totals.total), 10.5, true)
+    y += 0.4
+    if (t.splits?.length) {
+      row('Forma de pago:', '', 7, true)
+      for (const x of t.splits) row(`   ${methodLabels[x.method]}`, money(x.amount), 7)
+    } else field('Forma de pago:', methodLabels[t.method], 7)
+
     if (t.loyalty) {
       rule()
-      center(`Tarjeta de lealtad: ${t.loyalty.stamps} de ${t.loyalty.goal} sellos`, 8, true)
+      center('TARJETA DE LEALTAD', 7.5, true)
+      center(`${t.loyalty.stamps} de ${t.loyalty.goal} sellos`, 7.5)
+      const left = t.loyalty.goal - t.loyalty.stamps
+      center(
+        left > 0
+          ? `Te ${left === 1 ? 'falta 1 sello' : `faltan ${left} sellos`} para tu corte gratis.`
+          : '¡Tu próximo corte es gratis!',
+        6.5,
+      )
     }
-    rule()
-    center('¡Gracias por tu visita!', 9, true)
-    center('Agenda tu próxima cita en línea.', 7.5)
-    y += 1
-    center('Este ticket no es un comprobante fiscal.', 6.5)
-    return y + 6
+    rule(true)
+    center('¡Gracias por tu visita!', 8.5, true)
+    center(`Agenda tu próxima cita en ${business.website.replace(/^https?:\/\//, '')}`, 6.5)
+    y += 0.6
+    center('Este ticket no es un comprobante fiscal.', 6)
+    return y + 5
   }
-  const probe = new jsPDF({ unit: 'mm', format: [WIDTH, 400] })
-  const height = Math.max(90, Math.ceil(draw(probe)))
-  const doc = new jsPDF({ unit: 'mm', format: [WIDTH, height] })
+  const probe = new jsPDF({ unit: 'mm', format: [WIDTH, 600] })
+  const height = Math.ceil(draw(probe))
+  const doc = new jsPDF({ unit: 'mm', format: [WIDTH, height], orientation: 'portrait' })
   draw(doc)
   doc.setProperties({ title: `Ticket ${t.folio} · ${business.name}` })
   return doc
