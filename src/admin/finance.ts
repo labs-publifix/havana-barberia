@@ -338,6 +338,17 @@ export interface DailyClose {
   counted: number
   /** counted − expected: positive is extra cash, negative is missing cash. */
   difference: number
+  /**
+   * Card terminal and bank transfers: expected (from that day's payments and
+   * sales) and the total captured at the close. null on closes made before
+   * every method was counted.
+   */
+  cardExpected: number | null
+  cardCounted: number | null
+  cardDifference: number | null
+  transferExpected: number | null
+  transferCounted: number | null
+  transferDifference: number | null
   note: string
   closedBy: string
   closedAt: string

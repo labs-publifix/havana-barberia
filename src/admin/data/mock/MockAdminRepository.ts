@@ -55,7 +55,7 @@ import type {
   ProductSale,
 } from '../../finance'
 import { InvalidRequestError } from '@/data/errors'
-import { InvalidCredentialsError, InvalidMfaCodeError, type AdminRepository } from '../AdminRepository'
+import { InvalidCredentialsError, InvalidMfaCodeError, type AdminRepository, type CloseDayInput } from '../AdminRepository'
 import { cleanEmails, isFinanceRole, isOwnerRole, reviewUrl } from '../../domain'
 import type { Expense } from '../../profit'
 import type { InviteKind, InviteState } from '../../customers/winback'
@@ -302,7 +302,7 @@ export class MockAdminRepository implements AdminRepository {
     return this.booking.adminDeleteCashMove(id)
   }
 
-  async closeDay(input: { date: LocalDate; openingFund: number; counted: number; note: string }): Promise<DailyClose> {
+  async closeDay(input: CloseDayInput): Promise<DailyClose> {
     const me = (await this.getSession())?.user
     return this.booking.adminCloseDay({ ...input, closedBy: me?.name ?? 'Panel' })
   }

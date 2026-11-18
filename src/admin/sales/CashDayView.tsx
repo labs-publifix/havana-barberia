@@ -11,7 +11,7 @@ import type { LocalDate } from '@/domain/types'
 import { capitalize, formatDateLong, formatTime12, localDate, localTime, money } from '@/lib/time'
 import { useAdminAuth, useAdminSession } from '../auth/AdminAuth'
 import { errorMessage } from '../agenda/useAgendaActions'
-import { cashDayStatus, cashSummary, methodLabels, productsSold } from '../cash'
+import { cashDayStatus, cashSummary, closeBalanced, closeLines, methodLabels, productsSold } from '../cash'
 import { expectedCash } from '../finance'
 import { Input, Segmented } from '../ui/controls'
 import { Card } from '../ui/Panel'
@@ -19,7 +19,31 @@ import { useToast } from '../ui/Toast'
 import { isFinanceRole } from '../domain'
 
 const tz = business.hours.timeZone
-const digits = (v: string) => v.replace(/\D/g, '').slice(0, 7)
+const digits = (v: string) => v.replace(/\D/g, '').slice(0, 8)
+
+const CAPTURE_LABEL = {
+  cash: 'Efectivo contado',
+  card: 'Tarjeta (cierre de la terminal)',
+  transfer: 'Transferencias recibidas',
+} as const
+
+interface Line {
+  method: 'cash' | 'card' | 'transfer'
+  label: string
+  expected: number | null
+  counted: number | null
+  difference: number | null
+}
+
+/** «faltan $50» / «sobran $20». */
+const diffText = (d: number) => (d > 0 ? `sobran ${money(d)}` : `faltan ${money(-d)}`)
+
+/** «faltan $50 en transferencias, sobran $20 en tarjeta». */
+const mismatchText = (c: Parameters<typeof closeLines>[0]) =>
+  closeLines(c)
+    .filter((l) => l.difference)
+    .map((l) => `${diffText(l.difference!)} en ${l.label.toLowerCase()}`)
+    .join(', ')
 
 /**
  * Caja del día: what came in by method, cash taken out or put in, and the
@@ -35,7 +59,7 @@ export function CashDayView({ date }: { date: LocalDate }) {
   const today = localDate(new Date(), tz)
   const { data } = useQuery({ queryKey: ['admin', 'cash-day', date], queryFn: () => repo.getCashDay(date) })
   const [move, setMove] = useState({ kind: 'out' as 'out' | 'in', amount: '', concept: '' })
-  const [count, setCount] = useState({ fund: '', counted: '', note: '' })
+  const [count, setCount] = useState({ fund: '', counted: '', card: '', transfer: '', note: '' })
   const [error, setError] = useState<string | null>(null)
 
   const refresh = () => qc.invalidateQueries({ queryKey: ['admin'] })
@@ -52,12 +76,19 @@ export function CashDayView({ date }: { date: LocalDate }) {
   const delMove = useMutation({ mutationFn: (id: string) => repo.deleteCashMove(id), onSuccess: refresh, onError })
   const close = useMutation({
     mutationFn: () =>
-      repo.closeDay({ date, openingFund: Number(count.fund || 0), counted: Number(count.counted), note: count.note }),
+      repo.closeDay({
+        date,
+        openingFund: Number(count.fund || 0),
+        counted: Number(count.counted),
+        cardCounted: Number(count.card),
+        transferCounted: Number(count.transfer),
+        note: count.note,
+      }),
     onSuccess: async (c) => {
       setError(null)
-      setCount({ fund: '', counted: '', note: '' })
+      setCount({ fund: '', counted: '', card: '', transfer: '', note: '' })
       await refresh()
-      toast(c.difference === 0 ? 'Caja cerrada · cuadra exacto' : `Caja cerrada · diferencia ${money(c.difference)}`)
+      toast(closeBalanced(c) ? 'Caja cerrada · cuadra exacto' : `Caja cerrada · ${mismatchText(c)}`)
     },
     onError,
   })
@@ -75,9 +106,25 @@ export function CashDayView({ date }: { date: LocalDate }) {
     cashTips: cash.tips.cash,
     moves: data.moves,
   })
-  const counted = closed ? closed.counted : count.counted === '' ? null : Number(count.counted)
-  const diff = counted === null ? null : counted - (closed ? closed.expected : expected)
   const status = cashDayStatus(data, today)
+  // One line per method: what it should be, what was counted or read, and the difference.
+  const typed = (v: string) => (v === '' ? null : Number(v))
+  const lines: Line[] = closed
+    ? closeLines(closed)
+    : [
+        { method: 'cash' as const, label: 'Efectivo', expected, counted: typed(count.counted) },
+        { method: 'card' as const, label: 'Tarjeta', expected: cash.inByMethod.card, counted: typed(count.card) },
+        {
+          method: 'transfer' as const,
+          label: 'Transferencias',
+          expected: cash.inByMethod.transfer,
+          counted: typed(count.transfer),
+        },
+      ].map((l) => ({ ...l, difference: l.counted === null ? null : l.counted - l.expected }))
+  const allCaptured = lines.every((l) => l.counted !== null)
+  const totalExpected = lines.reduce((t, l) => t + (l.expected ?? 0), 0)
+  const totalCounted = lines.reduce((t, l) => t + (l.counted ?? 0), 0)
+  const off = lines.filter((l) => l.difference !== null && l.difference !== 0)
 
   return (
     <div className="grid grid-cols-[minmax(0,1fr)] gap-6">
@@ -100,15 +147,10 @@ export function CashDayView({ date }: { date: LocalDate }) {
         </Alert>
       )}
       {status === 'mismatch' && closed && (
-        <Alert
-          tone="danger"
-          title={
-            closed.difference > 0
-              ? `La caja no cuadró: sobraron ${money(closed.difference)}.`
-              : `La caja no cuadró: faltaron ${money(-closed.difference)}.`
-          }
-        >
-          {closed.note ? `Nota del cierre: ${closed.note}` : 'Revisa los cobros y movimientos del día.'}
+        <Alert tone="danger" title={`El corte no cuadró: ${mismatchText(closed)}.`}>
+          {closed.note
+            ? `Nota del cierre: ${closed.note}`
+            : 'Revisa los cobros, las formas de pago y los movimientos del día.'}
         </Alert>
       )}
       {error && <Alert tone="danger" title={error} />}
@@ -153,43 +195,81 @@ export function CashDayView({ date }: { date: LocalDate }) {
             </div>
           </dl>
           <p className="mt-4 text-[13px] text-fg-muted">
-            Tarjeta {money(cash.inByMethod.card)} · Transferencia {money(cash.inByMethod.transfer)} (no pasan por la
-            caja). {cash.paidCount} {cash.paidCount === 1 ? 'cita cobrada' : 'citas cobradas'} y {cash.productPieces}{' '}
+            {cash.paidCount} {cash.paidCount === 1 ? 'cita cobrada' : 'citas cobradas'} y {cash.productPieces}{' '}
             {cash.productPieces === 1 ? 'producto vendido' : 'productos vendidos'} (en citas y mostrador).
           </p>
         </Card>
 
-        <Card title="Arqueo" description="Cuenta el efectivo al cerrar." className="min-w-0">
+        <Card
+          title="Corte de caja"
+          description="Efectivo: cuéntalo en la caja. Tarjeta: el total del cierre de la terminal. Transferencias: lo recibido en el banco."
+          className="min-w-0"
+        >
           <div className="grid gap-4">
-            {closed ? (
-              <dl className="grid gap-2 text-sm">
-                <div className="flex justify-between">
-                  <dt className="text-fg-muted">Efectivo contado</dt>
-                  <dd className="tabular">{money(closed.counted)}</dd>
-                </div>
-                {closed.note && <p className="text-fg-muted">Nota: {closed.note}</p>}
-              </dl>
-            ) : (
-              <>
-                <Input
-                  label="Efectivo contado"
-                  prefix="$"
-                  inputMode="numeric"
-                  value={count.counted}
-                  onChange={(e) => setCount((c) => ({ ...c, counted: digits(e.target.value) }))}
-                />
-                <Input
-                  label="Nota (opcional)"
-                  value={count.note}
-                  onChange={(e) => setCount((c) => ({ ...c, note: e.target.value }))}
-                />
-              </>
-            )}
-            {diff !== null && (
+            <ul className="grid gap-3" aria-label="Corte por forma de pago">
+              {lines.map((l) => (
+                <li key={l.method} className="grid gap-1.5 rounded-md border border-line px-3 py-2.5">
+                  <div className="grid grid-cols-[minmax(0,1fr)_8rem] items-center gap-3">
+                    <div className="min-w-0 text-sm">
+                      <p className="font-semibold">{CAPTURE_LABEL[l.method]}</p>
+                      <p className="tabular text-fg-muted">
+                        Debe haber {l.expected === null ? '—' : money(l.expected)}
+                      </p>
+                    </div>
+                    {closed ? (
+                      <p className="tabular text-right text-base font-semibold">
+                        {l.counted === null ? '—' : money(l.counted)}
+                      </p>
+                    ) : (
+                      <Input
+                        label={CAPTURE_LABEL[l.method]}
+                        hideLabel
+                        prefix="$"
+                        inputMode="numeric"
+                        value={l.method === 'cash' ? count.counted : l.method === 'card' ? count.card : count.transfer}
+                        onChange={(e) => {
+                          const v = digits(e.target.value)
+                          setCount((c) =>
+                            l.method === 'cash'
+                              ? { ...c, counted: v }
+                              : l.method === 'card'
+                                ? { ...c, card: v }
+                                : { ...c, transfer: v },
+                          )
+                        }}
+                      />
+                    )}
+                  </div>
+                  {l.counted === null && closed ? (
+                    <p className="text-[13px] text-fg-muted">No se capturó (cierre anterior a este cambio).</p>
+                  ) : (
+                    l.difference !== null && (
+                      <p
+                        className={cn(
+                          'text-[13px] font-semibold',
+                          l.difference === 0 ? 'text-success-700' : closed ? 'text-red-700' : 'text-warning-700',
+                        )}
+                      >
+                        {l.difference === 0 ? 'Cuadra.' : `${capitalize(diffText(l.difference))}.`}
+                      </p>
+                    )
+                  )}
+                </li>
+              ))}
+            </ul>
+            <div className="tabular flex flex-wrap justify-between gap-x-4 gap-y-1 border-t border-line pt-3 text-sm">
+              <span className="text-fg-muted">
+                Total: debe haber <strong className="text-fg">{money(totalExpected)}</strong>
+              </span>
+              <span className="text-fg-muted">
+                capturado <strong className="text-fg">{allCaptured ? money(totalCounted) : '—'}</strong>
+              </span>
+            </div>
+            {allCaptured && (
               <p
                 className={cn(
                   'rounded-md px-4 py-3 text-sm font-semibold',
-                  diff === 0
+                  !off.length
                     ? 'bg-success-100 text-success-700'
                     : closed
                       ? 'bg-red-100 text-red-700'
@@ -197,29 +277,46 @@ export function CashDayView({ date }: { date: LocalDate }) {
                 )}
                 aria-live="polite"
               >
-                {diff === 0 ? 'Cuadra exacto.' : diff > 0 ? `Sobran ${money(diff)}.` : `Faltan ${money(-diff)}.`}
+                {!off.length
+                  ? 'Cuadra exacto en efectivo, tarjeta y transferencias.'
+                  : `No cuadra: ${off.map((l) => `${diffText(l.difference!)} en ${l.label.toLowerCase()}`).join(', ')}.`}
               </p>
             )}
             {closed ? (
-              canReopen && (
+              <>
+                {closed.note && <p className="text-sm text-fg-muted">Nota: {closed.note}</p>}
+                {canReopen && (
+                  <button
+                    type="button"
+                    onClick={() => reopen.mutate()}
+                    disabled={reopen.isPending}
+                    className={cn(buttonClass({ variant: 'secondary', size: 'sm' }), 'justify-self-start')}
+                  >
+                    Reabrir caja
+                  </button>
+                )}
+              </>
+            ) : (
+              <>
+                <Input
+                  label="Nota (opcional)"
+                  value={count.note}
+                  onChange={(e) => setCount((c) => ({ ...c, note: e.target.value }))}
+                />
                 <button
                   type="button"
-                  onClick={() => reopen.mutate()}
-                  disabled={reopen.isPending}
-                  className={cn(buttonClass({ variant: 'secondary', size: 'sm' }), 'justify-self-start')}
+                  onClick={() => close.mutate()}
+                  disabled={!allCaptured || close.isPending}
+                  className={cn(buttonClass({ size: 'sm' }), 'justify-self-start')}
                 >
-                  Reabrir caja
+                  <Lock className="size-4" aria-hidden /> Cerrar caja
                 </button>
-              )
-            ) : (
-              <button
-                type="button"
-                onClick={() => close.mutate()}
-                disabled={count.counted === '' || close.isPending}
-                className={cn(buttonClass({ size: 'sm' }), 'justify-self-start')}
-              >
-                <Lock className="size-4" aria-hidden /> Cerrar caja
-              </button>
+                {!allCaptured && (
+                  <p className="text-[13px] text-fg-muted">
+                    Captura los tres montos para cerrar (escribe 0 si no hubo pagos de esa forma).
+                  </p>
+                )}
+              </>
             )}
           </div>
         </Card>

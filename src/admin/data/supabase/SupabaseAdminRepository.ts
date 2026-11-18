@@ -90,7 +90,7 @@ import {
 } from '../../finance'
 import type { Expense } from '../../profit'
 import type { InviteKind, InviteState } from '../../customers/winback'
-import { InvalidCredentialsError, InvalidMfaCodeError, type AdminRepository } from '../AdminRepository'
+import { InvalidCredentialsError, InvalidMfaCodeError, type AdminRepository, type CloseDayInput } from '../AdminRepository'
 import { cleanEmails, isFinanceRole, isOwnerRole, reviewUrl } from '../../domain'
 
 /** Sections connected to Supabase. */
@@ -1676,11 +1676,13 @@ export class SupabaseAdminRepository implements AdminRepository {
     if (res.error) friendly(res.error)
   }
 
-  async closeDay(input: { date: LocalDate; openingFund: number; counted: number; note: string }): Promise<DailyClose> {
+  async closeDay(input: CloseDayInput): Promise<DailyClose> {
     const { data, error } = await this.db.rpc('close_day', {
       p_date: input.date,
       p_opening_fund: input.openingFund,
       p_counted: input.counted,
+      p_card_counted: input.cardCounted,
+      p_transfer_counted: input.transferCounted,
       p_note: input.note,
     })
     if (error) friendly(error)
@@ -1847,6 +1849,12 @@ interface DailyCloseRow {
   expected: number
   counted: number
   difference: number
+  card_expected: number | null
+  card_counted: number | null
+  card_difference: number | null
+  transfer_expected: number | null
+  transfer_counted: number | null
+  transfer_difference: number | null
   note: string
   closed_by_name: string
   closed_at: string
@@ -1961,6 +1969,12 @@ const toDailyClose = (r: DailyCloseRow): DailyClose => ({
   expected: r.expected,
   counted: r.counted,
   difference: r.difference,
+  cardExpected: r.card_expected ?? null,
+  cardCounted: r.card_counted ?? null,
+  cardDifference: r.card_difference ?? null,
+  transferExpected: r.transfer_expected ?? null,
+  transferCounted: r.transfer_counted ?? null,
+  transferDifference: r.transfer_difference ?? null,
   note: r.note,
   closedBy: r.closed_by_name,
   closedAt: iso(r.closed_at),

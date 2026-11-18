@@ -51,6 +51,12 @@ async function renderCaja(query = 'vista=caja') {
         expected: 780,
         counted: 730,
         difference: -50,
+        cardExpected: 0,
+        cardCounted: 0,
+        cardDifference: 0,
+        transferExpected: 0,
+        transferCounted: 0,
+        transferDifference: 0,
         note: '',
         closedBy: 'Recepción',
         closedAt: zonedInstant(twoDaysAgo, '20:40', TZ).toISOString(),
@@ -103,5 +109,25 @@ describe('Ventas › Caja', () => {
     const chip = within(alert.closest('[role="alert"], div')!.parentElement!).getAllByRole('button')
     await user.click(chip.find((b) => b.textContent?.includes('sin corte'))!)
     expect(await screen.findByText('No se hizo el corte de caja de este día.')).toBeInTheDocument()
+  })
+
+  it('the close asks for cash, the card terminal and transfers, and flags any difference', async () => {
+    const { user } = await renderCaja(`vista=caja&periodo=dia&desde=${yesterday}`)
+    const box = await screen.findByRole('list', { name: 'Corte por forma de pago' })
+    expect(within(box).getAllByRole('listitem')).toHaveLength(3)
+    expect(within(box).getByLabelText('Efectivo contado')).toBeInTheDocument()
+    expect(within(box).getByLabelText('Tarjeta (cierre de la terminal)')).toBeInTheDocument()
+    expect(within(box).getByLabelText('Transferencias recibidas')).toBeInTheDocument()
+    const close = screen.getByRole('button', { name: 'Cerrar caja' })
+    await user.type(screen.getByLabelText('Efectivo contado'), '280')
+    expect(close).toBeDisabled()
+    await user.type(screen.getByLabelText('Tarjeta (cierre de la terminal)'), '50')
+    await user.type(screen.getByLabelText('Transferencias recibidas'), '0')
+    expect(screen.getByText('No cuadra: sobran $50 en tarjeta.')).toBeInTheDocument()
+    await user.clear(screen.getByLabelText('Tarjeta (cierre de la terminal)'))
+    await user.type(screen.getByLabelText('Tarjeta (cierre de la terminal)'), '0')
+    expect(screen.getByText('Cuadra exacto en efectivo, tarjeta y transferencias.')).toBeInTheDocument()
+    await user.click(close)
+    expect(await screen.findByText('Caja cerrada · cuadra exacto')).toBeInTheDocument()
   })
 })

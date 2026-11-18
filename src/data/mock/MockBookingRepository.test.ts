@@ -405,7 +405,15 @@ describe('MockBookingRepository · staff actions', () => {
       'Leo',
     )
     expect(sale2).toMatchObject({ total: p.price * 2, staffId: 'leonardo', method: 'card' })
-    await r.adminCloseDay({ date: MONDAY, openingFund: 0, counted: 0, note: '', closedBy: 'Leo' })
+    await r.adminCloseDay({
+      date: MONDAY,
+      openingFund: 0,
+      counted: 0,
+      cardCounted: 0,
+      transferCounted: 0,
+      note: '',
+      closedBy: 'Leo',
+    })
     await expect(r.adminVoidSale(sale.id, 'Duplicada')).rejects.toThrow('ya está cerrada')
   })
 
@@ -1085,22 +1093,59 @@ describe('MockBookingRepository · full ticket', () => {
 })
 
 describe('MockBookingRepository · daily cash', () => {
-  it('works out the expected cash, closes the day and refuses changes until reopened', async () => {
+  it('works out what each method should have, closes the day and refuses changes until reopened', async () => {
     let now = zonedInstant(MONDAY, '09:00', TZ)
     const r = new MockBookingRepository({ storage: null, initial: emptyDb(), now: () => now })
     const a = await r.createAppointment(booking(iso(MONDAY, '10:00')))
-    now = zonedInstant(MONDAY, '11:00', TZ)
+    const b = await r.createAppointment(booking(iso(MONDAY, '11:00'), 2))
+    now = zonedInstant(MONDAY, '12:00', TZ)
     await r.adminSetStatus(a.id, 'completed', { method: 'cash', tip: 50, tipMethod: 'cash' })
+    // Mixed: $100 cash + $180 card, tip $30 by transfer.
+    await r.adminSetStatus(b.id, 'completed', {
+      method: 'card',
+      tip: 30,
+      tipMethod: 'transfer',
+      splits: [
+        { method: 'cash', amount: 100 },
+        { method: 'card', amount: 180 },
+      ],
+    })
+    const p = r.snapshot().products.find((x) => x.active)!
+    await r.adminCreateSale({ items: [{ productId: p.id, qty: 1 }], staffId: 'isaac', method: 'transfer' })
     await r.adminAddCashMove({ date: MONDAY, kind: 'out', amount: 100, concept: 'Toallas', by: 'Recepción' })
+    await expect(
+      r.adminCloseDay({
+        date: MONDAY,
+        openingFund: 500,
+        counted: 820,
+        cardCounted: Number.NaN,
+        transferCounted: 0,
+        note: '',
+        closedBy: 'Recepción',
+      }),
+    ).rejects.toThrow(/terminal/)
     const close = await r.adminCloseDay({
       date: MONDAY,
       openingFund: 500,
-      counted: 720,
+      counted: 820,
+      cardCounted: 180,
+      transferCounted: 30,
       note: '',
       closedBy: 'Recepción',
     })
-    // 500 fund + 280 corte + 50 tip − 100 out = 730 expected.
-    expect(close).toMatchObject({ expected: 730, counted: 720, difference: -10 })
+    // Cash: 500 fund + 280 corte + 50 tip + 100 (mixed) − 100 out = 830.
+    // Card: 180 (mixed). Transfers: 30 tip + the counter sale.
+    expect(close).toMatchObject({
+      expected: 830,
+      counted: 820,
+      difference: -10,
+      cardExpected: 180,
+      cardCounted: 180,
+      cardDifference: 0,
+      transferExpected: 30 + p.price,
+      transferCounted: 30,
+      transferDifference: -p.price,
+    })
     await expect(
       r.adminAddCashMove({ date: MONDAY, kind: 'in', amount: 10, concept: 'Cambio', by: 'Recepción' }),
     ).rejects.toThrow(/ya está cerrada/)

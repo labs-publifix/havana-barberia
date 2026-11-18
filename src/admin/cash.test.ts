@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Appointment, AppointmentPayment } from '@/domain/types'
-import { cashAlerts, cashDayStatus, cashSummary, productsSold } from './cash'
+import { cashAlerts, cashDayStatus, cashSummary, closeBalanced, closeDifference, productsSold } from './cash'
 
 let n = 0
 const appt = (status: Appointment['status'], payment?: Partial<AppointmentPayment>): Appointment =>
@@ -111,5 +111,26 @@ describe('cashDayStatus', () => {
       ['2026-11-14', 'missing'],
       ['2026-11-16', 'mismatch'],
     ])
+  })
+})
+
+describe('closeBalanced / closeDifference', () => {
+  it('a close only balances when cash, card and transfers all match', () => {
+    expect(closeBalanced({ difference: 0, cardDifference: 0, transferDifference: 0 })).toBe(true)
+    expect(closeBalanced({ difference: 0, cardDifference: 0, transferDifference: -50 })).toBe(false)
+    // $50 extra in card and $50 missing in transfers: the total is 0, but it didn't match.
+    expect(closeBalanced({ difference: 0, cardDifference: 50, transferDifference: -50 })).toBe(false)
+    expect(closeDifference({ difference: -10, cardDifference: 20, transferDifference: -50 })).toBe(-40)
+  })
+
+  it('older closes (cash only) still read', () => {
+    expect(closeBalanced({ difference: 0, cardDifference: null, transferDifference: null })).toBe(true)
+    expect(closeDifference({ difference: -10, cardDifference: null, transferDifference: null })).toBe(-10)
+    expect(
+      cashDayStatus(
+        { date: '2026-11-16', appointments: [], sales: [], moves: [], close: { difference: 0, transferDifference: -50 } },
+        '2026-11-17',
+      ),
+    ).toBe('mismatch')
   })
 })

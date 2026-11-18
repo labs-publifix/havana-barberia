@@ -67,6 +67,19 @@ export class InvalidMfaCodeError extends Error {
  * listUsers → a staff/profiles table protected by RLS.
  * Later deliveries add agenda, customers, catalog, team, settings and finance methods.
  */
+/** Corte de caja: what was counted or read for each payment method. */
+export interface CloseDayInput {
+  date: LocalDate
+  openingFund: number
+  /** Cash counted in the drawer. */
+  counted: number
+  /** Card terminal's closing total. */
+  cardCounted: number
+  /** Transfers received in the bank. */
+  transferCounted: number
+  note: string
+}
+
 export interface AdminRepository {
   getSession(): Promise<AdminSession | null>
   signIn(email: string, password: string): Promise<AdminSession>
@@ -160,8 +173,11 @@ export interface AdminRepository {
   getCashRange(from: LocalDate, to: LocalDate): Promise<CashDay[]>
   addCashMove(input: { date: LocalDate; kind: 'out' | 'in'; amount: number; concept: string }): Promise<CashMove>
   deleteCashMove(id: ID): Promise<void>
-  /** Save the count; the expected cash is computed on the server. */
-  closeDay(input: { date: LocalDate; openingFund: number; counted: number; note: string }): Promise<DailyClose>
+  /**
+   * Save the count: cash in the drawer, the card terminal's closing total and
+   * the transfers received. What each should be is computed on the server.
+   */
+  closeDay(input: CloseDayInput): Promise<DailyClose>
   /** Owner and manager only. */
   reopenDay(date: LocalDate): Promise<void>
   /** Owner and manager. Errors: InvalidRequestError. */

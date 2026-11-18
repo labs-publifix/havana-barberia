@@ -109,9 +109,26 @@ update public.payments set paid_at = '2026-01-07 18:00+00' where appointment_id 
 set role authenticated;
 set request.jwt.claim.sub = '10000000-0000-0000-0000-000000000002';
 insert into public.cash_moves (date, kind, amount, concept, by_name) values ('2026-01-07', 'out', 40, 'Toallas', 'Recepción');
+-- That day: a3 paid $250 by card; a4 paid $100 cash + $50 card (mixed).
 select pg_temp.check(
-  (select expected from public.close_day('2026-01-07', 500, 560, '')) = 500 + 100 - 40,
-  'el corte calcula el efectivo esperado (mixtos repartidos)'
+  (select expected = 500 + 100 - 40 and difference = 0
+      and card_expected = 250 + 50 and card_counted = 280 and card_difference = -20
+      and transfer_expected = 0 and transfer_counted = 0 and transfer_difference = 0
+   from public.close_day('2026-01-07', 500, 560, 280, 0, '')),
+  'el corte calcula lo esperado de efectivo, tarjeta y transferencia (mixtos repartidos) y la diferencia de cada uno'
+);
+do $$ begin
+  perform public.close_day('2026-01-09', 0, 0, null, 0, '');
+  raise exception 'FALLÓ: corte sin el total de la terminal';
+exception when raise_exception then
+  if sqlerrm like 'FALLÓ%' then raise; end if;
+  raise notice 'ok · el corte pide el total de la terminal y de transferencias';
+end $$;
+-- The previous call (cash only) still works for a tab opened before the update.
+select pg_temp.check(
+  (select expected = 300 and card_expected is null and card_difference is null
+   from public.close_day('2026-01-08', 300, 300, '')),
+  'el corte anterior (solo efectivo) sigue funcionando y deja tarjeta y transferencia sin capturar'
 );
 
 -- Counter sale: price and the product commission from the catalog.
@@ -135,6 +152,7 @@ reset role;
 select pg_temp.check(
   not has_function_privilege('anon', 'public.complete_appointment(text, jsonb)', 'execute')
   and not has_function_privilege('anon', 'public.close_day(date, int, int, text)', 'execute')
+  and not has_function_privilege('anon', 'public.close_day(date, int, int, int, int, text)', 'execute')
   and not has_function_privilege('anon', 'public.record_sale(jsonb, text, text)', 'execute'),
   'sin sesión no se puede cobrar, cerrar caja ni vender'
 );
