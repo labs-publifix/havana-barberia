@@ -44,6 +44,11 @@ for tone in ("white", "black"):
     logo = src.crop(src.getbbox())
     for w in (320, 640):
         webp(resize_w(logo, w), A / "brand" / f"logo-{tone}-{w}.webp", quality=90)
+    if tone == "black":
+        # Sale ticket (thermal printer): opaque grayscale PNG, since jsPDF can't embed WebP.
+        flat = Image.new("RGBA", logo.size, (255, 255, 255, 255))
+        flat.alpha_composite(logo)
+        resize_w(flat, 480).convert("L").save(A / "brand" / "logo-ticket.png", optimize=True)
 
 # --- Services: two widths -------------------------------------------------------------
 print("services")
