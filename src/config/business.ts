@@ -40,6 +40,8 @@ export const business = {
   tagline: 'Barbería profesional en Querétaro',
   address,
   addressLines: ['Prol. Av. Zaragoza 46, Las Plazas', '76180 Santiago de Querétaro, Qro.'],
+  /** Short lines for the 5 cm sale ticket. */
+  ticketAddressLines: ['Prol. Av. Zaragoza 46', 'Las Plazas, 76180', 'Santiago de Querétaro, Qro.'],
   phoneDisplay: '442 537 7844',
   phoneHref: 'tel:+524425377844',
   // TODO(confirm-whatsapp): confirm the WhatsApp number with the client.

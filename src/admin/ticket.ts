@@ -90,14 +90,18 @@ export function ticketTotals(t: TicketData) {
 
 /**
  * Page size: the shop prints on a POS-58 thermal printer whose roll is 5 cm
- * wide (48 mm printable). The page is 50 mm wide with 3 mm margins, and as
- * tall as the content, so no paper is wasted.
+ * wide (48 mm printable). The page is 50 mm wide with 6 mm margins (a test
+ * print on the shop's printer clipped ~3 mm on the left with 3 mm margins), and
+ * as tall as the content, so no paper is wasted. Sizes are 8–13 pt and glyphs
+ * get a thin outline so they come out dark on thermal paper.
  */
 export const TICKET_WIDTH_MM = 50
 const WIDTH = TICKET_WIDTH_MM
-const M = 3
-const LOGO_W = 30
+const M = 6
+const LOGO_W = 32
 const LOGO_RATIO = 306 / 480
+/** Outline added to every glyph (mm). */
+const INK = 0.1
 
 const dmy = (d: string) => d.split('-').reverse().join('/')
 const handle = (url: string | null) => (url ? `@${url.replace(/\/+$/, '').split('/').pop()}` : null)
@@ -122,42 +126,51 @@ export async function ticketPdf(t: TicketData, opts: { logo?: Uint8Array | null 
     let y = 4
     doc.setTextColor(0)
     const lh = (size: number) => size * 0.4
+    /** Filled and outlined: thermal heads print thin Helvetica too faint. */
+    const put = (text: string, x: number, at: number, align?: 'center' | 'right') => {
+      doc.setLineWidth(INK)
+      doc.text(text, x, at, { align, renderingMode: 'fillThenStroke' })
+    }
     const center = (text: string, size: number, bold = false) => {
       doc.setFont('helvetica', bold ? 'bold' : 'normal').setFontSize(size)
       for (const line of doc.splitTextToSize(text, inner) as string[]) {
         y += lh(size)
-        doc.text(line, WIDTH / 2, y, { align: 'center' })
+        put(line, WIDTH / 2, y, 'center')
       }
       y += 0.6
     }
     /** Text on the left (wraps), amount on the right of its first line. */
-    const row = (left: string, right = '', size = 7.5, bold = false) => {
+    const row = (left: string, right = '', size = 9, bold = false) => {
       doc.setFont('helvetica', bold ? 'bold' : 'normal').setFontSize(size)
       const room = right ? inner - doc.getTextWidth(right) - 2 : inner
       const lines = doc.splitTextToSize(left, room) as string[]
       lines.forEach((line, i) => {
         y += lh(size)
-        doc.text(line, M, y)
-        if (i === 0 && right) doc.text(right, WIDTH - M, y, { align: 'right' })
+        put(line, M, y)
+        if (i === 0 && right) put(right, WIDTH - M, y, 'right')
         y += 0.7
       })
     }
     /** "Label: value" with the label in bold. */
-    const field = (label: string, value: string, size = 7.5) => {
+    const field = (label: string, value: string, size = 9) => {
       doc.setFont('helvetica', 'bold').setFontSize(size)
       const lw = doc.getTextWidth(`${label} `)
       doc.setFont('helvetica', 'normal')
       const lines = doc.splitTextToSize(value, inner - lw) as string[]
       lines.forEach((line, i) => {
         y += lh(size)
-        if (i === 0) doc.setFont('helvetica', 'bold').text(label, M, y).setFont('helvetica', 'normal')
-        doc.text(line, M + lw, y)
+        if (i === 0) {
+          doc.setFont('helvetica', 'bold')
+          put(label, M, y)
+          doc.setFont('helvetica', 'normal')
+        }
+        put(line, M + lw, y)
         y += 0.7
       })
     }
     const rule = (solid = false) => {
       y += 1.4
-      doc.setLineWidth(solid ? 0.35 : 0.25)
+      doc.setLineWidth(solid ? 0.5 : 0.35)
       doc.setLineDashPattern(solid ? [] : [0.8, 0.8], 0)
       doc.line(M, y, WIDTH - M, y)
       doc.setLineDashPattern([], 0)
@@ -172,15 +185,16 @@ export async function ticketPdf(t: TicketData, opts: { logo?: Uint8Array | null 
     } else {
       center(business.name.toUpperCase(), 12, true)
     }
-    for (const line of business.addressLines) center(line, 6.5)
-    center(`Tel. y WhatsApp: ${business.phoneDisplay}`, 6.5)
-    center(business.website.replace(/^https?:\/\//, ''), 6.5)
+    for (const line of business.ticketAddressLines) center(line, 8)
+    center('Tel. y WhatsApp', 8)
+    center(business.phoneDisplay, 9, true)
+    center(business.website.replace(/^https?:\/\//, ''), 8)
     const ig = handle(business.instagramUrl)
-    if (ig) center(`Instagram ${ig}`, 6.5)
+    if (ig) center(ig, 8)
     rule(true)
 
     // Sale data.
-    center('TICKET DE VENTA', 8.5, true)
+    center('TICKET DE VENTA', 11, true)
     y += 0.4
     field('Folio:', t.folio)
     field('Fecha:', dmy(localDate(t.at, tz)))
@@ -190,13 +204,13 @@ export async function ticketPdf(t: TicketData, opts: { logo?: Uint8Array | null 
     rule()
 
     // Items: description and amount; quantity × unit price underneath.
-    row('Descripción', 'Importe', 6.5, true)
+    row('Descripción', 'Importe', 8, true)
     y += 0.3
     for (const i of t.items) {
-      row(i.name, money(i.price * i.qty), 7.5)
-      if (i.qty > 1) row(`   ${i.qty} x ${money(i.price)}`, '', 6.5)
+      row(i.name, money(i.price * i.qty), 9)
+      if (i.qty > 1) row(`   ${i.qty} x ${money(i.price)}`, '', 8)
     }
-    for (const d of t.discounts ?? []) row(d.label, `-${money(d.amount)}`, 7.5)
+    for (const d of t.discounts ?? []) row(d.label, `-${money(d.amount)}`, 9)
     rule()
 
     // Totals and payment.
@@ -206,30 +220,30 @@ export async function ticketPdf(t: TicketData, opts: { logo?: Uint8Array | null 
     if (off) row('Descuentos', `-${money(off)}`)
     if (t.tip) row(`Propina (${methodLabels[t.tipMethod].toLowerCase()})`, money(t.tip))
     y += 0.6
-    row('TOTAL', money(totals.total), 10.5, true)
+    row('TOTAL', money(totals.total), 13, true)
     y += 0.4
     if (t.splits?.length) {
-      row('Forma de pago:', '', 7, true)
-      for (const x of t.splits) row(`   ${methodLabels[x.method]}`, money(x.amount), 7)
-    } else field('Forma de pago:', methodLabels[t.method], 7)
+      row('Forma de pago:', '', 9, true)
+      for (const x of t.splits) row(`   ${methodLabels[x.method]}`, money(x.amount), 9)
+    } else field('Forma de pago:', methodLabels[t.method], 9)
 
     if (t.loyalty) {
       rule()
-      center('TARJETA DE LEALTAD', 7.5, true)
-      center(`${t.loyalty.stamps} de ${t.loyalty.goal} sellos`, 7.5)
+      center('TARJETA DE LEALTAD', 9, true)
+      center(`${t.loyalty.stamps} de ${t.loyalty.goal} sellos`, 9)
       const left = t.loyalty.goal - t.loyalty.stamps
       center(
         left > 0
           ? `Te ${left === 1 ? 'falta 1 sello' : `faltan ${left} sellos`} para tu corte gratis.`
           : '¡Tu próximo corte es gratis!',
-        6.5,
+        8,
       )
     }
     rule(true)
-    center('¡Gracias por tu visita!', 8.5, true)
-    center(`Agenda tu próxima cita en ${business.website.replace(/^https?:\/\//, '')}`, 6.5)
+    center('¡Gracias por tu visita!', 10, true)
+    center(`Agenda tu próxima cita en ${business.website.replace(/^https?:\/\//, '')}`, 8)
     y += 0.6
-    center('Este ticket no es un comprobante fiscal.', 6)
+    center('Este ticket no es un comprobante fiscal.', 7.5)
     return y + 5
   }
   const probe = new jsPDF({ unit: 'mm', format: [WIDTH, 600] })
