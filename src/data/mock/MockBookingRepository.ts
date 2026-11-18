@@ -1263,6 +1263,8 @@ export class MockBookingRepository implements BookingRepository {
     date: string
     openingFund: number
     counted: number
+    cardCounted: number
+    transferCounted: number
     note: string
     closedBy: string
   }): Promise<DailyClose> {
@@ -1274,6 +1276,10 @@ export class MockBookingRepository implements BookingRepository {
         [input.counted, 'el efectivo contado'],
       ] as const)
         if (!Number.isInteger(v) || v < 0 || v > 1000000) throw new InvalidRequestError(`Revisa ${label}.`)
+      if (!Number.isInteger(input.cardCounted) || input.cardCounted < 0 || input.cardCounted > 10000000)
+        throw new InvalidRequestError('Escribe el total del cierre de la terminal (0 si no hubo pagos con tarjeta).')
+      if (!Number.isInteger(input.transferCounted) || input.transferCounted < 0 || input.transferCounted > 10000000)
+        throw new InvalidRequestError('Escribe el total de transferencias recibidas (0 si no hubo).')
       const day = this.adminCashDay(input.date)
       const cash = cashSummary(day.appointments, day.sales)
       const { expected } = expectedCash({
@@ -1288,6 +1294,13 @@ export class MockBookingRepository implements BookingRepository {
         expected,
         counted: input.counted,
         difference: input.counted - expected,
+        // Same rule as the server (app.day_in_by_method): charges, tips and counter sales by method.
+        cardExpected: cash.inByMethod.card,
+        cardCounted: input.cardCounted,
+        cardDifference: input.cardCounted - cash.inByMethod.card,
+        transferExpected: cash.inByMethod.transfer,
+        transferCounted: input.transferCounted,
+        transferDifference: input.transferCounted - cash.inByMethod.transfer,
         note: input.note.trim(),
         closedBy: input.closedBy,
         closedAt: this.now().toISOString(),

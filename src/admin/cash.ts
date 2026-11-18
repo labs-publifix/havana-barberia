@@ -138,13 +138,59 @@ export function productsSold(
 
 /**
  * How a day's drawer stands, for the warnings in Ventas › Caja:
- * - ok: closed and the count matched.
- * - mismatch: closed but the count didn't match (red).
+ * - ok: closed and every method matched (cash, card terminal, transfers).
+ * - mismatch: closed but some method didn't match (red).
  * - missing: a past day with charges, sales or cash moves and no close (red).
  * - open: today, not closed yet.
  * - idle: nothing happened and nothing to close.
  */
 export type CashDayStatus = 'ok' | 'mismatch' | 'missing' | 'open' | 'idle'
+
+/** The differences a close can have, by method (card and transfer null on older closes). */
+export interface CloseDifferences {
+  difference: number
+  cardDifference?: number | null
+  transferDifference?: number | null
+}
+
+/** Cash + card + transfer difference of a close (positive: extra, negative: missing). */
+export const closeDifference = (c: CloseDifferences) =>
+  c.difference + (c.cardDifference ?? 0) + (c.transferDifference ?? 0)
+
+/** Every method matched (a $50 extra in card and $50 missing in transfers still doesn't). */
+export const closeBalanced = (c: CloseDifferences) =>
+  c.difference === 0 && !c.cardDifference && !c.transferDifference
+
+/** One line per method of a close, for the arqueo and the warnings. */
+export function closeLines(c: {
+  expected: number
+  counted: number
+  difference: number
+  cardExpected: number | null
+  cardCounted: number | null
+  cardDifference: number | null
+  transferExpected: number | null
+  transferCounted: number | null
+  transferDifference: number | null
+}) {
+  return [
+    { method: 'cash' as const, label: 'Efectivo', expected: c.expected, counted: c.counted, difference: c.difference },
+    {
+      method: 'card' as const,
+      label: 'Tarjeta',
+      expected: c.cardExpected,
+      counted: c.cardCounted,
+      difference: c.cardDifference,
+    },
+    {
+      method: 'transfer' as const,
+      label: 'Transferencias',
+      expected: c.transferExpected,
+      counted: c.transferCounted,
+      difference: c.transferDifference,
+    },
+  ]
+}
 
 export function cashDayStatus(
   day: {
@@ -152,11 +198,11 @@ export function cashDayStatus(
     appointments: unknown[]
     sales: unknown[]
     moves: unknown[]
-    close: { difference: number } | null
+    close: CloseDifferences | null
   },
   today: string,
 ): CashDayStatus {
-  if (day.close) return day.close.difference === 0 ? 'ok' : 'mismatch'
+  if (day.close) return closeBalanced(day.close) ? 'ok' : 'mismatch'
   if (day.date >= today) return 'open'
   return day.appointments.length || day.sales.length || day.moves.length ? 'missing' : 'idle'
 }

@@ -7,7 +7,7 @@ import type { LocalDate } from '@/domain/types'
 import { cn } from '@/lib/cn'
 import { addDays, capitalize, formatDay, money } from '@/lib/time'
 import { useAdminAuth } from '../auth/AdminAuth'
-import { cashAlerts, cashDayStatus, cashSummary, type CashDayStatus } from '../cash'
+import { cashAlerts, cashDayStatus, cashSummary, closeBalanced, closeDifference, type CashDayStatus } from '../cash'
 import type { CashDay } from '../domain'
 import { endSoFar, periodAt } from '../period'
 import { PeriodPicker } from '../ui/PeriodPicker'
@@ -16,6 +16,8 @@ import { usePeriod } from '../usePeriod'
 import { CashDayView } from './CashDayView'
 
 const dayName = (d: LocalDate) => capitalize(formatDay(d, "EEE d 'de' MMM"))
+/** +$20 / −$50 / $0 */
+const signed = (n: number) => (n === 0 ? money(0) : `${n > 0 ? '+' : '−'}${money(Math.abs(n))}`)
 
 const STATUS: Record<CashDayStatus, { label: string; tone: 'success' | 'danger' | 'warning' | 'neutral' }> = {
   ok: { label: 'Cuadró', tone: 'success' },
@@ -53,11 +55,7 @@ function RecentWarnings({ today, onOpen }: { today: LocalDate; onOpen: (d: Local
             >
               {dayName(day.date)} · {STATUS[status].label.toLowerCase()}
               {status === 'mismatch' && day.close && (
-                <span className="tabular">
-                  {' '}
-                  ({day.close.difference > 0 ? '+' : '−'}
-                  {money(Math.abs(day.close.difference))})
-                </span>
+                <span className="tabular"> ({signed(closeDifference(day.close))})</span>
               )}
               <ChevronRight className="size-3.5" aria-hidden />
             </button>
@@ -122,15 +120,15 @@ function CashRangeView({
 
       <Card title="Día por día" description="Toca un día para ver su caja completa." className="min-w-0">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[640px] text-sm">
+          <table className="w-full min-w-[720px] text-sm">
             <thead>
               <tr className="border-b border-line text-left text-[12px] text-fg-muted">
                 <th className="py-2 pr-3 font-medium">Día</th>
                 <th className="py-2 pr-3 text-right font-medium">Cobrado</th>
                 <th className="py-2 pr-3 text-right font-medium">Efectivo</th>
-                <th className="py-2 pr-3 text-right font-medium">Debe haber</th>
-                <th className="py-2 pr-3 text-right font-medium">Contado</th>
-                <th className="py-2 pr-3 text-right font-medium">Diferencia</th>
+                <th className="py-2 pr-3 text-right font-medium">Tarjeta</th>
+                <th className="py-2 pr-3 text-right font-medium">Transferencia</th>
+                <th className="py-2 pr-3 text-right font-medium">Diferencia del corte</th>
                 <th className="py-2 font-medium">Estado</th>
               </tr>
             </thead>
@@ -155,19 +153,15 @@ function CashRangeView({
                     </td>
                     <td className="tabular py-1.5 pr-3 text-right">{money(sum.total)}</td>
                     <td className="tabular py-1.5 pr-3 text-right">{money(sum.inByMethod.cash)}</td>
-                    <td className="tabular py-1.5 pr-3 text-right">{d.close ? money(d.close.expected) : '—'}</td>
-                    <td className="tabular py-1.5 pr-3 text-right">{d.close ? money(d.close.counted) : '—'}</td>
+                    <td className="tabular py-1.5 pr-3 text-right">{money(sum.inByMethod.card)}</td>
+                    <td className="tabular py-1.5 pr-3 text-right">{money(sum.inByMethod.transfer)}</td>
                     <td
                       className={cn(
                         'tabular py-1.5 pr-3 text-right',
-                        d.close && d.close.difference !== 0 && 'font-semibold text-red-700',
+                        d.close && !closeBalanced(d.close) && 'font-semibold text-red-700',
                       )}
                     >
-                      {d.close
-                        ? d.close.difference === 0
-                          ? money(0)
-                          : `${d.close.difference > 0 ? '+' : '−'}${money(Math.abs(d.close.difference))}`
-                        : '—'}
+                      {d.close ? signed(closeDifference(d.close)) : '—'}
                     </td>
                     <td className="py-1.5">
                       <Badge tone={STATUS[status].tone}>{STATUS[status].label}</Badge>
