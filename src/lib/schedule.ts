@@ -99,3 +99,35 @@ export function outsideShopHours(
 export function daysOutsideShop(schedule: WeeklySchedule, weekly: WeeklySchedule): number[] {
   return Object.keys(scheduleErrors(schedule, weekly)).map(Number)
 }
+
+/**
+ * A barber's week trimmed to the shop's hours: days the shop closes are left
+ * free, shifts are cut to its opening and closing time (on the 15-minute grid)
+ * and overlapping shifts are merged. Used when the shop's hours changed after
+ * the barber's schedule was set and it no longer fits.
+ */
+export function fitToShop(schedule: WeeklySchedule, shop: WeeklySchedule): WeeklySchedule {
+  return Array.from({ length: 7 }, (_, d) => {
+    const open = shop[d] ?? []
+    if (!open.length) return []
+    const from = Math.min(...open.map((r) => toMinutes(r.start)))
+    const to = Math.max(...open.map((r) => toMinutes(r.end)))
+    const cut = (schedule[d] ?? [])
+      .map(
+        (r) =>
+          [
+            Math.max(Math.ceil(toMinutes(r.start) / 15) * 15, from),
+            Math.min(Math.floor(toMinutes(r.end) / 15) * 15, to),
+          ] as const,
+      )
+      .filter(([s, e]) => e > s)
+      .sort((a, b) => a[0] - b[0])
+    const merged: [number, number][] = []
+    for (const [s, e] of cut) {
+      const last = merged.at(-1)
+      if (last && s <= last[1]) last[1] = Math.max(last[1], e)
+      else merged.push([s, e])
+    }
+    return merged.map(([s, e]) => ({ start: fromMinutes(s), end: fromMinutes(e) }))
+  })
+}

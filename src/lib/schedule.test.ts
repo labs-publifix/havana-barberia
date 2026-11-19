@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Appointment, WeeklySchedule } from '@/domain/types'
-import { outsideSchedule, rangesLabel, scheduleErrors, weeklyMinutes } from './schedule'
+import { fitToShop, outsideSchedule, rangesLabel, scheduleErrors, weeklyMinutes } from './schedule'
 import { zonedInstant } from './time'
 
 const TZ = 'America/Mexico_City'
@@ -69,5 +69,39 @@ describe('schedule rules', () => {
     ]
     const s: WeeklySchedule = [[], [r('10:00', '14:00'), r('15:00', '20:30')], [], [], [], [], []]
     expect(outsideSchedule(list, 'leo', s, TZ, now).map((a) => a.id)).toEqual(['2026-11-02-14:15', '2026-11-03-11:00'])
+  })
+})
+
+describe('fitToShop', () => {
+  const shop: WeeklySchedule = [
+    [], // Sunday: closed
+    [{ start: '10:00', end: '20:30' }],
+    [{ start: '10:00', end: '20:30' }],
+    [{ start: '10:00', end: '20:30' }],
+    [{ start: '10:00', end: '20:30' }],
+    [{ start: '10:00', end: '20:30' }],
+    [{ start: '10:00', end: '18:00' }],
+  ]
+
+  it('frees closed days and trims shifts to the shop hours, so the week can be saved', () => {
+    const barber: WeeklySchedule = [
+      [{ start: '10:00', end: '15:00' }], // shop no longer opens on Sunday
+      [
+        { start: '09:00', end: '14:00' },
+        { start: '13:00', end: '21:00' },
+      ],
+      [],
+      [{ start: '10:00', end: '20:30' }],
+      [],
+      [],
+      [{ start: '10:00', end: '20:30' }], // Saturday now closes at 6 p. m.
+    ]
+    expect(scheduleErrors(barber, shop)).not.toEqual({})
+    const fixed = fitToShop(barber, shop)
+    expect(fixed[0]).toEqual([])
+    expect(fixed[1]).toEqual([{ start: '10:00', end: '20:30' }])
+    expect(fixed[3]).toEqual([{ start: '10:00', end: '20:30' }])
+    expect(fixed[6]).toEqual([{ start: '10:00', end: '18:00' }])
+    expect(scheduleErrors(fixed, shop)).toEqual({})
   })
 })

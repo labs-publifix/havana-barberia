@@ -1,12 +1,17 @@
-import { Copy, Plus, X } from 'lucide-react'
+import { Copy, Plus, Wand2, X } from 'lucide-react'
 import { buttonClass } from '@/components/ui/buttonClass'
 import type { TimeRange, WeeklySchedule } from '@/domain/types'
 import { cn } from '@/lib/cn'
-import { DAY_NAMES, scheduleErrors } from '@/lib/schedule'
+import { DAY_NAMES, fitToShop, scheduleErrors } from '@/lib/schedule'
 import { formatTime12, fromMinutes, toMinutes } from '@/lib/time'
 import { timeOptions } from '../agenda/model'
+import { Alert } from '@/components/ui/Alert'
 import { Switch } from '../ui/controls'
 import { Select } from '../ui/Select'
+
+/** Keep a saved time visible even if it's now outside the shop's hours (it's flagged above). */
+const withCurrent = (opts: { value: string; label: string }[], v: string) =>
+  opts.some((o) => o.value === v) ? opts : [{ value: v, label: formatTime12(v) }, ...opts]
 
 /** Monday first, the way the shop thinks about its week. */
 const ORDER = [1, 2, 3, 4, 5, 6, 0]
@@ -52,8 +57,30 @@ export function ScheduleEditor({
   }
   const monday = value[1] ?? []
 
+  const problems = Object.keys(errors).length
+
   return (
     <div className="grid gap-3">
+      {problems > 0 && variant === 'barber' && (
+        <Alert
+          tone="danger"
+          title={`${problems === 1 ? 'Un día no cuadra' : `${problems} días no cuadran`} con el horario de la barbería, por eso no se puede guardar.`}
+        >
+          <p className="mt-1">
+            Pasa cuando el horario de la barbería cambió después de capturar este. Ajústalo abajo o usa el botón: los
+            días que la barbería cierra quedan libres y los turnos se recortan a su horario.
+          </p>
+          {!disabled && (
+            <button
+              type="button"
+              onClick={() => onChange(fitToShop(value, shop))}
+              className={cn(buttonClass({ variant: 'secondary', size: 'sm' }), 'mt-3')}
+            >
+              <Wand2 className="size-4" strokeWidth={1.75} aria-hidden /> Ajustar al horario de la barbería
+            </button>
+          )}
+        </Alert>
+      )}
       <ul className="divide-y divide-line rounded-lg border border-line">
         {ORDER.map((d) => {
           const ranges = value[d] ?? []
@@ -67,6 +94,22 @@ export function ScheduleEditor({
                 {!b && <p className="text-[13px] text-fg-muted sm:mt-1">La barbería cierra</p>}
               </div>
               <div className="grid gap-2">
+                {!b && works && (
+                  <div className="flex flex-wrap items-center gap-3">
+                    <p className="text-sm">
+                      Tenía turno: {ranges.map((r) => `${formatTime12(r.start)} – ${formatTime12(r.end)}`).join(' · ')}
+                    </p>
+                    {!disabled && (
+                      <button
+                        type="button"
+                        onClick={() => setDay(d, [])}
+                        className={buttonClass({ variant: 'secondary', size: 'sm' })}
+                      >
+                        <X className="size-4" aria-hidden /> Quitar
+                      </button>
+                    )}
+                  </div>
+                )}
                 {b && (
                   <Switch
                     label={works ? t.on : t.off}
@@ -75,56 +118,57 @@ export function ScheduleEditor({
                     onChange={(on) => setDay(d, on ? [{ start: fromMinutes(b[0]), end: fromMinutes(b[1]) }] : [])}
                   />
                 )}
-                {ranges.map((r, i) => (
-                  <div key={i} className="flex items-end gap-2">
-                    <Select
-                      label={`${DAY_NAMES[d]}, turno ${i + 1}: entrada`}
-                      hideLabel
-                      value={r.start}
-                      disabled={disabled}
-                      onValueChange={(v) =>
-                        setDay(
-                          d,
-                          ranges.map((x, k) => (k === i ? { ...x, start: v } : x)),
-                        )
-                      }
-                      options={opts}
-                      className="min-w-0 flex-1 sm:w-[150px] sm:flex-none"
-                    />
-                    <span className="pb-2.5 text-sm text-fg-muted" aria-hidden>
-                      a
-                    </span>
-                    <Select
-                      label={`${DAY_NAMES[d]}, turno ${i + 1}: salida`}
-                      hideLabel
-                      value={r.end}
-                      disabled={disabled}
-                      onValueChange={(v) =>
-                        setDay(
-                          d,
-                          ranges.map((x, k) => (k === i ? { ...x, end: v } : x)),
-                        )
-                      }
-                      options={opts}
-                      className="min-w-0 flex-1 sm:w-[150px] sm:flex-none"
-                    />
-                    {!disabled && ranges.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() =>
+                {b &&
+                  ranges.map((r, i) => (
+                    <div key={i} className="flex items-end gap-2">
+                      <Select
+                        label={`${DAY_NAMES[d]}, turno ${i + 1}: entrada`}
+                        hideLabel
+                        value={r.start}
+                        disabled={disabled}
+                        onValueChange={(v) =>
                           setDay(
                             d,
-                            ranges.filter((_, k) => k !== i),
+                            ranges.map((x, k) => (k === i ? { ...x, start: v } : x)),
                           )
                         }
-                        aria-label={`Quitar turno ${i + 1} del ${DAY_NAMES[d]!.toLowerCase()}`}
-                        className="grid size-11 shrink-0 place-items-center rounded-full text-fg-muted hover:bg-fg/5 hover:text-fg focus-visible:outline focus-visible:outline-2 focus-visible:outline-focus"
-                      >
-                        <X className="size-4" aria-hidden />
-                      </button>
-                    )}
-                  </div>
-                ))}
+                        options={withCurrent(opts, r.start)}
+                        className="min-w-0 flex-1 sm:w-[150px] sm:flex-none"
+                      />
+                      <span className="pb-2.5 text-sm text-fg-muted" aria-hidden>
+                        a
+                      </span>
+                      <Select
+                        label={`${DAY_NAMES[d]}, turno ${i + 1}: salida`}
+                        hideLabel
+                        value={r.end}
+                        disabled={disabled}
+                        onValueChange={(v) =>
+                          setDay(
+                            d,
+                            ranges.map((x, k) => (k === i ? { ...x, end: v } : x)),
+                          )
+                        }
+                        options={withCurrent(opts, r.end)}
+                        className="min-w-0 flex-1 sm:w-[150px] sm:flex-none"
+                      />
+                      {!disabled && ranges.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setDay(
+                              d,
+                              ranges.filter((_, k) => k !== i),
+                            )
+                          }
+                          aria-label={`Quitar turno ${i + 1} del ${DAY_NAMES[d]!.toLowerCase()}`}
+                          className="grid size-11 shrink-0 place-items-center rounded-full text-fg-muted hover:bg-fg/5 hover:text-fg focus-visible:outline focus-visible:outline-2 focus-visible:outline-focus"
+                        >
+                          <X className="size-4" aria-hidden />
+                        </button>
+                      )}
+                    </div>
+                  ))}
                 {!disabled && works && b && (
                   <button
                     type="button"

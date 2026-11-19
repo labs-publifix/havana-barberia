@@ -28,6 +28,7 @@ import {
   localDate,
   localTime,
   money,
+  toMinutes,
   zonedInstant,
 } from '@/lib/time'
 import { useAdminAuth } from '../auth/AdminAuth'
@@ -35,6 +36,7 @@ import type { AdminTeam, StaffInput } from '../domain'
 import { errorMessage } from '../agenda/useAgendaActions'
 import { Input, Segmented, Switch } from '../ui/controls'
 import { DatePicker } from '../ui/DatePicker'
+import { timeOptions } from '../agenda/model'
 import { ImageUploader } from '../ui/ImageUploader'
 import { Select } from '../ui/Select'
 import { SidePanel } from '../ui/SidePanel'
@@ -75,16 +77,33 @@ function Absences({ staff, team }: { staff: Staff; team: AdminTeam }) {
   const [from, setFrom] = useState<LocalDate>(today)
   const [to, setTo] = useState<LocalDate>(today)
   const [reason, setReason] = useState(REASONS[0]!)
+  const [kind, setKind] = useState<'days' | 'hours'>('days')
+  const [startT, setStartT] = useState('10:00')
+  const [endT, setEndT] = useState('14:00')
   const [error, setError] = useState<string | null>(null)
+  const hourOpts = timeOptions(6 * 60, 23 * 60).map((t) => ({ value: t, label: formatTime12(t) }))
   const refresh = () => qc.invalidateQueries({ queryKey: ['admin'] })
   const add = useMutation({
-    mutationFn: () =>
-      repo.createBlock({
-        staffId: staff.id,
-        startsAt: zonedInstant(from, '00:00', tz).toISOString(),
-        endsAt: zonedInstant(addDays(to < from ? from : to, 1), '00:00', tz).toISOString(),
-        reason,
-      }),
+    mutationFn: () => {
+      if (kind === 'hours' && toMinutes(endT) <= toMinutes(startT))
+        return Promise.reject(new Error('La hora final debe ser después de la inicial.'))
+      return repo.createBlock(
+        kind === 'hours'
+          ? {
+              // Only some hours of one day: e.g. leaves early or comes in late.
+              staffId: staff.id,
+              startsAt: zonedInstant(from, startT, tz).toISOString(),
+              endsAt: zonedInstant(from, endT, tz).toISOString(),
+              reason,
+            }
+          : {
+              staffId: staff.id,
+              startsAt: zonedInstant(from, '00:00', tz).toISOString(),
+              endsAt: zonedInstant(addDays(to < from ? from : to, 1), '00:00', tz).toISOString(),
+              reason,
+            },
+      )
+    },
     onSuccess: () => {
       toast('Ausencia registrada')
       setError(null)
@@ -111,19 +130,38 @@ function Absences({ staff, team }: { staff: Staff; team: AdminTeam }) {
       <section className="grid gap-3 rounded-lg border border-line p-4">
         <h3 className="text-sm font-semibold">Registrar ausencia</h3>
         {error && <Alert tone="danger" title={error} />}
-        <div className="grid gap-3 sm:grid-cols-2">
-          <DatePicker
-            label="Desde"
-            value={from}
-            today={today}
-            min={today}
-            onChange={(d) => {
-              setFrom(d)
-              if (to < d) setTo(d)
-            }}
-          />
-          <DatePicker label="Hasta" value={to} today={today} min={from} onChange={setTo} />
-        </div>
+        <Segmented<'days' | 'hours'>
+          label="Qué bloquear"
+          value={kind}
+          onChange={setKind}
+          options={[
+            { value: 'days', label: 'Días completos' },
+            { value: 'hours', label: 'Unas horas de un día' },
+          ]}
+        />
+        {kind === 'hours' ? (
+          <div className="grid gap-3">
+            <DatePicker label="Día" value={from} today={today} min={today} onChange={(d) => (setFrom(d), setTo(d))} />
+            <div className="grid grid-cols-2 gap-3">
+              <Select label="Desde" value={startT} onValueChange={setStartT} options={hourOpts} />
+              <Select label="Hasta" value={endT} onValueChange={setEndT} options={hourOpts} />
+            </div>
+          </div>
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-2">
+            <DatePicker
+              label="Desde"
+              value={from}
+              today={today}
+              min={today}
+              onChange={(d) => {
+                setFrom(d)
+                if (to < d) setTo(d)
+              }}
+            />
+            <DatePicker label="Hasta" value={to} today={today} min={from} onChange={setTo} />
+          </div>
+        )}
         <Select
           label="Motivo"
           value={reason}
@@ -136,10 +174,12 @@ function Absences({ staff, team }: { staff: Staff; team: AdminTeam }) {
           disabled={add.isPending}
           className={buttonClass({ size: 'sm', className: 'justify-self-start' })}
         >
-          <Plus className="size-4" aria-hidden /> Bloquear esos días
+          <Plus className="size-4" aria-hidden /> {kind === 'hours' ? 'Bloquear esas horas' : 'Bloquear esos días'}
         </button>
         <p className="text-[13px] text-fg-muted">
-          Esos días nadie podrá reservar con {staff.name.split(' ')[0]}. Si ya tiene citas, primero muévelas.
+          {kind === 'hours'
+            ? `Para un día con horario distinto (sale temprano, entra tarde): en esas horas nadie podrá reservar con ${staff.name.split(' ')[0]}; el resto del día sigue su horario. Si ya tiene citas en ese rato, primero muévelas.`
+            : `Esos días nadie podrá reservar con ${staff.name.split(' ')[0]}. Si ya tiene citas, primero muévelas.`}
         </p>
       </section>
 
@@ -285,6 +325,12 @@ export function StaffPanel({
   const submit = () => {
     setError(null)
     setOutside(null)
+    if (scheduleProblems) {
+      // Say why right where it can be fixed, instead of a server error on another tab.
+      setTab('horario')
+      setError('El horario no cuadra con el de la barbería. Ajústalo para poder guardar.')
+      return
+    }
     save.mutate(
       {
         id: editing?.id,
