@@ -17,6 +17,7 @@ import { Input, Segmented } from '../ui/controls'
 import { Card } from '../ui/Panel'
 import { useToast } from '../ui/Toast'
 import { isFinanceRole } from '../domain'
+import { DayTips } from '../closes/DayTips'
 
 const tz = business.hours.timeZone
 const digits = (v: string) => v.replace(/\D/g, '').slice(0, 8)
@@ -321,6 +322,8 @@ export function CashDayView({ date }: { date: LocalDate }) {
           </div>
         </Card>
       </div>
+
+      <DayTips appointments={data.appointments} />
 
       <Card
         title="Lo cobrado en el día"

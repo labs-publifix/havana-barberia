@@ -17,7 +17,7 @@ const Catalog = lazy(() => import('./Catalog'))
 const Team = lazy(() => import('./Team'))
 const Settings = lazy(() => import('./Settings'))
 const Commissions = lazy(() => import('./Commissions'))
-const Payroll = lazy(() => import('./Payroll'))
+const Closes = lazy(() => import('./Closes'))
 const Sales = lazy(() => import('./Sales'))
 const Reports = lazy(() => import('./Reports'))
 const Profit = lazy(() => import('./Profit'))
@@ -171,7 +171,7 @@ export default function SectionPage() {
   if (section === 'cierre') {
     return (
       <Suspense fallback={null}>
-        <Payroll />
+        <Closes />
       </Suspense>
     )
   }

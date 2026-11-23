@@ -108,7 +108,7 @@ describe('admin settings', () => {
     expect(mario).toMatchObject({ role: 'barber', mfaRequired: false })
 
     const matrix = screen.getByRole('table', { name: 'Secciones del panel por rol' })
-    const row = within(matrix).getByRole('row', { name: /Cierre y nómina/ })
+    const row = within(matrix).getByRole('row', { name: /Cierres/ })
     // Owner, developer and manager.
     expect(within(row).getAllByLabelText('Sí')).toHaveLength(3)
   })

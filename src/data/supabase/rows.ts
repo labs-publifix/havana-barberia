@@ -44,6 +44,10 @@ export interface SettingsRow {
   card_fee_percent: number | string | null
   discount_commission: 'list' | 'net'
   business_hours: WeeklySchedule
+  /** Tips paid apart (migration 20261123002600); optional until it runs. */
+  card_tip_fee?: number
+  card_tip_fee_over?: number
+  tips_separate_from?: string | null
 }
 
 export const toCategory = (r: CategoryRow): ServiceCategory => ({ id: r.id, name: r.name, order: r.sort })

@@ -58,7 +58,7 @@ describe('admin panel shell', () => {
     await user.click(await screen.findByRole('button', { name: /Dueño/ }))
     expect(await screen.findByRole('heading', { level: 1, name: 'Vista general' })).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'Verificación en dos pasos' })).toBeNull()
-    expect(within(nav()).getByRole('link', { name: 'Cierre y nómina' })).toBeInTheDocument()
+    expect(within(nav()).getByRole('link', { name: 'Cierres' })).toBeInTheDocument()
   })
 
   it('a barber sees only their sections and is stopped at finance pages', async () => {

@@ -28,7 +28,7 @@ describe('admin payroll', () => {
     const user = userEvent.setup()
     render(
       <AppProviders repository={booking}>
-        <MemoryRouter initialEntries={['/admin/cierre']}>
+        <MemoryRouter initialEntries={['/admin/cierre?vista=nomina']}>
           <Routes>
             <Route path="/admin/*" element={<AdminApp repository={admin} />} />
           </Routes>

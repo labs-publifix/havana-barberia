@@ -22,7 +22,14 @@ import type {
   BookingPolicy,
 } from '@/domain/types'
 import { bookingPolicy, businessHours } from '@/config/business'
-import { computeSlots, isActiveStatus, nearestAvailable, servicesFor, staffForServices, totalDuration } from '@/lib/availability'
+import {
+  computeSlots,
+  isActiveStatus,
+  nearestAvailable,
+  servicesFor,
+  staffForServices,
+  totalDuration,
+} from '@/lib/availability'
 import { addDays, formatDay, localDate, toMinutes, weekdayOf, zonedInstant } from '@/lib/time'
 import { normalizeMxPhone } from '@/lib/phone'
 import {
@@ -41,6 +48,7 @@ import {
   earnings,
   expectedCash,
   financeSettingsError,
+  weekStart,
   type Advance,
   type BonusAward,
   type CashMove,
@@ -58,6 +66,7 @@ import {
   SlotUnavailableError,
 } from '../errors'
 import { createSeed, DEMO_APPOINTMENT_TOKEN, MOCK_DB_VERSION, type MockDb } from './seed'
+import { payoutFrom, pendingTips, tipsByStaff, type TipPayout, type TipsOverview } from '@/admin/tips'
 
 const STORAGE_KEY = 'havana:mock-db'
 
@@ -901,7 +910,7 @@ export class MockBookingRepository implements BookingRepository {
       commissions: this.db.commissions,
       commissionHistory: this.db.commissionHistory ?? [],
       advances: (this.db.advances ?? []).filter((x) => x.date >= from && x.date <= to),
-      settings: { ...defaultFinanceSettings(), ...this.db.finance },
+      settings: this.financeSettings(),
       close: (this.db.payrollCloses ?? []).find((c) => c.weekStart === from) ?? null,
       bonusAwards: (this.db.bonusAwards ?? []).filter((x) => x.weekStart >= from && x.weekStart <= to),
       sales: (this.db.sales ?? []).filter((x) => {
@@ -971,7 +980,7 @@ export class MockBookingRepository implements BookingRepository {
     const week = (this.db.payrollCloses ?? []).find((c) => day >= c.weekStart && day <= c.weekEnd)
     if (week)
       throw new InvalidRequestError(
-        `La semana de nómina del ${formatDay(week.weekStart, 'dd/MM/yyyy')} ya está cerrada. Reábrela en Cierre y nómina para corregir.`,
+        `La semana de nómina del ${formatDay(week.weekStart, 'dd/MM/yyyy')} ya está cerrada. Reábrela en Cierres › Nómina semanal para corregir.`,
       )
   }
 
@@ -1178,6 +1187,7 @@ export class MockBookingRepository implements BookingRepository {
         ...data,
         bonusRules: data.settings.bonuses,
         discountCommission: data.settings.discountCommission,
+        tipsSeparateFrom: data.settings.tipsSeparateFrom,
         from: weekStart,
         to: weekEnd,
         timeZone: businessHours.timeZone,
@@ -1319,6 +1329,139 @@ export class MockBookingRepository implements BookingRepository {
     })
   }
 
+  /**
+   * Finance settings with the tips-apart start date: like the database migration,
+   * the demo starts paying tips apart from the current payroll week.
+   */
+  private financeSettings(): FinanceSettings {
+    const f = { ...defaultFinanceSettings(), ...this.db.finance }
+    const today = localDate(this.now().toISOString(), businessHours.timeZone)
+    return { ...f, tipsSeparateFrom: f.tipsSeparateFrom ?? weekStart(today, f.weekStartDay) }
+  }
+
+  // ── Tips paid apart (Cierres › Propinas) ────────────────────────────────
+  async adminTips(): Promise<TipsOverview> {
+    await this.delay()
+    const f = this.financeSettings()
+    const rule = { fee: f.cardTipFee, over: f.cardTipFeeOver }
+    return clone({
+      rule,
+      separateFrom: f.tipsSeparateFrom,
+      pending: pendingTips({
+        appointments: this.db.appointments,
+        payouts: this.db.tipPayouts ?? [],
+        rule,
+        separateFrom: f.tipsSeparateFrom,
+        timeZone: businessHours.timeZone,
+      }),
+    })
+  }
+
+  async adminTipPayouts(from: string, to: string): Promise<TipPayout[]> {
+    await this.delay()
+    return clone(
+      (this.db.tipPayouts ?? [])
+        .filter((p) => p.date >= from && p.date <= to)
+        .sort((a, b) => b.paidAt.localeCompare(a.paidAt)),
+    )
+  }
+
+  async adminPayTips(staffId: ID, expected: number, paidBy: string): Promise<TipPayout> {
+    const overview = await this.adminTips()
+    return this.exclusive(() => {
+      const staff = this.db.staff.find((s) => s.id === staffId)
+      if (!staff) throw new NotFoundError('ese barbero')
+      const mine = tipsByStaff(overview.pending, this.db.staff).find((s) => s.staffId === staffId)
+      if (!mine || mine.amount <= 0) throw new InvalidRequestError(`No hay propinas por pagar a ${staff.name}.`)
+      if (mine.amount !== expected)
+        throw new InvalidRequestError(`El monto cambió (ahora son $${mine.amount}). Revisa y vuelve a intentar.`)
+      const now = this.now().toISOString()
+      const date = localDate(now, businessHours.timeZone)
+      this.assertDayOpen(date)
+      const payouts = (this.db.tipPayouts ??= [])
+      const folio = payouts.reduce((m, p) => Math.max(m, p.folio), 0) + 1
+      const payout: TipPayout = {
+        ...payoutFrom(mine),
+        id: `prop-${randomToken()}`,
+        folio,
+        staffName: staff.name,
+        date,
+        paidAt: now,
+        paidBy,
+      }
+      payouts.push(payout)
+      ;(this.db.cashMoves ??= []).push({
+        id: `mov-${randomToken()}`,
+        date,
+        at: now,
+        kind: 'out',
+        amount: payout.amount,
+        concept: `Pago de propinas · ${staff.name} · folio ${folio}`,
+        by: paidBy,
+        staffId,
+        tipPayoutId: payout.id,
+      })
+      this.save()
+      return clone(payout)
+    })
+  }
+
+  async adminVoidTipPayout(id: ID, reason: string, by: string): Promise<TipPayout> {
+    await this.delay()
+    return this.exclusive(() => {
+      if (!reason.trim()) throw new InvalidRequestError('Escribe el motivo.')
+      const p = (this.db.tipPayouts ?? []).find((x) => x.id === id)
+      if (!p) throw new NotFoundError('ese pago')
+      if (p.voided) throw new InvalidRequestError('Ese pago ya estaba anulado.')
+      const now = this.now().toISOString()
+      if ((this.db.dailyCloses ?? []).some((c) => c.date === p.date))
+        this.db.cashMoves.push({
+          id: `mov-${randomToken()}`,
+          date: localDate(now, businessHours.timeZone),
+          at: now,
+          kind: 'in',
+          amount: p.amount,
+          concept: `Reverso de pago de propinas · ${p.staffName} · folio ${p.folio}`,
+          by,
+          staffId: p.staffId,
+        })
+      else this.db.cashMoves = this.db.cashMoves.filter((m) => m.tipPayoutId !== p.id)
+      p.voided = { at: now, by, reason: reason.trim() }
+      this.save()
+      return clone(p)
+    })
+  }
+
+  /** A customer registered from the panel, without an appointment. */
+  async adminCreateCustomer(input: { name: string; phone: string; email: string; notes: string }): Promise<Customer> {
+    await this.delay()
+    return this.exclusive(() => {
+      const name = input.name.trim().replace(/\s+/g, ' ')
+      if (!name) throw new InvalidRequestError('Escribe el nombre.')
+      const phone = input.phone.trim() ? normalizeMxPhone(input.phone) : ''
+      if (phone === null) throw new InvalidRequestError('Revisa el teléfono: 10 dígitos.')
+      const email = input.email.trim().toLowerCase()
+      if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw new InvalidRequestError('Revisa el correo.')
+      if (!phone && !email) throw new InvalidRequestError('Escribe su teléfono o su correo para poder contactarlo.')
+      const clash = this.db.customers.find((x) => (phone && x.phone === phone) || (email && x.email === email))
+      if (clash)
+        throw new InvalidRequestError(
+          `${phone && clash.phone === phone ? 'Ese teléfono' : 'Ese correo'} ya es de otro cliente (${clash.name}).`,
+        )
+      const customer: Customer = {
+        id: `cust-${randomToken()}`,
+        name,
+        phone,
+        email,
+        notes: input.notes.trim(),
+        createdAt: this.now().toISOString(),
+      }
+      this.db.customers.push(customer)
+      this.save()
+      return clone(customer)
+    })
+  }
+
   /** Payroll week start, card terminal fee and bonus rules. */
   async adminSaveFinanceSettings(input: FinanceSettings): Promise<FinanceSettings> {
     await this.delay()
@@ -1329,6 +1472,9 @@ export class MockBookingRepository implements BookingRepository {
         weekStartDay: input.weekStartDay,
         cardFeePercent: input.cardFeePercent,
         discountCommission: input.discountCommission === 'net' ? 'net' : 'list',
+        cardTipFee: input.cardTipFee,
+        cardTipFeeOver: input.cardTipFeeOver,
+        tipsSeparateFrom: this.db.finance?.tipsSeparateFrom ?? null,
         bonuses: input.bonuses.map((b) => ({
           ...b,
           name: b.name.trim(),
@@ -1868,6 +2014,7 @@ function keepCatalog(
   | 'dailyCloses'
   | 'payrollCloses'
   | 'commissionHistory'
+  | 'tipPayouts'
 > {
   return {
     // Products arrived in demo v4; older stored demos start from the seed's.
@@ -1893,6 +2040,7 @@ function keepCatalog(
     dailyCloses: stored.dailyCloses ?? [],
     payrollCloses: stored.payrollCloses ?? [],
     commissionHistory: stored.commissionHistory ?? [],
+    tipPayouts: stored.tipPayouts ?? [],
   }
 }
 
