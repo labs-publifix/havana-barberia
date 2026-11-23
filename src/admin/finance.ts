@@ -37,6 +37,11 @@ export interface FinanceSettings {
   bonuses: BonusRule[]
   /** Commission with a discount: on the list price (the shop absorbs it) or on the price charged. */
   discountCommission: 'list' | 'net'
+  /** Pesos kept from a card tip greater than `cardTipFeeOver` (terminal fee). */
+  cardTipFee: number
+  cardTipFeeOver: number
+  /** Tips from appointments on or after this date are paid apart (Cierres › Propinas), not in the payroll. */
+  tipsSeparateFrom: LocalDate | null
 }
 
 /** A manual bonus marked for a barber in a payroll week. */
@@ -50,6 +55,9 @@ export const defaultFinanceSettings = (): FinanceSettings => ({
   weekStartDay: 1,
   cardFeePercent: null,
   discountCommission: 'list',
+  cardTipFee: 5,
+  cardTipFeeOver: 25,
+  tipsSeparateFrom: null,
   // Amounts are captured by the shop (never real figures in this public repository).
   bonuses: [
     { id: 'puntualidad', name: 'Puntualidad', kind: 'manual', threshold: null, amount: null, active: true },
@@ -72,6 +80,10 @@ export function financeSettingsError(f: FinanceSettings): string | null {
     return 'Elige el día de inicio de la semana.'
   if (f.cardFeePercent !== null && !(f.cardFeePercent >= 0 && f.cardFeePercent <= 10))
     return 'La comisión de la terminal va de 0 a 10 %.'
+  if (!Number.isInteger(f.cardTipFee) || f.cardTipFee < 0 || f.cardTipFee > 1000)
+    return 'Escribe el descuento a propinas con tarjeta en pesos, sin centavos.'
+  if (!Number.isInteger(f.cardTipFeeOver) || f.cardTipFeeOver < 0 || f.cardTipFeeOver > 100000)
+    return 'Escribe desde qué monto se descuenta, en pesos, sin centavos.'
   const names = new Set<string>()
   for (const b of f.bonuses) {
     const name = b.name.trim()
@@ -141,7 +153,10 @@ export interface BarberEarnings {
   productLines?: ProductLine[]
   /** Services done with no commission captured (rule empty for them). */
   missing: number
+  /** Tips that go in this payroll (before tips were paid apart). */
   tips: number
+  /** Tips paid apart in Cierres › Propinas (shown, never added to the pay). */
+  tipsApart?: number
   /** Advances (anticipos) given during the week. */
   advances: number
   /** Bonuses earned this week (fixed amounts). */
@@ -190,6 +205,8 @@ export function earnings(input: {
   discountCommission?: 'list' | 'net'
   /** Commission rules over time; the one in force on each appointment's date applies. */
   commissionHistory?: CommissionVersion[]
+  /** Tips on or after this date are paid apart and don't go in the pay. */
+  tipsSeparateFrom?: LocalDate | null
   from: LocalDate
   to: LocalDate
   timeZone: string
@@ -243,7 +260,9 @@ export function earnings(input: {
       })
     const all = lines.flatMap((l) => l.services)
     const commission = all.reduce((t, x) => t + (x.commission ?? 0), 0)
-    const tips = lines.reduce((t, l) => t + l.tip, 0)
+    const apart = (d: LocalDate) => !!input.tipsSeparateFrom && d >= input.tipsSeparateFrom
+    const tips = lines.filter((l) => !apart(l.date)).reduce((t, l) => t + l.tip, 0)
+    const tipsApart = lines.filter((l) => apart(l.date)).reduce((t, l) => t + l.tip, 0)
     // Products: counter sales by this barber plus products sold in their appointments' tickets.
     const productLines: ProductLine[] = [
       ...(input.sales ?? [])
@@ -296,6 +315,7 @@ export function earnings(input: {
       productLines,
       missing: all.filter((x) => x.commission === null).length,
       tips,
+      tipsApart,
       advances,
       bonuses,
       bonusTotal,
@@ -328,6 +348,10 @@ export interface CashMove {
   amount: number
   concept: string
   by: string
+  /** Barber it was paid to (tip payouts). */
+  staffId?: ID | null
+  /** Set when it is a tip payout (Cierres › Propinas): never a business expense. */
+  tipPayoutId?: ID | null
 }
 
 /** The day's cash count (arqueo), saved when the drawer is closed. */

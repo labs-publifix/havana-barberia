@@ -434,7 +434,8 @@ function Expenses({
     },
   })
   const counted = new Set(data.expenses.map((e) => e.cashMoveId).filter(Boolean))
-  const pending = data.cashOuts.filter((m) => !counted.has(m.id))
+  // Tip payouts are money of the barbers, never a business expense.
+  const pending = data.cashOuts.filter((m) => !counted.has(m.id) && !m.tipPayoutId)
 
   return (
     <Card
@@ -588,7 +589,9 @@ function Expenses({
                   <span className="tabular w-16 shrink-0 text-fg-muted">{formatDay(m.date, 'd MMM')}</span>
                   <span className="min-w-0 flex-1 truncate">{m.concept}</span>
                   <span className="tabular">{money(m.amount)}</span>
-                  {counted.has(m.id) ? (
+                  {m.tipPayoutId ? (
+                    <Badge tone="neutral">Pago de propinas · no es gasto</Badge>
+                  ) : counted.has(m.id) ? (
                     <Badge tone="success">Cuenta como gasto</Badge>
                   ) : (
                     <button

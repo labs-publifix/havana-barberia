@@ -55,9 +55,15 @@ import type {
   ProductSale,
 } from '../../finance'
 import { InvalidRequestError } from '@/data/errors'
-import { InvalidCredentialsError, InvalidMfaCodeError, type AdminRepository, type CloseDayInput } from '../AdminRepository'
+import {
+  InvalidCredentialsError,
+  InvalidMfaCodeError,
+  type AdminRepository,
+  type CloseDayInput,
+} from '../AdminRepository'
 import { cleanEmails, isFinanceRole, isOwnerRole, reviewUrl } from '../../domain'
 import type { Expense } from '../../profit'
+import type { TipPayout, TipsOverview } from '../../tips'
 import type { InviteKind, InviteState } from '../../customers/winback'
 
 /**
@@ -357,6 +363,34 @@ export class MockAdminRepository implements AdminRepository {
     this.expenses = this.expenses.filter((e) => e.id !== id)
   }
 
+  private async financeUser(what: string): Promise<AdminUser> {
+    const me = (await this.getSession())?.user
+    if (!me || !isFinanceRole(me.role)) throw new InvalidRequestError(`Solo el dueño o el gerente pueden ${what}.`)
+    return me
+  }
+
+  async getTips(): Promise<TipsOverview> {
+    await this.financeUser('ver las propinas por pagar')
+    return this.booking.adminTips()
+  }
+
+  async getTipPayouts(from: LocalDate, to: LocalDate): Promise<TipPayout[]> {
+    const me = (await this.getSession())?.user
+    const all = await this.booking.adminTipPayouts(from, to)
+    if (isFinanceRole(me?.role)) return all
+    return all.filter((p) => me?.staffId && p.staffId === me.staffId)
+  }
+
+  async payTips(staffId: ID, expected: number): Promise<TipPayout> {
+    const me = await this.financeUser('pagar propinas')
+    return this.booking.adminPayTips(staffId, expected, me.name)
+  }
+
+  async voidTipPayout(id: ID, reason: string): Promise<TipPayout> {
+    const me = await this.financeUser('anular pagos de propinas')
+    return this.booking.adminVoidTipPayout(id, reason, me.name)
+  }
+
   async getFinanceSettings(): Promise<FinanceSettings> {
     await this.delay()
     return this.booking.adminFinance('0000-00-00', '0000-00-00').settings
@@ -572,7 +606,14 @@ export class MockAdminRepository implements AdminRepository {
       {
         ...rest,
         ...(discount
-          ? { discount: { amount: discount.amount, reason: discount.reason, authorizedBy: me.id, authorizedByName: me.name } }
+          ? {
+              discount: {
+                amount: discount.amount,
+                reason: discount.reason,
+                authorizedBy: me.id,
+                authorizedByName: me.name,
+              },
+            }
           : {}),
       },
       reason,
@@ -639,6 +680,10 @@ export class MockAdminRepository implements AdminRepository {
       .sort((a, b) => b.startsAt.localeCompare(a.startsAt))
     const [summary] = summarizeCustomers([customer], appointments, db.loyalty, new Date())
     return { summary: summary!, appointments }
+  }
+
+  createCustomer(input: { name: string; phone: string; email: string; notes: string }): Promise<Customer> {
+    return this.booking.adminCreateCustomer(input)
   }
 
   updateCustomer(id: ID, patch: { name: string; phone: string; email: string; notes: string }): Promise<Customer> {

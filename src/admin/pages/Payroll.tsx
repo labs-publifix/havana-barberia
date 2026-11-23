@@ -103,6 +103,7 @@ export default function Payroll() {
     bonusRules: isWeek ? data.settings.bonuses : [],
     bonusAwards: isWeek ? data.bonusAwards : [],
     discountCommission: data.settings.discountCommission,
+    tipsSeparateFrom: data.settings.tipsSeparateFrom,
     from,
     to,
     timeZone: tz,
@@ -119,11 +120,12 @@ export default function Payroll() {
     (t, r) => ({
       commission: t.commission + r.commission,
       tips: t.tips + r.tips,
+      apart: t.apart + (r.tipsApart ?? 0),
       advances: t.advances + r.advances,
       bonuses: t.bonuses + r.bonusTotal,
       pay: t.pay + r.pay,
     }),
-    { commission: 0, tips: 0, advances: 0, bonuses: 0, pay: 0 },
+    { commission: 0, tips: 0, apart: 0, advances: 0, bonuses: 0, pay: 0 },
   )
   const fee = data.settings.cardFeePercent
   const cardIn = cash.inByMethod.card
@@ -221,14 +223,18 @@ export default function Payroll() {
         </table>
         <p className="border-t border-line px-5 py-3 text-[13px] text-fg-muted">
           {fee
-            ? `Comisión de la terminal (${fee} %) sobre ${money(cardIn)} con tarjeta: −${money(cardFee(cardIn, fee))}. La absorbe la barbería; las propinas llegan completas al barbero.`
-            : 'Comisión de la terminal: captúrala en Ajustes › Finanzas. La absorbe la barbería; las propinas llegan completas al barbero.'}
+            ? `Comisión de la terminal (${fee} %) sobre ${money(cardIn)} con tarjeta: −${money(cardFee(cardIn, fee))}. La absorbe la barbería. Las propinas se pagan en Cierres › Propinas.`
+            : 'Comisión de la terminal: captúrala en Ajustes › Finanzas. La absorbe la barbería. Las propinas se pagan en Cierres › Propinas.'}
         </p>
       </Card>
 
       <Card
         title={isWeek ? 'Nómina de la semana' : 'Nómina del periodo'}
-        description="Comisión + propinas + bonos − anticipos."
+        description={
+          total.apart > 0
+            ? 'Comisión + bonos − anticipos. Las propinas se pagan aparte, en Cierres › Propinas: aquí solo se muestran («aparte») y no se suman.'
+            : 'Comisión + propinas + bonos − anticipos.'
+        }
         className="min-w-0"
         bodyClassName="relative overflow-x-auto"
       >
@@ -271,7 +277,12 @@ export default function Payroll() {
                   )}
                 </th>
                 <td className="tabular px-3 py-2.5 text-right">{money(r.commission)}</td>
-                <td className="tabular px-3 py-2.5 text-right">{money(r.tips)}</td>
+                <td className="tabular px-3 py-2.5 text-right">
+                  {money(r.tips)}
+                  {(r.tipsApart ?? 0) > 0 && (
+                    <span className="block text-[12px] text-fg-muted">+{money(r.tipsApart!)} aparte</span>
+                  )}
+                </td>
                 <td className="tabular px-3 py-2.5 text-right">{r.bonusTotal ? money(r.bonusTotal) : '—'}</td>
                 <td className="tabular px-3 py-2.5 text-right">{r.advances ? `−${money(r.advances)}` : '—'}</td>
                 <td className="tabular px-3 py-2.5 text-right font-semibold">{money(r.pay)}</td>
@@ -315,7 +326,12 @@ export default function Payroll() {
                 Total
               </th>
               <td className="tabular px-3 py-2.5 text-right font-semibold">{money(total.commission)}</td>
-              <td className="tabular px-3 py-2.5 text-right font-semibold">{money(total.tips)}</td>
+              <td className="tabular px-3 py-2.5 text-right font-semibold">
+                {money(total.tips)}
+                {total.apart > 0 && (
+                  <span className="block text-[12px] font-normal text-fg-muted">+{money(total.apart)} aparte</span>
+                )}
+              </td>
               <td className="tabular px-3 py-2.5 text-right font-semibold">
                 {total.bonuses ? money(total.bonuses) : '—'}
               </td>
@@ -526,6 +542,9 @@ export default function Payroll() {
                   ['Productos vendidos', `${receipt.products} · ${money(receipt.productSales ?? 0)}`],
                   ['Comisión (servicios y productos)', money(receipt.commission)],
                   ['Propinas', money(receipt.tips)],
+                  ...((receipt.tipsApart ?? 0) > 0
+                    ? ([['Propinas pagadas aparte (no se suman)', money(receipt.tipsApart!)]] as const)
+                    : []),
                   ...receipt.bonuses.map((b) => [`Bono: ${b.name}`, money(b.amount)] as const),
                   ['Anticipos', receipt.advances ? `−${money(receipt.advances)}` : '—'],
                 ] as const

@@ -1162,7 +1162,7 @@ describe('MockBookingRepository · payroll weeks', () => {
     now = zonedInstant(MONDAY, '11:00', TZ)
     await r.adminSetStatus(a.id, 'completed', { method: 'cash', tip: 40, tipMethod: 'cash' })
     const close = await r.adminCloseWeek(MONDAY, 'Dueño')
-    expect(close.rows.find((x) => x.staffId === 'isaac')).toMatchObject({ services: 1, tips: 40 })
+    expect(close.rows.find((x) => x.staffId === 'isaac')).toMatchObject({ services: 1, tips: 0, tipsApart: 40 }) // tips are paid apart (Cierres › Propinas)
     await expect(r.adminAddAdvance({ staffId: 'isaac', date: MONDAY, amount: 100, note: '' })).rejects.toThrow(
       /cerrada/,
     )

@@ -1,3 +1,5 @@
+import { buttonClass } from '@/components/ui/buttonClass'
+import { NewCustomerDialog } from '../customers/NewCustomerDialog'
 import { useId, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
@@ -49,6 +51,7 @@ export default function Customers() {
   const { data: catalog } = useCatalog()
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState<CustomerFilter>('all')
+  const [adding, setAdding] = useState(false)
   const openId = params.get('cliente')
   const view = params.get('vista') === 'recuperar' ? 'recuperar' : 'todos'
   const idBase = useId().replace(/:/g, '')
@@ -140,7 +143,22 @@ export default function Customers() {
 
   return (
     <div className="grid grid-cols-[minmax(0,1fr)] gap-6">
-      <PageHeader description="Busca por nombre, teléfono o correo. Abre a un cliente para ver su historial, su tarjeta de sellos y agendarle." />
+      <PageHeader
+        description="Busca por nombre, teléfono o correo. Abre a un cliente para ver su historial, su tarjeta de sellos y agendarle."
+        actions={
+          <button type="button" onClick={() => setAdding(true)} className={buttonClass({ size: 'sm' })}>
+            <UserPlus className="size-4" aria-hidden /> Nuevo cliente
+          </button>
+        }
+      />
+      <NewCustomerDialog
+        open={adding}
+        onOpenChange={setAdding}
+        onCreated={(c) => {
+          setAdding(false)
+          open(c.id)
+        }}
+      />
 
       <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
         <StatCard label="Clientes" value={list?.length ?? '—'} icon={Users} detail="Con al menos una cita" />

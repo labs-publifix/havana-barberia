@@ -174,6 +174,25 @@ describe('admin customers', () => {
     expect(bookingPanel).toHaveTextContent('Carolina Peña')
   })
 
+  it('registers a customer without an appointment, refusing a phone that already exists', async () => {
+    const { user, booking } = await renderCustomers()
+    await screen.findByRole('table', { name: 'Clientes' })
+    await user.click(screen.getByRole('button', { name: 'Nuevo cliente' }))
+    let dialog = await screen.findByRole('dialog', { name: 'Nuevo cliente' })
+    await user.type(within(dialog).getByLabelText('Nombre'), 'Daniel Ortiz')
+    await user.type(within(dialog).getByLabelText('Teléfono'), '442 999 0000')
+    await user.click(within(dialog).getByRole('button', { name: 'Guardar cliente' }))
+    expect(await within(dialog).findByText(/ya es de otro cliente \(Beto Gómez\)/)).toBeInTheDocument()
+
+    await user.clear(within(dialog).getByLabelText('Teléfono'))
+    await user.type(within(dialog).getByLabelText('Teléfono'), '442 123 4567')
+    await user.click(within(dialog).getByRole('button', { name: 'Guardar cliente' }))
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Nuevo cliente' })).not.toBeInTheDocument())
+    expect(booking.snapshot().customers.find((c) => c.name === 'Daniel Ortiz')).toMatchObject({ phone: '4421234567' })
+    dialog = await screen.findByRole('dialog', { name: 'Daniel Ortiz' })
+    expect(dialog).toBeInTheDocument()
+  })
+
   it('barbers cannot open Clientes', async () => {
     await renderCustomers('u-leonardo')
     expect(await screen.findByText('Esta sección no está disponible para tu rol')).toBeInTheDocument()

@@ -89,8 +89,14 @@ import {
   type ProductSale,
 } from '../../finance'
 import type { Expense } from '../../profit'
+import type { TipPayout, TipsOverview } from '../../tips'
 import type { InviteKind, InviteState } from '../../customers/winback'
-import { InvalidCredentialsError, InvalidMfaCodeError, type AdminRepository, type CloseDayInput } from '../AdminRepository'
+import {
+  InvalidCredentialsError,
+  InvalidMfaCodeError,
+  type AdminRepository,
+  type CloseDayInput,
+} from '../AdminRepository'
 import { cleanEmails, isFinanceRole, isOwnerRole, reviewUrl } from '../../domain'
 
 /** Sections connected to Supabase. */
@@ -786,6 +792,9 @@ export class SupabaseAdminRepository implements AdminRepository {
       weekStartDay: row.week_start_day,
       cardFeePercent: row.card_fee_percent === null ? null : Number(row.card_fee_percent),
       discountCommission: row.discount_commission,
+      cardTipFee: row.card_tip_fee ?? 5,
+      cardTipFeeOver: row.card_tip_fee_over ?? 25,
+      tipsSeparateFrom: row.tips_separate_from ?? null,
       bonuses,
     }
   }
@@ -903,6 +912,8 @@ export class SupabaseAdminRepository implements AdminRepository {
         week_start_day: input.weekStartDay,
         card_fee_percent: input.cardFeePercent,
         discount_commission: input.discountCommission,
+        card_tip_fee: input.cardTipFee,
+        card_tip_fee_over: input.cardTipFeeOver,
       })
       .eq('id', 1)
       .select()
@@ -1388,6 +1399,26 @@ export class SupabaseAdminRepository implements AdminRepository {
     return toCustomer(res.data!)
   }
 
+  async createCustomer(input: { name: string; phone: string; email: string; notes: string }): Promise<Customer> {
+    const name = input.name.trim().replace(/\s+/g, ' ')
+    if (!name) throw new InvalidRequestError('Escribe el nombre.')
+    const phone = input.phone.trim() ? normalizeMxPhone(input.phone) : ''
+    if (phone === null) throw new InvalidRequestError('Revisa el teléfono: 10 dígitos.')
+    const email = input.email.trim().toLowerCase()
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new InvalidRequestError('Revisa el correo.')
+    if (!phone && !email) throw new InvalidRequestError('Escribe su teléfono o su correo para poder contactarlo.')
+    const res = await this.db
+      .from('customers')
+      .insert({ name, phone, email, notes: input.notes.trim() })
+      .select()
+      .single<CustomerRow>()
+    if (res.error) {
+      if (res.error.code === '23505') throw new InvalidRequestError('Ese teléfono o correo ya es de otro cliente.')
+      friendly(res.error)
+    }
+    return toCustomer(res.data!)
+  }
+
   async deleteCustomer(id: ID): Promise<void> {
     const { error } = await this.db.rpc('delete_customer', { p_id: id })
     if (error) friendly(error)
@@ -1542,6 +1573,7 @@ export class SupabaseAdminRepository implements AdminRepository {
       ...data,
       bonusRules: data.settings.bonuses,
       discountCommission: data.settings.discountCommission,
+      tipsSeparateFrom: data.settings.tipsSeparateFrom,
       from: weekStart,
       to: weekEnd,
       timeZone: TZ,
@@ -1651,6 +1683,51 @@ export class SupabaseAdminRepository implements AdminRepository {
       if (day) day.close = toDailyClose(c)
     }
     return [...byDate.values()]
+  }
+
+  // ── Tips paid apart ─────────────────────────────────────────────────────
+  async getTips(): Promise<TipsOverview> {
+    const [settings, pending] = await Promise.all([this.getFinanceSettings(), this.db.rpc('pending_tips')])
+    if (pending.error) friendly(pending.error)
+    return {
+      rule: { fee: settings.cardTipFee, over: settings.cardTipFeeOver },
+      separateFrom: settings.tipsSeparateFrom,
+      pending: ((pending.data ?? []) as PendingTipRow[]).map((r) => ({
+        staffId: r.staff_id,
+        appointmentId: r.appointment_id,
+        date: r.date,
+        customer: r.customer,
+        method: r.method,
+        tip: r.tip,
+        fee: r.fee,
+        amount: r.amount,
+      })),
+    }
+  }
+
+  async getTipPayouts(from: LocalDate, to: LocalDate): Promise<TipPayout[]> {
+    const rows = must<TipPayoutRow[]>(
+      await this.db
+        .from('tip_payouts')
+        .select('*')
+        .gte('date', from)
+        .lte('date', to)
+        .order('paid_at', { ascending: false })
+        .range(0, 4999),
+    )
+    return rows.map(toTipPayout)
+  }
+
+  async payTips(staffId: ID, expected: number): Promise<TipPayout> {
+    const { data, error } = await this.db.rpc('pay_tips', { p_staff_id: staffId, p_expected: expected })
+    if (error) friendly(error)
+    return toTipPayout(data as TipPayoutRow)
+  }
+
+  async voidTipPayout(id: ID, reason: string): Promise<TipPayout> {
+    const { data, error } = await this.db.rpc('void_tip_payout', { p_id: id, p_reason: reason })
+    if (error) friendly(error)
+    return toTipPayout(data as TipPayoutRow)
   }
 
   async addCashMove(input: {
@@ -1842,7 +1919,55 @@ interface CashMoveRow {
   amount: number
   concept: string
   by_name: string
+  staff_id?: string | null
+  tip_payout_id?: string | null
 }
+interface PendingTipRow {
+  staff_id: string
+  appointment_id: string
+  date: string
+  customer: string
+  method: PaymentMethod
+  tip: number
+  fee: number
+  amount: number
+}
+interface TipPayoutRow {
+  id: string
+  folio: number
+  staff_id: string
+  staff_name: string
+  date: string
+  paid_at: string
+  gross: number
+  fee: number
+  amount: number
+  by_method: Record<PaymentMethod, number>
+  first_date: string
+  last_date: string
+  lines: TipPayout['lines']
+  paid_by_name: string
+  voided_at: string | null
+  voided_by_name: string | null
+  void_reason: string | null
+}
+const toTipPayout = (r: TipPayoutRow): TipPayout => ({
+  id: r.id,
+  folio: r.folio,
+  staffId: r.staff_id,
+  staffName: r.staff_name,
+  date: r.date,
+  paidAt: iso(r.paid_at),
+  gross: r.gross,
+  fee: r.fee,
+  amount: r.amount,
+  byMethod: { cash: r.by_method?.cash ?? 0, card: r.by_method?.card ?? 0, transfer: r.by_method?.transfer ?? 0 },
+  firstDate: r.first_date,
+  lastDate: r.last_date,
+  lines: r.lines,
+  paidBy: r.paid_by_name,
+  ...(r.voided_at ? { voided: { at: iso(r.voided_at), by: r.voided_by_name ?? '', reason: r.void_reason ?? '' } } : {}),
+})
 interface DailyCloseRow {
   date: string
   opening_fund: number
@@ -1961,6 +2086,8 @@ const toMove = (r: CashMoveRow): CashMove => ({
   amount: r.amount,
   concept: r.concept,
   by: r.by_name,
+  staffId: r.staff_id ?? null,
+  tipPayoutId: r.tip_payout_id ?? null,
 })
 
 const toDailyClose = (r: DailyCloseRow): DailyClose => ({

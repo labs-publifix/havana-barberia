@@ -46,13 +46,22 @@ export function FinanceView() {
   const qc = useQueryClient()
   const toast = useToast()
   const { data } = useQuery({ queryKey: ['admin', 'finance-settings'], queryFn: () => repo.getFinanceSettings() })
-  const [form, setForm] = useState<{ weekStartDay: string; fee: string; discount: string; bonuses: Row[] } | null>(null)
+  const [form, setForm] = useState<{
+    weekStartDay: string
+    fee: string
+    discount: string
+    tipFee: string
+    tipOver: string
+    bonuses: Row[]
+  } | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   const base = data && {
     weekStartDay: String(data.weekStartDay),
     fee: data.cardFeePercent?.toString() ?? '',
     discount: data.discountCommission ?? 'list',
+    tipFee: String(data.cardTipFee ?? 5),
+    tipOver: String(data.cardTipFeeOver ?? 25),
     bonuses: toRows(data),
   }
   const f = form ?? base
@@ -64,6 +73,9 @@ export function FinanceView() {
         weekStartDay: Number(f!.weekStartDay),
         cardFeePercent: f!.fee === '' ? null : Number(f!.fee),
         discountCommission: f!.discount === 'net' ? 'net' : 'list',
+        cardTipFee: f!.tipFee === '' ? 0 : Number(f!.tipFee),
+        cardTipFeeOver: f!.tipOver === '' ? 0 : Number(f!.tipOver),
+        tipsSeparateFrom: data?.tipsSeparateFrom ?? null,
         bonuses: f!.bonuses.map((b) => ({
           id: b.id,
           name: b.name,
@@ -106,7 +118,7 @@ export function FinanceView() {
             placeholder="Sin capturar"
             value={f.fee}
             onChange={(e) => set({ fee: e.target.value.replace(/[^\d.]/g, '').slice(0, 5) })}
-            hint="La absorbe la barbería: las propinas con tarjeta llegan completas al barbero."
+            hint="La absorbe la barbería (para Utilidades). Lo que se descuenta a las propinas con tarjeta se define abajo."
           />
           <Select
             label="Comisión cuando hay descuento"
@@ -117,6 +129,30 @@ export function FinanceView() {
               { value: 'net', label: 'Sobre lo que se cobró (el barbero comparte el descuento)' },
             ]}
             hint="El corte gratis nunca paga comisión."
+          />
+        </div>
+      </Card>
+
+      <Card
+        title="Propinas"
+        description="Se pagan aparte de la nómina, en Cierres › Propinas, con efectivo de la caja."
+      >
+        <div className="grid gap-5 sm:grid-cols-2">
+          <Input
+            label="Descuento a propinas con tarjeta"
+            prefix="$"
+            inputMode="numeric"
+            value={f.tipFee}
+            onChange={(e) => set({ tipFee: digits(e.target.value).slice(0, 4) })}
+            hint="Lo que se queda la barbería por la terminal."
+          />
+          <Input
+            label="Solo cuando la propina con tarjeta es mayor a"
+            prefix="$"
+            inputMode="numeric"
+            value={f.tipOver}
+            onChange={(e) => set({ tipOver: digits(e.target.value) })}
+            hint={`Igual o menor a $${f.tipOver || 0} se paga íntegra. Efectivo y transferencia siempre íntegras.`}
           />
         </div>
       </Card>

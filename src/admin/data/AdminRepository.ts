@@ -15,6 +15,7 @@ import type {
   WeeklySchedule,
 } from '@/domain/types'
 import type { SlotQuery } from '@/data'
+import type { TipPayout, TipsOverview } from '../tips'
 import type {
   AdminCatalog,
   AdminFinance,
@@ -121,6 +122,8 @@ export interface AdminRepository {
   listCustomers(): Promise<CustomerSummary[]>
   /** Summary plus every appointment of one customer (newest first). */
   getCustomer(id: ID): Promise<{ summary: CustomerSummary; appointments: Appointment[] } | null>
+  /** Register a customer without an appointment (desk roles). Errors: InvalidRequestError (taken or invalid). */
+  createCustomer(input: { name: string; phone: string; email: string; notes: string }): Promise<Customer>
   /** Contact details and notes. Errors: InvalidRequestError (phone/email taken or invalid). */
   updateCustomer(id: ID, patch: { name: string; phone: string; email: string; notes: string }): Promise<Customer>
   /** Only customers without appointments. Errors: InvalidRequestError (has appointments). */
@@ -180,6 +183,18 @@ export interface AdminRepository {
   closeDay(input: CloseDayInput): Promise<DailyClose>
   /** Owner and manager only. */
   reopenDay(date: LocalDate): Promise<void>
+  // Tips paid apart (Cierres › Propinas). Owner, developer and manager.
+  /** What each barber is owed in tips (every pending appointment) and the rule applied. */
+  getTips(): Promise<TipsOverview>
+  /** Payouts made between two dates (paid date), newest first; voided ones included. */
+  getTipPayouts(from: LocalDate, to: LocalDate): Promise<TipPayout[]>
+  /**
+   * Pay a barber every pending tip with cash from today's drawer (a cash move in
+   * their name). `expected` is the amount shown: if it changed, nothing is paid.
+   */
+  payTips(staffId: ID, expected: number): Promise<TipPayout>
+  /** The tips go back to pending and the cash back to the drawer. */
+  voidTipPayout(id: ID, reason: string): Promise<TipPayout>
   /** Owner and manager. Errors: InvalidRequestError. */
   saveFinanceSettings(input: FinanceSettings): Promise<FinanceSettings>
   setBonusAward(award: BonusAward, on: boolean): Promise<void>

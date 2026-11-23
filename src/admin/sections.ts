@@ -135,12 +135,12 @@ export const sections: Record<SectionId, Section> = {
   },
   cierre: {
     id: 'cierre',
-    label: 'Cierre y nómina',
+    label: 'Cierres',
     icon: Wallet,
     roles: finance,
     delivery: 8,
-    summary: 'Cierre semanal, bonos, anticipos y recibos.',
-    features: ['Ventas por forma de pago y salidas', 'Anticipos', 'Recibo semanal por barbero'],
+    summary: 'Cortes de caja, propinas por pagar y nómina semanal, en un solo lugar.',
+    features: ['Cortes de caja filtrados', 'Propinas por barbero con recibo', 'Nómina semanal y anticipos'],
   },
   utilidades: {
     id: 'utilidades',

@@ -1,3 +1,4 @@
+import type { TipPayout } from '@/admin/tips'
 import type {
   BookingPolicy,
   Appointment,
@@ -65,6 +66,8 @@ export interface MockDb {
   payrollCloses: PayrollClose[]
   /** Commission rules over time (a change applies from a date; past weeks keep theirs). */
   commissionHistory: CommissionVersion[]
+  /** Tips paid to barbers apart from the payroll (Cierres › Propinas). */
+  tipPayouts?: TipPayout[]
 }
 
 /** Bump when the demo data changes shape or content; stored demos refresh, keeping real bookings. */
@@ -482,5 +485,6 @@ export function createSeed(now: Date): MockDb {
     dailyCloses: [],
     payrollCloses: [],
     commissionHistory: [],
+    tipPayouts: [],
   }
 }

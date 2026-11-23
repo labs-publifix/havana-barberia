@@ -40,6 +40,7 @@ export default function Commissions() {
             bonusRules: isWeek ? data.settings.bonuses : [],
             bonusAwards: isWeek ? data.bonusAwards : [],
             discountCommission: data.settings.discountCommission,
+            tipsSeparateFrom: data.settings.tipsSeparateFrom,
             from,
             to,
             timeZone: tz,
@@ -97,7 +98,7 @@ function EarningsCard({
     ['Servicios', `${r.services} · ${money(r.sales)}`],
     ['Productos', `${r.products} · ${money(r.productSales ?? 0)}`],
     ['Comisión', money(r.commission), r.missing ? `${r.missing} sin capturar` : undefined],
-    ['Propinas', money(r.tips)],
+    ['Propinas', money(r.tips + (r.tipsApart ?? 0)), r.tipsApart ? 'se pagan aparte' : undefined],
     ['Bonos', r.bonusTotal ? money(r.bonusTotal) : '—'],
   ]
   return (
@@ -121,7 +122,7 @@ function EarningsCard({
         <div className="text-right">
           <p className="text-[13px] text-fg-muted">Comisión + propinas{r.bonusTotal ? ' + bonos' : ''}</p>
           <p className="tabular text-2xl font-semibold tracking-[-0.02em]">
-            {money(r.commission + r.tips + r.bonusTotal)}
+            {money(r.commission + r.tips + (r.tipsApart ?? 0) + r.bonusTotal)}
           </p>
         </div>
       </div>
