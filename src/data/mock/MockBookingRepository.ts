@@ -1263,6 +1263,8 @@ export class MockBookingRepository implements BookingRepository {
       const m = (this.db.cashMoves ?? []).find((x) => x.id === id)
       if (!m) return
       this.assertDayOpen(m.date)
+      if (m.tipPayoutId && (this.db.tipPayouts ?? []).some((p) => p.id === m.tipPayoutId && !p.voided))
+        throw new InvalidRequestError('Es un pago de propinas: anúlalo en Cierres › Propinas.')
       this.db.cashMoves = this.db.cashMoves.filter((x) => x.id !== id)
       this.save()
     })

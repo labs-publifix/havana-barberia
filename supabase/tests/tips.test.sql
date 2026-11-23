@@ -99,6 +99,9 @@ select pg_temp.refused($$insert into public.tip_payouts (staff_id, staff_name, d
 set request.jwt.claim.sub = 'b1000000-0000-0000-0000-000000000002';
 select pg_temp.check((select count(*) = 0 from public.tip_payouts), 'recepción no ve pagos de propinas');
 
+-- Its cash move can't be removed from Caja: only by voiding the payout.
+select pg_temp.refused($$delete from public.cash_moves where tip_payout_id is not null$$, 'la salida del pago de propinas no se borra desde Caja');
+
 -- Void: the cash move goes away (day open) and the tips are pending again.
 set request.jwt.claim.sub = 'b1000000-0000-0000-0000-000000000001';
 select pg_temp.refused($$select public.void_tip_payout((select id from public.tip_payouts limit 1), ' ')$$, 'anular pide motivo');
