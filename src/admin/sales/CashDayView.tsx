@@ -426,15 +426,20 @@ export function CashDayView({ date }: { date: LocalDate }) {
                 <span className={cn('tabular font-semibold', m.kind === 'out' && 'text-fg-danger')}>
                   {m.kind === 'out' ? `−${money(m.amount)}` : `+${money(m.amount)}`}
                 </span>
-                {!closed && (
-                  <button
-                    type="button"
-                    onClick={() => delMove.mutate(m.id)}
-                    aria-label={`Quitar ${m.concept}`}
-                    className="grid size-10 place-items-center rounded-full text-fg-muted hover:bg-fg/5 hover:text-fg focus-visible:outline focus-visible:outline-2 focus-visible:outline-focus"
-                  >
-                    <Trash2 className="size-4" aria-hidden />
-                  </button>
+                {m.tipPayoutId ? (
+                  // Undone only by voiding the payout (cash back and tips pending again).
+                  <Badge tone="neutral">Se anula en Cierres › Propinas</Badge>
+                ) : (
+                  !closed && (
+                    <button
+                      type="button"
+                      onClick={() => delMove.mutate(m.id)}
+                      aria-label={`Quitar ${m.concept}`}
+                      className="grid size-10 place-items-center rounded-full text-fg-muted hover:bg-fg/5 hover:text-fg focus-visible:outline focus-visible:outline-2 focus-visible:outline-focus"
+                    >
+                      <Trash2 className="size-4" aria-hidden />
+                    </button>
+                  )
                 )}
               </li>
             ))}
